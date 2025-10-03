@@ -3,9 +3,59 @@ package docker
 import (
 	"testing"
 
+	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/stretchr/testify/mock"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 )
+
+// mockWorker is a mock implementation of worker.Worker for testing registration.
+type mockWorker struct {
+	mock.Mock
+}
+
+func (m *mockWorker) RegisterWorkflow(w interface{}) {
+	m.Called(w)
+}
+
+func (m *mockWorker) RegisterWorkflowWithOptions(w interface{}, options workflow.RegisterOptions) {
+	m.Called(w, options)
+}
+
+func (m *mockWorker) RegisterDynamicWorkflow(w interface{}, options workflow.DynamicRegisterOptions) {
+	m.Called(w, options)
+}
+
+func (m *mockWorker) RegisterActivity(a interface{}) {
+	m.Called(a)
+}
+
+func (m *mockWorker) RegisterActivityWithOptions(a interface{}, options activity.RegisterOptions) {
+	m.Called(a, options)
+}
+
+func (m *mockWorker) RegisterDynamicActivity(a interface{}, options activity.DynamicRegisterOptions) {
+	m.Called(a, options)
+}
+
+func (m *mockWorker) RegisterNexusService(service *nexus.Service) {
+	m.Called(service)
+}
+
+func (m *mockWorker) Run(stopCh <-chan interface{}) error {
+	args := m.Called(stopCh)
+	return args.Error(0)
+}
+
+func (m *mockWorker) Start() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *mockWorker) Stop() {
+	m.Called()
+}
 
 // TestExecuteContainerWorkflowExecution verifies the workflow executes correctly.
 func TestExecuteContainerWorkflowExecution(t *testing.T) {
@@ -34,10 +84,39 @@ func TestExecuteContainerWorkflowExecution(t *testing.T) {
 	}
 }
 
-// TestRegisterAllWithWorker tests worker registration.
-// This is a placeholder for integration tests.
-func TestRegisterAllWithWorker(t *testing.T) {
-	// This would require a real Temporal server connection
-	// Skip for unit tests, will be covered in integration tests
-	t.Skip("Requires real Temporal worker, tested in integration tests")
+// TestRegisterWorkflows tests workflow registration.
+func TestRegisterWorkflows(t *testing.T) {
+	mw := new(mockWorker)
+
+	// Expect RegisterWorkflow to be called 3 times (one for each workflow)
+	mw.On("RegisterWorkflow", mock.Anything).Return().Times(3)
+
+	RegisterWorkflows(mw)
+
+	mw.AssertExpectations(t)
+}
+
+// TestRegisterActivities tests activity registration.
+func TestRegisterActivities(t *testing.T) {
+	mw := new(mockWorker)
+
+	// Expect RegisterActivity to be called once (for StartContainerActivity)
+	mw.On("RegisterActivity", mock.Anything).Return().Once()
+
+	RegisterActivities(mw)
+
+	mw.AssertExpectations(t)
+}
+
+// TestRegisterAll tests combined registration.
+func TestRegisterAll(t *testing.T) {
+	mw := new(mockWorker)
+
+	// Expect 3 workflows + 1 activity = 4 total registrations
+	mw.On("RegisterWorkflow", mock.Anything).Return().Times(3)
+	mw.On("RegisterActivity", mock.Anything).Return().Once()
+
+	RegisterAll(mw)
+
+	mw.AssertExpectations(t)
 }
