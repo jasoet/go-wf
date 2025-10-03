@@ -4,14 +4,28 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://github.com/jasoet/go-wf/actions/workflows/release.yml/badge.svg)](https://github.com/jasoet/go-wf/actions)
 
-Go workflow utilities and patterns for building production-grade applications.
+Temporal workflow library providing reusable, production-ready workflows for common orchestration patterns.
 
 ## Features
 
-- Workflow orchestration utilities
-- Production-ready patterns
-- Comprehensive testing with 85%+ coverage
-- Full CI/CD automation
+- **Docker Workflows** - Execute containers with Temporal orchestration
+- **Type-Safe Payloads** - Validated input/output structures
+- **Production-Ready** - Built-in retries, timeouts, error handling
+- **Observable** - Inherits OpenTelemetry from underlying packages
+- **Comprehensive Testing** - 85%+ coverage with integration tests
+- **Full CI/CD** - Automated releases and quality checks
+
+## Packages
+
+### [docker](./docker/)
+
+Temporal workflows for executing Docker containers with advanced orchestration:
+
+- **Single Container** - Execute individual containers with wait strategies
+- **Pipeline** - Sequential container execution with error handling
+- **Parallel** - Concurrent container execution with configurable limits
+
+See [docker/README.md](./docker/README.md) for detailed documentation.
 
 ## Installation
 
@@ -25,11 +39,52 @@ go get github.com/jasoet/go-wf
 package main
 
 import (
-    "github.com/jasoet/go-wf/workflow"
+    "context"
+    "log"
+
+    "github.com/jasoet/go-wf/docker"
+    "github.com/jasoet/pkg/v2/temporal"
+    "go.temporal.io/sdk/client"
+    "go.temporal.io/sdk/worker"
 )
 
 func main() {
-    // Example usage will be added as packages are developed
+    // Create Temporal client
+    c, err := temporal.NewClient(temporal.DefaultConfig())
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer c.Close()
+
+    // Create and start worker
+    w := worker.New(c, "docker-tasks", worker.Options{})
+    docker.RegisterAll(w)
+
+    go w.Run(nil)
+    defer w.Stop()
+
+    // Execute workflow
+    input := docker.ContainerExecutionInput{
+        Image: "postgres:16-alpine",
+        Env: map[string]string{
+            "POSTGRES_PASSWORD": "test",
+        },
+        Ports: []string{"5432:5432"},
+        AutoRemove: true,
+    }
+
+    we, _ := c.ExecuteWorkflow(context.Background(),
+        client.StartWorkflowOptions{
+            ID:        "postgres-setup",
+            TaskQueue: "docker-tasks",
+        },
+        docker.ExecuteContainerWorkflow,
+        input,
+    )
+
+    var result docker.ContainerExecutionOutput
+    we.Get(context.Background(), &result)
+    log.Printf("Container executed: %s", result.ContainerID)
 }
 ```
 
@@ -37,7 +92,7 @@ func main() {
 
 ```
 go-wf/
-├── workflow/          # Core workflow package (to be implemented)
+├── docker/           # Docker container workflows
 ├── docs/             # Project templates and documentation
 ├── .github/          # GitHub Actions workflows
 ├── Taskfile.yml      # Task automation
