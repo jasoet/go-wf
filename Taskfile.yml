@@ -1,0 +1,66 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  test:
+    desc: Run unit tests with coverage
+    silent: true
+    cmds:
+      - mkdir -p output
+      - go test -race -count=1 -coverprofile=output/coverage.out -covermode=atomic ./...
+      - go tool cover -html=output/coverage.out -o output/coverage.html
+      - 'echo "✓ Coverage: output/coverage.html"'
+
+  test:integration:
+    desc: Run integration tests (Docker required)
+    silent: true
+    cmds:
+      - mkdir -p output
+      - go test -race -count=1 -coverprofile=output/coverage-integration.out -covermode=atomic -tags=integration -timeout=15m ./...
+      - go tool cover -html=output/coverage-integration.out -o output/coverage-integration.html
+
+  test:all:
+    desc: Run all tests with combined coverage
+    silent: true
+    cmds:
+      - mkdir -p output
+      - go test -race -count=1 -coverprofile=output/coverage-all.out -covermode=atomic -tags=integration -timeout=15m ./...
+      - go tool cover -html=output/coverage-all.out -o output/coverage-all.html
+      - go tool cover -func=output/coverage-all.out | grep total
+
+  lint:
+    desc: Run golangci-lint
+    silent: true
+    cmds:
+      - golangci-lint run ./...
+
+  check:
+    desc: Run all checks (test + lint)
+    silent: true
+    cmds:
+      - task: test
+      - task: lint
+
+  tools:
+    desc: Install development tools
+    silent: true
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install mvdan.cc/gofumpt@latest
+      - echo "✓ Tools installed"
+
+  fmt:
+    desc: Format all Go files
+    cmds:
+      - gofumpt -l -w .
+
+  clean:
+    desc: Clean build artifacts
+    silent: true
+    cmds:
+      - rm -rf dist output
