@@ -26,12 +26,10 @@ func StartTemporalContainer(ctx context.Context, t *testing.T) (*TemporalContain
 	t.Helper()
 
 	req := testcontainers.ContainerRequest{
-		Image:        "temporalio/auto-setup:latest",
-		ExposedPorts: []string{"7233/tcp"},
-		Env: map[string]string{
-			"TEMPORAL_BROADCAST_ADDRESS": "0.0.0.0",
-		},
-		WaitingFor: wait.ForListeningPort("7233/tcp").WithStartupTimeout(60 * time.Second),
+		Image:        "temporalio/temporal:latest",
+		ExposedPorts: []string{"7233/tcp", "8233/tcp"},
+		Cmd:          []string{"server", "start-dev", "--ip", "0.0.0.0"},
+		WaitingFor:   wait.ForListeningPort("7233/tcp").WithStartupTimeout(60 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -62,6 +60,11 @@ func StartTemporalContainer(ctx context.Context, t *testing.T) (*TemporalContain
 
 	hostPort := fmt.Sprintf("%s:%s", host, mappedPort.Port())
 
+	t.Logf("Temporal container started at %s", hostPort)
+
+	// Wait a bit more for Temporal to fully initialize
+	time.Sleep(3 * time.Second)
+
 	return &TemporalContainer{
 		Container: container,
 		HostPort:  hostPort,
@@ -82,9 +85,6 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 			t.Logf("Failed to terminate Temporal container: %v", err)
 		}
 	}()
-
-	// Wait a bit for Temporal to be ready
-	time.Sleep(3 * time.Second)
 
 	// Create Temporal client
 	c, err := client.Dial(client.Options{
@@ -156,8 +156,6 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 			t.Logf("Failed to terminate Temporal container: %v", err)
 		}
 	}()
-
-	time.Sleep(3 * time.Second)
 
 	// Create Temporal client
 	c, err := client.Dial(client.Options{
@@ -241,8 +239,6 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 			t.Logf("Failed to terminate Temporal container: %v", err)
 		}
 	}()
-
-	time.Sleep(3 * time.Second)
 
 	// Create Temporal client
 	c, err := client.Dial(client.Options{
