@@ -19,11 +19,27 @@ Temporal workflow library providing reusable, production-ready workflows for com
 
 ### [docker](./docker/)
 
-Temporal workflows for executing Docker containers with advanced orchestration:
+Temporal workflows for executing Docker containers with Argo Workflow-like capabilities:
 
+**Core Workflows:**
 - **Single Container** - Execute individual containers with wait strategies
 - **Pipeline** - Sequential container execution with error handling
 - **Parallel** - Concurrent container execution with configurable limits
+- **DAG** - Directed Acyclic Graph execution with dependency management
+
+**Builder & Templates:**
+- **Fluent Builder API** - Compose complex workflows with chainable methods
+- **Container Templates** - Enhanced container execution with functional options
+- **Script Templates** - Execute bash, python, node, ruby, or golang scripts
+- **HTTP Templates** - HTTP requests, health checks, and webhooks
+- **Pre-built Patterns** - CI/CD, fan-out/fan-in, map-reduce, parallel testing
+
+**Advanced Features:**
+- **Lifecycle Management** - Submit, wait, watch, cancel, terminate, signal, query workflows
+- **Conditional Execution** - When clauses and ContinueOnFail behaviors
+- **Resource Management** - CPU, memory, GPU limits
+- **Artifacts & Secrets** - Input/output artifacts and secret injection
+- **Workflow Parameters** - Template variables for reusable workflows
 
 See [docker/README.md](./docker/README.md) for detailed documentation.
 
