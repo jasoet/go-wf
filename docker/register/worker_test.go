@@ -1,13 +1,16 @@
-package docker
+package register
 
 import (
 	"testing"
 
+	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/stretchr/testify/mock"
-	"go.temporal.io/sdk/activity"
+	sdkactivity "go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
-	"go.temporal.io/sdk/workflow"
+	sdkworkflow "go.temporal.io/sdk/workflow"
 )
 
 // mockWorker is a mock implementation of worker.Worker for testing registration.
@@ -19,11 +22,11 @@ func (m *mockWorker) RegisterWorkflow(w interface{}) {
 	m.Called(w)
 }
 
-func (m *mockWorker) RegisterWorkflowWithOptions(w interface{}, options workflow.RegisterOptions) {
+func (m *mockWorker) RegisterWorkflowWithOptions(w interface{}, options sdkworkflow.RegisterOptions) {
 	m.Called(w, options)
 }
 
-func (m *mockWorker) RegisterDynamicWorkflow(w interface{}, options workflow.DynamicRegisterOptions) {
+func (m *mockWorker) RegisterDynamicWorkflow(w interface{}, options sdkworkflow.DynamicRegisterOptions) {
 	m.Called(w, options)
 }
 
@@ -31,11 +34,11 @@ func (m *mockWorker) RegisterActivity(a interface{}) {
 	m.Called(a)
 }
 
-func (m *mockWorker) RegisterActivityWithOptions(a interface{}, options activity.RegisterOptions) {
+func (m *mockWorker) RegisterActivityWithOptions(a interface{}, options sdkactivity.RegisterOptions) {
 	m.Called(a, options)
 }
 
-func (m *mockWorker) RegisterDynamicActivity(a interface{}, options activity.DynamicRegisterOptions) {
+func (m *mockWorker) RegisterDynamicActivity(a interface{}, options sdkactivity.DynamicRegisterOptions) {
 	m.Called(a, options)
 }
 
@@ -64,14 +67,14 @@ func TestExecuteContainerWorkflowExecution(t *testing.T) {
 
 	// Mock the activity to avoid actual container execution
 	// Use mock.Anything for context parameter
-	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(&ContainerExecutionOutput{
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&docker.ContainerExecutionOutput{
 		ContainerID: "test-container-id",
 		Success:     true,
 		ExitCode:    0,
 	}, nil)
 
 	// Execute the workflow
-	env.ExecuteWorkflow(ExecuteContainerWorkflow, ContainerExecutionInput{
+	env.ExecuteWorkflow(workflow.ExecuteContainerWorkflow, docker.ContainerExecutionInput{
 		Image: "alpine:latest",
 	})
 

@@ -1,13 +1,15 @@
-package docker
+package workflow
 
 import (
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/artifacts"
 	"go.temporal.io/sdk/temporal"
-	"go.temporal.io/sdk/workflow"
+	wf "go.temporal.io/sdk/workflow"
 )
 
 // DAGWorkflow executes containers in a DAG (Directed Acyclic Graph) pattern.
@@ -24,8 +26,8 @@ import (
 //	    },
 //	}
 //	output, err := docker.DAGWorkflow(ctx, input)
-func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutput, error) {
-	logger := workflow.GetLogger(ctx)
+func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWorkflowOutput, error) {
+	logger := wf.GetLogger(ctx)
 	logger.Info("Starting DAG workflow", "nodes", len(input.Nodes))
 
 	// Validate input
@@ -33,10 +35,10 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 		return nil, fmt.Errorf("invalid DAG input: %w", err)
 	}
 
-	startTime := workflow.Now(ctx)
-	output := &DAGWorkflowOutput{
-		Results:     make(map[string]*ContainerExecutionOutput),
-		NodeResults: make([]NodeResult, 0, len(input.Nodes)),
+	startTime := wf.Now(ctx)
+	output := &docker.DAGWorkflowOutput{
+		Results:     make(map[string]*docker.ContainerExecutionOutput),
+		NodeResults: make([]docker.NodeResult, 0, len(input.Nodes)),
 	}
 
 	// Build dependency map
@@ -47,12 +49,12 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 
 	// Execute nodes based on dependencies
 	executed := make(map[string]bool)
-	results := make(map[string]*ContainerExecutionOutput)
+	results := make(map[string]*docker.ContainerExecutionOutput)
 	stepOutputs := make(map[string]map[string]string) // Store extracted outputs by step name
 	resultsMutex := sync.Mutex{}
 
 	// Activity options
-	ao := workflow.ActivityOptions{
+	ao := wf.ActivityOptions{
 		StartToCloseTimeout: 10 * time.Minute,
 		RetryPolicy: &temporal.RetryPolicy{
 			InitialInterval:    time.Second,
@@ -61,7 +63,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 			MaximumAttempts:    3,
 		},
 	}
-	ctx = workflow.WithActivityOptions(ctx, ao)
+	ctx = wf.WithActivityOptions(ctx, ao)
 
 	// Execute nodes in topological order
 	var executeNode func(nodeName string) error
@@ -75,7 +77,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 		resultsMutex.Unlock()
 
 		// Find node
-		var node *DAGNode
+		var node *docker.DAGNode
 		for i := range input.Nodes {
 			if input.Nodes[i].Name == nodeName {
 				node = &input.Nodes[i]
@@ -112,7 +114,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 		// Apply input mappings if defined
 		if len(node.Container.Inputs) > 0 {
 			resultsMutex.Lock()
-			inputErr := SubstituteInputs(&containerInput, node.Container.Inputs, stepOutputs)
+			inputErr := docker.SubstituteInputs(&containerInput, node.Container.Inputs, stepOutputs)
 			resultsMutex.Unlock()
 
 			if inputErr != nil {
@@ -133,8 +135,8 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 					Name:       artifact.Name,
 					Path:       artifact.Path,
 					Type:       artifact.Type,
-					WorkflowID: workflow.GetInfo(ctx).WorkflowExecution.ID,
-					RunID:      workflow.GetInfo(ctx).WorkflowExecution.RunID,
+					WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
+					RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
 					StepName:   nodeName,
 				}
 
@@ -143,7 +145,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 					DestPath: artifact.Path,
 				}
 
-				err := workflow.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, store, downloadInput).Get(ctx, nil)
+				err := wf.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, store, downloadInput).Get(ctx, nil)
 				if err != nil && !artifact.Optional {
 					return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
 				}
@@ -154,12 +156,12 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 		}
 
 		// Execute this node
-		var result ContainerExecutionOutput
-		err := workflow.ExecuteActivity(ctx, StartContainerActivity, containerInput).Get(ctx, &result)
+		var result docker.ContainerExecutionOutput
+		err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
 
 		// Extract outputs if defined
 		if len(node.Container.Outputs) > 0 && result.Success {
-			outputs, extractErr := ExtractOutputs(node.Container.Outputs, &result)
+			outputs, extractErr := docker.ExtractOutputs(node.Container.Outputs, &result)
 			if extractErr != nil {
 				logger.Error("Failed to extract outputs", "name", nodeName, "error", extractErr)
 				// Don't fail the workflow, just log the error
@@ -183,8 +185,8 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 					Name:       artifact.Name,
 					Path:       artifact.Path,
 					Type:       artifact.Type,
-					WorkflowID: workflow.GetInfo(ctx).WorkflowExecution.ID,
-					RunID:      workflow.GetInfo(ctx).WorkflowExecution.RunID,
+					WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
+					RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
 					StepName:   nodeName,
 				}
 
@@ -193,7 +195,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 					SourcePath: artifact.Path,
 				}
 
-				err := workflow.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, store, uploadInput).Get(ctx, nil)
+				err := wf.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, store, uploadInput).Get(ctx, nil)
 				if err != nil && !artifact.Optional {
 					logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
 					// Don't fail the workflow, just log the error
@@ -208,10 +210,10 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 		executed[nodeName] = true
 		resultsMutex.Unlock()
 
-		nodeResult := NodeResult{
+		nodeResult := docker.NodeResult{
 			NodeName:  nodeName,
 			Result:    &result,
-			StartTime: workflow.Now(ctx),
+			StartTime: wf.Now(ctx),
 		}
 
 		if err != nil || !result.Success {
@@ -238,7 +240,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 	// Execute all nodes
 	for _, node := range input.Nodes {
 		if err := executeNode(node.Name); err != nil {
-			output.TotalDuration = workflow.Now(ctx).Sub(startTime)
+			output.TotalDuration = wf.Now(ctx).Sub(startTime)
 			return output, err
 		}
 	}
@@ -246,7 +248,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 	// Copy results to output
 	output.Results = results
 	output.StepOutputs = stepOutputs
-	output.TotalDuration = workflow.Now(ctx).Sub(startTime)
+	output.TotalDuration = wf.Now(ctx).Sub(startTime)
 
 	logger.Info("DAG workflow completed",
 		"success", output.TotalSuccess,
@@ -254,25 +256,6 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 		"duration", output.TotalDuration)
 
 	return output, nil
-}
-
-// DAGWorkflowOutput defines the output from DAG workflow execution.
-type DAGWorkflowOutput struct {
-	Results       map[string]*ContainerExecutionOutput `json:"results"`
-	NodeResults   []NodeResult                         `json:"node_results"`
-	StepOutputs   map[string]map[string]string         `json:"step_outputs"` // Extracted outputs by step name
-	TotalSuccess  int                                  `json:"total_success"`
-	TotalFailed   int                                  `json:"total_failed"`
-	TotalDuration time.Duration                        `json:"total_duration"`
-}
-
-// NodeResult represents the result of a single DAG node execution.
-type NodeResult struct {
-	NodeName  string                    `json:"node_name"`
-	Result    *ContainerExecutionOutput `json:"result"`
-	Success   bool                      `json:"success"`
-	Error     error                     `json:"error,omitempty"`
-	StartTime time.Time                 `json:"start_time"`
 }
 
 // WorkflowWithParameters executes a workflow with input parameters.
@@ -290,7 +273,7 @@ type NodeResult struct {
 //	    {Name: "version", Value: "v1.2.3"},
 //	}
 //	output, err := docker.WorkflowWithParameters(ctx, input, params)
-func WorkflowWithParameters(ctx workflow.Context, input ContainerExecutionInput, params []WorkflowParameter) (*ContainerExecutionOutput, error) {
+func WorkflowWithParameters(ctx wf.Context, input docker.ContainerExecutionInput, params []docker.WorkflowParameter) (*docker.ContainerExecutionOutput, error) {
 	// Substitute parameters in input
 	paramMap := make(map[string]string)
 	for _, param := range params {
@@ -320,8 +303,8 @@ func WorkflowWithParameters(ctx workflow.Context, input ContainerExecutionInput,
 }
 
 // executeContainerInternal is a helper to execute container without workflow context creation.
-func executeContainerInternal(ctx workflow.Context, input ContainerExecutionInput) (*ContainerExecutionOutput, error) {
-	logger := workflow.GetLogger(ctx)
+func executeContainerInternal(ctx wf.Context, input docker.ContainerExecutionInput) (*docker.ContainerExecutionOutput, error) {
+	logger := wf.GetLogger(ctx)
 	logger.Info("Executing container", "image", input.Image)
 
 	timeout := input.RunTimeout
@@ -329,7 +312,7 @@ func executeContainerInternal(ctx workflow.Context, input ContainerExecutionInpu
 		timeout = 10 * time.Minute
 	}
 
-	ao := workflow.ActivityOptions{
+	ao := wf.ActivityOptions{
 		StartToCloseTimeout: timeout,
 		RetryPolicy: &temporal.RetryPolicy{
 			InitialInterval:    time.Second,
@@ -338,10 +321,10 @@ func executeContainerInternal(ctx workflow.Context, input ContainerExecutionInpu
 			MaximumAttempts:    3,
 		},
 	}
-	ctx = workflow.WithActivityOptions(ctx, ao)
+	ctx = wf.WithActivityOptions(ctx, ao)
 
-	var output ContainerExecutionOutput
-	err := workflow.ExecuteActivity(ctx, StartContainerActivity, input).Get(ctx, &output)
+	var output docker.ContainerExecutionOutput
+	err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, input).Get(ctx, &output)
 
 	return &output, err
 }

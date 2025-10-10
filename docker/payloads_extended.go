@@ -200,3 +200,42 @@ func (i *DAGWorkflowInput) Validate() error {
 
 	return nil
 }
+
+// NodeResult represents the execution result of a single DAG node.
+type NodeResult struct {
+	// NodeName is the name of the node
+	NodeName string `json:"node_name"`
+
+	// Result is the container execution output
+	Result *ContainerExecutionOutput `json:"result,omitempty"`
+
+	// StartTime is when the node started executing
+	StartTime time.Time `json:"start_time"`
+
+	// Success indicates if the node executed successfully
+	Success bool `json:"success"`
+
+	// Error contains error information if the node failed
+	Error error `json:"error,omitempty"`
+}
+
+// DAGWorkflowOutput defines the output of a DAG workflow execution.
+type DAGWorkflowOutput struct {
+	// Results is a map of node name to execution output
+	Results map[string]*ContainerExecutionOutput `json:"results"`
+
+	// NodeResults is a list of all node results in execution order
+	NodeResults []NodeResult `json:"node_results"`
+
+	// StepOutputs contains extracted outputs from each step
+	StepOutputs map[string]map[string]string `json:"step_outputs,omitempty"`
+
+	// TotalSuccess is the count of successful nodes
+	TotalSuccess int `json:"total_success"`
+
+	// TotalFailed is the count of failed nodes
+	TotalFailed int `json:"total_failed"`
+
+	// TotalDuration is the total execution time
+	TotalDuration time.Duration `json:"total_duration"`
+}

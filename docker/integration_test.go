@@ -1,4 +1,5 @@
 //go:build integration
+// +build integration
 
 package docker_test
 
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/register"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
@@ -98,7 +101,7 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 	// Create and start worker
 	taskQueue := "integration-test-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -117,7 +120,7 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 			ID:        "integration-test-execute-container",
 			TaskQueue: taskQueue,
 		},
-		docker.ExecuteContainerWorkflow,
+		workflow.ExecuteContainerWorkflow,
 		input,
 	)
 	if err != nil {
@@ -169,7 +172,7 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 	// Create and start worker
 	taskQueue := "integration-test-pipeline-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -200,7 +203,7 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 			ID:        "integration-test-pipeline",
 			TaskQueue: taskQueue,
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		input,
 	)
 	if err != nil {
@@ -252,7 +255,7 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 	// Create and start worker
 	taskQueue := "integration-test-parallel-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -289,7 +292,7 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 			ID:        "integration-test-parallel",
 			TaskQueue: taskQueue,
 		},
-		docker.ParallelContainersWorkflow,
+		workflow.ParallelContainersWorkflow,
 		input,
 	)
 	if err != nil {
@@ -338,7 +341,7 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 
 	taskQueue := "integration-test-env-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -359,7 +362,7 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 			ID:        "integration-test-env",
 			TaskQueue: taskQueue,
 		},
-		docker.ExecuteContainerWorkflow,
+		workflow.ExecuteContainerWorkflow,
 		input,
 	)
 	if err != nil {
@@ -403,7 +406,7 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 
 	taskQueue := "integration-test-workdir-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -422,7 +425,7 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 			ID:        "integration-test-workdir",
 			TaskQueue: taskQueue,
 		},
-		docker.ExecuteContainerWorkflow,
+		workflow.ExecuteContainerWorkflow,
 		input,
 	)
 	if err != nil {
@@ -463,7 +466,7 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 
 	taskQueue := "integration-test-entrypoint-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -482,7 +485,7 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 			ID:        "integration-test-entrypoint",
 			TaskQueue: taskQueue,
 		},
-		docker.ExecuteContainerWorkflow,
+		workflow.ExecuteContainerWorkflow,
 		input,
 	)
 	if err != nil {
@@ -523,7 +526,7 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 
 	taskQueue := "integration-test-user-queue"
 	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
+	register.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
 		t.Fatalf("Failed to start worker: %v", err)
@@ -542,7 +545,7 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 			ID:        "integration-test-user",
 			TaskQueue: taskQueue,
 		},
-		docker.ExecuteContainerWorkflow,
+		workflow.ExecuteContainerWorkflow,
 		input,
 	)
 	if err != nil {

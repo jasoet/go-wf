@@ -1,19 +1,21 @@
-package docker
+package activity
 
 import (
 	"testing"
 	"time"
+
+	"github.com/jasoet/go-wf/docker"
 )
 
 func TestBuildWaitStrategy(t *testing.T) {
 	tests := []struct {
 		name   string
-		config WaitStrategyConfig
+		config docker.WaitStrategyConfig
 		want   string // We'll check the type since WaitStrategy is an interface
 	}{
 		{
 			name: "log wait strategy",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type:           "log",
 				LogMessage:     "ready to accept connections",
 				StartupTimeout: 30 * time.Second,
@@ -22,7 +24,7 @@ func TestBuildWaitStrategy(t *testing.T) {
 		},
 		{
 			name: "log wait strategy with default timeout",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type:       "log",
 				LogMessage: "server started",
 			},
@@ -30,7 +32,7 @@ func TestBuildWaitStrategy(t *testing.T) {
 		},
 		{
 			name: "port wait strategy",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type: "port",
 				Port: "5432",
 			},
@@ -38,7 +40,7 @@ func TestBuildWaitStrategy(t *testing.T) {
 		},
 		{
 			name: "http wait strategy with custom status",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type:       "http",
 				Port:       "8080",
 				HTTPPath:   "/health",
@@ -48,7 +50,7 @@ func TestBuildWaitStrategy(t *testing.T) {
 		},
 		{
 			name: "http wait strategy with default status",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type:     "http",
 				Port:     "80",
 				HTTPPath: "/",
@@ -57,21 +59,21 @@ func TestBuildWaitStrategy(t *testing.T) {
 		},
 		{
 			name: "healthy wait strategy",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type: "healthy",
 			},
 			want: "healthy",
 		},
 		{
 			name: "default wait strategy for unknown type",
-			config: WaitStrategyConfig{
+			config: docker.WaitStrategyConfig{
 				Type: "unknown",
 			},
 			want: "default",
 		},
 		{
 			name:   "empty wait strategy",
-			config: WaitStrategyConfig{},
+			config: docker.WaitStrategyConfig{},
 			want:   "default",
 		},
 	}
@@ -90,7 +92,7 @@ func TestBuildWaitStrategy(t *testing.T) {
 
 func TestBuildWaitStrategy_TimeoutDefaults(t *testing.T) {
 	// Test that default timeout is applied when not specified
-	config := WaitStrategyConfig{
+	config := docker.WaitStrategyConfig{
 		Type:       "log",
 		LogMessage: "ready",
 		// No StartupTimeout specified
@@ -104,7 +106,7 @@ func TestBuildWaitStrategy_TimeoutDefaults(t *testing.T) {
 
 func TestContainerExecutionInput_AllFields(t *testing.T) {
 	// Test that all fields are properly validated
-	input := ContainerExecutionInput{
+	input := docker.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"echo", "test"},
 		Entrypoint: []string{"/bin/sh"},
@@ -115,7 +117,7 @@ func TestContainerExecutionInput_AllFields(t *testing.T) {
 		Volumes: map[string]string{"/host": "/container"},
 		WorkDir: "/app",
 		User:    "nobody",
-		WaitStrategy: WaitStrategyConfig{
+		WaitStrategy: docker.WaitStrategyConfig{
 			Type:           "log",
 			LogMessage:     "ready",
 			StartupTimeout: 10 * time.Second,
@@ -138,7 +140,7 @@ func TestContainerExecutionOutput_Fields(t *testing.T) {
 	// Test output structure
 	startedAt := time.Now()
 	finishedAt := startedAt.Add(5 * time.Second)
-	output := ContainerExecutionOutput{
+	output := docker.ContainerExecutionOutput{
 		ContainerID: "abc123",
 		Name:        "test",
 		ExitCode:    0,
@@ -194,8 +196,8 @@ func TestContainerExecutionOutput_Fields(t *testing.T) {
 }
 
 func TestPipelineInput_MultipleContainers(t *testing.T) {
-	input := PipelineInput{
-		Containers: []ContainerExecutionInput{
+	input := docker.PipelineInput{
+		Containers: []docker.ContainerExecutionInput{
 			{Image: "alpine:1"},
 			{Image: "alpine:2"},
 			{Image: "alpine:3"},
@@ -243,8 +245,8 @@ func TestParallelInput_FailureStrategies(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := ParallelInput{
-				Containers: []ContainerExecutionInput{
+			input := docker.ParallelInput{
+				Containers: []docker.ContainerExecutionInput{
 					{Image: "alpine:latest"},
 				},
 				FailureStrategy: tt.strategy,
@@ -283,8 +285,8 @@ func TestParallelInput_Concurrency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := ParallelInput{
-				Containers: []ContainerExecutionInput{
+			input := docker.ParallelInput{
+				Containers: []docker.ContainerExecutionInput{
 					{Image: "alpine:latest"},
 				},
 				MaxConcurrency:  tt.maxConcurrency,
@@ -299,7 +301,7 @@ func TestParallelInput_Concurrency(t *testing.T) {
 }
 
 func TestWaitStrategyConfig_AllTypes(t *testing.T) {
-	configs := []WaitStrategyConfig{
+	configs := []docker.WaitStrategyConfig{
 		{
 			Type:           "log",
 			LogMessage:     "ready",
@@ -321,7 +323,7 @@ func TestWaitStrategyConfig_AllTypes(t *testing.T) {
 	}
 
 	for i, cfg := range configs {
-		input := ContainerExecutionInput{
+		input := docker.ContainerExecutionInput{
 			Image:        "test:latest",
 			WaitStrategy: cfg,
 		}

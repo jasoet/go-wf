@@ -1,25 +1,28 @@
-package docker
+package workflow
 
 import (
 	"testing"
 
+	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 )
 
+// TestLoopInput_Validate tests loop input validation.
 func TestLoopInput_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   LoopInput
+		input   docker.LoopInput
 		wantErr bool
 	}{
 		{
 			name: "valid loop input",
-			input: LoopInput{
+			input: docker.LoopInput{
 				Items: []string{"item1", "item2", "item3"},
-				Template: ContainerExecutionInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 				Parallel:        true,
@@ -29,9 +32,9 @@ func TestLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "empty items",
-			input: LoopInput{
+			input: docker.LoopInput{
 				Items: []string{},
-				Template: ContainerExecutionInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 			},
@@ -39,8 +42,8 @@ func TestLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "nil items",
-			input: LoopInput{
-				Template: ContainerExecutionInput{
+			input: docker.LoopInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 			},
@@ -48,17 +51,17 @@ func TestLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing image in template",
-			input: LoopInput{
+			input: docker.LoopInput{
 				Items:    []string{"item1"},
-				Template: ContainerExecutionInput{},
+				Template: docker.ContainerExecutionInput{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid with max concurrency",
-			input: LoopInput{
+			input: docker.LoopInput{
 				Items: []string{"item1", "item2"},
-				Template: ContainerExecutionInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 				Parallel:       true,
@@ -78,20 +81,21 @@ func TestLoopInput_Validate(t *testing.T) {
 	}
 }
 
+// TestParameterizedLoopInput_Validate tests parameterized loop input validation.
 func TestParameterizedLoopInput_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   ParameterizedLoopInput
+		input   docker.ParameterizedLoopInput
 		wantErr bool
 	}{
 		{
 			name: "valid parameterized loop",
-			input: ParameterizedLoopInput{
+			input: docker.ParameterizedLoopInput{
 				Parameters: map[string][]string{
 					"env":    {"dev", "prod"},
 					"region": {"us-west", "us-east"},
 				},
-				Template: ContainerExecutionInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "deployer:v1",
 				},
 			},
@@ -99,9 +103,9 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "empty parameters",
-			input: ParameterizedLoopInput{
+			input: docker.ParameterizedLoopInput{
 				Parameters: map[string][]string{},
-				Template: ContainerExecutionInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 			},
@@ -109,12 +113,12 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "parameter with empty array",
-			input: ParameterizedLoopInput{
+			input: docker.ParameterizedLoopInput{
 				Parameters: map[string][]string{
 					"env":    {"dev", "prod"},
 					"region": {},
 				},
-				Template: ContainerExecutionInput{
+				Template: docker.ContainerExecutionInput{
 					Image: "deployer:v1",
 				},
 			},
@@ -122,11 +126,11 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing image in template",
-			input: ParameterizedLoopInput{
+			input: docker.ParameterizedLoopInput{
 				Parameters: map[string][]string{
 					"env": {"dev"},
 				},
-				Template: ContainerExecutionInput{},
+				Template: docker.ContainerExecutionInput{},
 			},
 			wantErr: true,
 		},
@@ -142,6 +146,7 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 	}
 }
 
+// TestSubstituteTemplate tests template substitution.
 func TestSubstituteTemplate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -211,24 +216,25 @@ func TestSubstituteTemplate(t *testing.T) {
 	}
 }
 
+// TestSubstituteContainerInput tests container input substitution.
 func TestSubstituteContainerInput(t *testing.T) {
 	tests := []struct {
 		name     string
-		template ContainerExecutionInput
+		template docker.ContainerExecutionInput
 		item     string
 		index    int
 		params   map[string]string
-		validate func(*testing.T, ContainerExecutionInput)
+		validate func(*testing.T, docker.ContainerExecutionInput)
 	}{
 		{
 			name: "substitute in image",
-			template: ContainerExecutionInput{
+			template: docker.ContainerExecutionInput{
 				Image: "processor:{{item}}",
 			},
 			item:   "v1",
 			index:  0,
 			params: nil,
-			validate: func(t *testing.T, result ContainerExecutionInput) {
+			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
 				if result.Image != "processor:v1" {
 					t.Errorf("Image = %v, want processor:v1", result.Image)
 				}
@@ -236,14 +242,14 @@ func TestSubstituteContainerInput(t *testing.T) {
 		},
 		{
 			name: "substitute in command",
-			template: ContainerExecutionInput{
+			template: docker.ContainerExecutionInput{
 				Image:   "alpine:latest",
 				Command: []string{"echo", "Processing {{item}} at index {{index}}"},
 			},
 			item:   "file.txt",
 			index:  5,
 			params: nil,
-			validate: func(t *testing.T, result ContainerExecutionInput) {
+			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
 				if len(result.Command) != 2 {
 					t.Errorf("Command length = %v, want 2", len(result.Command))
 				}
@@ -254,7 +260,7 @@ func TestSubstituteContainerInput(t *testing.T) {
 		},
 		{
 			name: "substitute in env",
-			template: ContainerExecutionInput{
+			template: docker.ContainerExecutionInput{
 				Image: "alpine:latest",
 				Env: map[string]string{
 					"ITEM":  "{{item}}",
@@ -265,7 +271,7 @@ func TestSubstituteContainerInput(t *testing.T) {
 			item:   "data.csv",
 			index:  2,
 			params: map[string]string{"env": "production"},
-			validate: func(t *testing.T, result ContainerExecutionInput) {
+			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
 				if result.Env["ITEM"] != "data.csv" {
 					t.Errorf("Env[ITEM] = %v, want data.csv", result.Env["ITEM"])
 				}
@@ -279,14 +285,14 @@ func TestSubstituteContainerInput(t *testing.T) {
 		},
 		{
 			name: "substitute in name",
-			template: ContainerExecutionInput{
+			template: docker.ContainerExecutionInput{
 				Image: "alpine:latest",
 				Name:  "container-{{index}}",
 			},
 			item:   "",
 			index:  10,
 			params: nil,
-			validate: func(t *testing.T, result ContainerExecutionInput) {
+			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
 				if result.Name != "container-10" {
 					t.Errorf("Name = %v, want container-10", result.Name)
 				}
@@ -302,6 +308,7 @@ func TestSubstituteContainerInput(t *testing.T) {
 	}
 }
 
+// TestGenerateParameterCombinations tests parameter combination generation.
 func TestGenerateParameterCombinations(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -370,6 +377,7 @@ func TestGenerateParameterCombinations(t *testing.T) {
 	}
 }
 
+// TestGenerateParameterCombinations_Values tests actual combination values.
 func TestGenerateParameterCombinations_Values(t *testing.T) {
 	params := map[string][]string{
 		"env":    {"dev", "prod"},
@@ -410,6 +418,153 @@ func TestGenerateParameterCombinations_Values(t *testing.T) {
 	}
 }
 
+// TestLoopWorkflow tests loop workflow execution.
+func TestLoopWorkflow(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&docker.ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := docker.LoopInput{
+		Items: []string{"item1", "item2", "item3"},
+		Template: docker.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result docker.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 3, result.ItemCount)
+	assert.Equal(t, 3, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+}
+
+// TestLoopWorkflow_Sequential tests sequential loop execution.
+func TestLoopWorkflow_Sequential(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&docker.ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := docker.LoopInput{
+		Items: []string{"step1", "step2"},
+		Template: docker.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result docker.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.ItemCount)
+	assert.Equal(t, 2, result.TotalSuccess)
+}
+
+// TestParameterizedLoopWorkflow tests parameterized loop workflow.
+func TestParameterizedLoopWorkflow(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&docker.ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := docker.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env":    {"dev", "prod"},
+			"region": {"us-west", "us-east"},
+		},
+		Template: docker.ContainerExecutionInput{
+			Image:   "deployer:v1",
+			Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result docker.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 4, result.ItemCount) // 2 envs * 2 regions = 4 combinations
+	assert.Equal(t, 4, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+}
+
+// TestParameterizedLoopWorkflow_Sequential tests sequential parameterized loop.
+func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&docker.ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := docker.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"version": {"1.0", "2.0"},
+		},
+		Template: docker.ContainerExecutionInput{
+			Image:   "builder:v1",
+			Command: []string{"build", "--version={{.version}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result docker.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.ItemCount)
+	assert.Equal(t, 2, result.TotalSuccess)
+}
+
 // Benchmark tests
 func BenchmarkSubstituteTemplate(b *testing.B) {
 	template := "process {{item}} at index {{index}} in env {{.env}}"
@@ -435,7 +590,7 @@ func BenchmarkGenerateParameterCombinations(b *testing.B) {
 }
 
 func BenchmarkSubstituteContainerInput(b *testing.B) {
-	template := ContainerExecutionInput{
+	template := docker.ContainerExecutionInput{
 		Image:   "processor:{{item}}",
 		Command: []string{"process", "{{item}}", "--index={{index}}"},
 		Env: map[string]string{
@@ -450,148 +605,4 @@ func BenchmarkSubstituteContainerInput(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = substituteContainerInput(template, "file.csv", i, params)
 	}
-}
-
-// Workflow tests
-func TestLoopWorkflow(t *testing.T) {
-	testSuite := &testsuite.WorkflowTestSuite{}
-	env := testSuite.NewTestWorkflowEnvironment()
-
-	// Mock the container execution activity
-	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&ContainerExecutionOutput{
-			ContainerID: "test-container",
-			ExitCode:    0,
-			Success:     true,
-		}, nil,
-	)
-
-	input := LoopInput{
-		Items: []string{"item1", "item2", "item3"},
-		Template: ContainerExecutionInput{
-			Image:   "alpine:latest",
-			Command: []string{"echo", "{{item}}"},
-		},
-		Parallel:        true,
-		FailureStrategy: "continue",
-	}
-
-	env.ExecuteWorkflow(LoopWorkflow, input)
-
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-
-	var result LoopOutput
-	require.NoError(t, env.GetWorkflowResult(&result))
-	assert.Equal(t, 3, result.ItemCount)
-	assert.Equal(t, 3, result.TotalSuccess)
-	assert.Equal(t, 0, result.TotalFailed)
-}
-
-func TestLoopWorkflow_Sequential(t *testing.T) {
-	testSuite := &testsuite.WorkflowTestSuite{}
-	env := testSuite.NewTestWorkflowEnvironment()
-
-	// Mock the container execution activity
-	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&ContainerExecutionOutput{
-			ContainerID: "test-container",
-			ExitCode:    0,
-			Success:     true,
-		}, nil,
-	)
-
-	input := LoopInput{
-		Items: []string{"step1", "step2"},
-		Template: ContainerExecutionInput{
-			Image:   "alpine:latest",
-			Command: []string{"echo", "{{item}}"},
-		},
-		Parallel:        false,
-		FailureStrategy: "fail_fast",
-	}
-
-	env.ExecuteWorkflow(LoopWorkflow, input)
-
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-
-	var result LoopOutput
-	require.NoError(t, env.GetWorkflowResult(&result))
-	assert.Equal(t, 2, result.ItemCount)
-	assert.Equal(t, 2, result.TotalSuccess)
-}
-
-func TestParameterizedLoopWorkflow(t *testing.T) {
-	testSuite := &testsuite.WorkflowTestSuite{}
-	env := testSuite.NewTestWorkflowEnvironment()
-
-	// Mock the container execution activity
-	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&ContainerExecutionOutput{
-			ContainerID: "test-container",
-			ExitCode:    0,
-			Success:     true,
-		}, nil,
-	)
-
-	input := ParameterizedLoopInput{
-		Parameters: map[string][]string{
-			"env":    {"dev", "prod"},
-			"region": {"us-west", "us-east"},
-		},
-		Template: ContainerExecutionInput{
-			Image:   "deployer:v1",
-			Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
-		},
-		Parallel:        true,
-		FailureStrategy: "fail_fast",
-	}
-
-	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
-
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-
-	var result LoopOutput
-	require.NoError(t, env.GetWorkflowResult(&result))
-	assert.Equal(t, 4, result.ItemCount) // 2 envs * 2 regions = 4 combinations
-	assert.Equal(t, 4, result.TotalSuccess)
-	assert.Equal(t, 0, result.TotalFailed)
-}
-
-func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
-	testSuite := &testsuite.WorkflowTestSuite{}
-	env := testSuite.NewTestWorkflowEnvironment()
-
-	// Mock the container execution activity
-	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&ContainerExecutionOutput{
-			ContainerID: "test-container",
-			ExitCode:    0,
-			Success:     true,
-		}, nil,
-	)
-
-	input := ParameterizedLoopInput{
-		Parameters: map[string][]string{
-			"version": {"1.0", "2.0"},
-		},
-		Template: ContainerExecutionInput{
-			Image:   "builder:v1",
-			Command: []string{"build", "--version={{.version}}"},
-		},
-		Parallel:        false,
-		FailureStrategy: "continue",
-	}
-
-	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
-
-	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-
-	var result LoopOutput
-	require.NoError(t, env.GetWorkflowResult(&result))
-	assert.Equal(t, 2, result.ItemCount)
-	assert.Equal(t, 2, result.TotalSuccess)
 }
