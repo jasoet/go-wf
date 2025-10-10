@@ -47,6 +47,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 	// Execute nodes based on dependencies
 	executed := make(map[string]bool)
 	results := make(map[string]*ContainerExecutionOutput)
+	stepOutputs := make(map[string]map[string]string) // Store extracted outputs by step name
 	resultsMutex := sync.Mutex{}
 
 	// Activity options
@@ -104,9 +105,38 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 
 		logger.Info("Executing node", "name", nodeName)
 
+		// Prepare container input with input substitution
+		containerInput := node.Container.ContainerExecutionInput
+
+		// Apply input mappings if defined
+		if len(node.Container.Inputs) > 0 {
+			resultsMutex.Lock()
+			inputErr := SubstituteInputs(&containerInput, node.Container.Inputs, stepOutputs)
+			resultsMutex.Unlock()
+
+			if inputErr != nil {
+				return fmt.Errorf("failed to substitute inputs for node %s: %w", nodeName, inputErr)
+			}
+			logger.Info("Applied input mappings", "name", nodeName, "inputs", len(node.Container.Inputs))
+		}
+
 		// Execute this node
 		var result ContainerExecutionOutput
-		err := workflow.ExecuteActivity(ctx, StartContainerActivity, node.Container.ContainerExecutionInput).Get(ctx, &result)
+		err := workflow.ExecuteActivity(ctx, StartContainerActivity, containerInput).Get(ctx, &result)
+
+		// Extract outputs if defined
+		if len(node.Container.Outputs) > 0 && result.Success {
+			outputs, extractErr := ExtractOutputs(node.Container.Outputs, &result)
+			if extractErr != nil {
+				logger.Error("Failed to extract outputs", "name", nodeName, "error", extractErr)
+				// Don't fail the workflow, just log the error
+			} else {
+				resultsMutex.Lock()
+				stepOutputs[nodeName] = outputs
+				resultsMutex.Unlock()
+				logger.Info("Extracted outputs", "name", nodeName, "outputs", outputs)
+			}
+		}
 
 		resultsMutex.Lock()
 		results[nodeName] = &result
@@ -150,6 +180,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 
 	// Copy results to output
 	output.Results = results
+	output.StepOutputs = stepOutputs
 	output.TotalDuration = workflow.Now(ctx).Sub(startTime)
 
 	logger.Info("DAG workflow completed",
@@ -164,6 +195,7 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 type DAGWorkflowOutput struct {
 	Results       map[string]*ContainerExecutionOutput `json:"results"`
 	NodeResults   []NodeResult                         `json:"node_results"`
+	StepOutputs   map[string]map[string]string         `json:"step_outputs"` // Extracted outputs by step name
 	TotalSuccess  int                                  `json:"total_success"`
 	TotalFailed   int                                  `json:"total_failed"`
 	TotalDuration time.Duration                        `json:"total_duration"`

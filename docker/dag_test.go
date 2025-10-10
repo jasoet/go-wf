@@ -15,14 +15,13 @@ func TestDAGWorkflow(t *testing.T) {
 
 	// Mock the activity
 	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
-		func(_ interface{}, input ContainerExecutionInput) ContainerExecutionOutput {
-			return ContainerExecutionOutput{
-				ContainerID: "container-123",
-				ExitCode:    0,
-				Duration:    1 * time.Second,
-				StartedAt:   time.Now(),
-				FinishedAt:  time.Now().Add(1 * time.Second),
-			}
+		&ContainerExecutionOutput{
+			ContainerID: "container-123",
+			ExitCode:    0,
+			Success:     true,
+			Duration:    1 * time.Second,
+			StartedAt:   time.Now(),
+			FinishedAt:  time.Now().Add(1 * time.Second),
 		}, nil)
 
 	input := DAGWorkflowInput{
@@ -119,23 +118,21 @@ func TestDAGWorkflowFailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	callCount := 0
-	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
-		func(_ interface{}, input ContainerExecutionInput) ContainerExecutionOutput {
-			callCount++
-			// First task fails
-			if callCount == 1 {
-				return ContainerExecutionOutput{
-					ContainerID: "container-fail",
-					ExitCode:    1,
-					Duration:    1 * time.Second,
-				}
-			}
-			return ContainerExecutionOutput{
-				ContainerID: "container-ok",
-				ExitCode:    0,
-				Duration:    1 * time.Second,
-			}
+	// Mock activity to return failure for first call, success for second
+	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).
+		Return(&ContainerExecutionOutput{
+			ContainerID: "container-fail",
+			ExitCode:    1,
+			Success:     false,
+			Duration:    1 * time.Second,
+		}, nil).Once()
+
+	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).
+		Return(&ContainerExecutionOutput{
+			ContainerID: "container-ok",
+			ExitCode:    0,
+			Success:     true,
+			Duration:    1 * time.Second,
 		}, nil)
 
 	input := DAGWorkflowInput{
