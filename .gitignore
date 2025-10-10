@@ -216,4 +216,4 @@ aof/
 temporal.db
 .temporal/
 
-.claude/
+.claude/data-passing

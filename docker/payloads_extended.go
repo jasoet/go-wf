@@ -172,6 +172,10 @@ type DAGWorkflowInput struct {
 
 	// MaxParallel limits the number of parallel executions
 	MaxParallel int `json:"max_parallel,omitempty"`
+
+	// ArtifactStore is the artifact storage backend (optional)
+	// If provided, artifacts will be automatically uploaded/downloaded
+	ArtifactStore interface{} `json:"-"`
 }
 
 // Validate validates DAG workflow input.

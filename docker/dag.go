@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jasoet/go-wf/docker/artifacts"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -120,6 +121,38 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 			logger.Info("Applied input mappings", "name", nodeName, "inputs", len(node.Container.Inputs))
 		}
 
+		// Download input artifacts if artifact store is configured
+		if input.ArtifactStore != nil && len(node.Container.InputArtifacts) > 0 {
+			store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
+			if !ok {
+				return fmt.Errorf("invalid artifact store type")
+			}
+
+			for _, artifact := range node.Container.InputArtifacts {
+				metadata := artifacts.ArtifactMetadata{
+					Name:       artifact.Name,
+					Path:       artifact.Path,
+					Type:       artifact.Type,
+					WorkflowID: workflow.GetInfo(ctx).WorkflowExecution.ID,
+					RunID:      workflow.GetInfo(ctx).WorkflowExecution.RunID,
+					StepName:   nodeName,
+				}
+
+				downloadInput := artifacts.DownloadArtifactInput{
+					Metadata: metadata,
+					DestPath: artifact.Path,
+				}
+
+				err := workflow.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, store, downloadInput).Get(ctx, nil)
+				if err != nil && !artifact.Optional {
+					return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
+				}
+				if err == nil {
+					logger.Info("Downloaded artifact", "name", artifact.Name, "path", artifact.Path)
+				}
+			}
+		}
+
 		// Execute this node
 		var result ContainerExecutionOutput
 		err := workflow.ExecuteActivity(ctx, StartContainerActivity, containerInput).Get(ctx, &result)
@@ -135,6 +168,38 @@ func DAGWorkflow(ctx workflow.Context, input DAGWorkflowInput) (*DAGWorkflowOutp
 				stepOutputs[nodeName] = outputs
 				resultsMutex.Unlock()
 				logger.Info("Extracted outputs", "name", nodeName, "outputs", outputs)
+			}
+		}
+
+		// Upload output artifacts if artifact store is configured
+		if input.ArtifactStore != nil && len(node.Container.OutputArtifacts) > 0 && result.Success {
+			store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
+			if !ok {
+				return fmt.Errorf("invalid artifact store type")
+			}
+
+			for _, artifact := range node.Container.OutputArtifacts {
+				metadata := artifacts.ArtifactMetadata{
+					Name:       artifact.Name,
+					Path:       artifact.Path,
+					Type:       artifact.Type,
+					WorkflowID: workflow.GetInfo(ctx).WorkflowExecution.ID,
+					RunID:      workflow.GetInfo(ctx).WorkflowExecution.RunID,
+					StepName:   nodeName,
+				}
+
+				uploadInput := artifacts.UploadArtifactInput{
+					Metadata:   metadata,
+					SourcePath: artifact.Path,
+				}
+
+				err := workflow.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, store, uploadInput).Get(ctx, nil)
+				if err != nil && !artifact.Optional {
+					logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
+					// Don't fail the workflow, just log the error
+				} else if err == nil {
+					logger.Info("Uploaded artifact", "name", artifact.Name, "path", artifact.Path)
+				}
 			}
 		}
 
