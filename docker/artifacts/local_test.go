@@ -348,3 +348,278 @@ func TestCleanupWorkflowArtifacts(t *testing.T) {
 		assert.False(t, exists)
 	}
 }
+
+func TestDeleteArtifactActivity(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name        string
+		setupFunc   func() ArtifactMetadata
+		expectError bool
+	}{
+		{
+			name: "delete existing artifact",
+			setupFunc: func() ArtifactMetadata {
+				metadata := ArtifactMetadata{
+					Name:       "delete-test",
+					WorkflowID: "wf-1",
+					RunID:      "run-1",
+					StepName:   "step-1",
+					Type:       "file",
+				}
+				err := store.Upload(ctx, metadata, bytes.NewReader([]byte("test")))
+				require.NoError(t, err)
+				return metadata
+			},
+			expectError: false,
+		},
+		{
+			name: "delete non-existent artifact",
+			setupFunc: func() ArtifactMetadata {
+				return ArtifactMetadata{
+					Name:       "non-existent",
+					WorkflowID: "wf-1",
+					RunID:      "run-1",
+					StepName:   "step-1",
+					Type:       "file",
+				}
+			},
+			expectError: false, // Should not error on non-existent
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metadata := tt.setupFunc()
+			err := DeleteArtifactActivity(ctx, store, metadata)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// Verify artifact doesn't exist
+				exists, err := store.Exists(ctx, metadata)
+				require.NoError(t, err)
+				assert.False(t, exists)
+			}
+		})
+	}
+}
+
+func TestLocalFileStore_Close(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	// Close should not error (no-op for local store)
+	err = store.Close()
+	assert.NoError(t, err)
+}
+
+func TestLocalFileStore_ErrorCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("download non-existent file", func(t *testing.T) {
+		metadata := ArtifactMetadata{
+			Name:       "non-existent",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+		}
+
+		reader, err := store.Download(ctx, metadata)
+		assert.Error(t, err)
+		assert.Nil(t, reader)
+		assert.Contains(t, err.Error(), "artifact not found")
+	})
+
+	t.Run("list non-existent prefix", func(t *testing.T) {
+		// List non-existent prefix should return nil without error
+		artifacts, err := store.List(ctx, "non-existent/prefix/")
+		assert.NoError(t, err)
+		assert.Nil(t, artifacts)
+	})
+}
+
+func TestUploadArtifactActivity_ErrorCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("non-existent source file", func(t *testing.T) {
+		input := UploadArtifactInput{
+			Metadata: ArtifactMetadata{
+				Name:       "test",
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				StepName:   "step-1",
+				Type:       "file",
+			},
+			SourcePath: "/non/existent/file.txt",
+		}
+
+		err := UploadArtifactActivity(ctx, store, input)
+		assert.Error(t, err)
+	})
+
+	t.Run("auto-detect file type", func(t *testing.T) {
+		// Create a test file
+		srcFile := filepath.Join(t.TempDir(), "autodetect.txt")
+		err := os.WriteFile(srcFile, []byte("test"), 0o644)
+		require.NoError(t, err)
+
+		input := UploadArtifactInput{
+			Metadata: ArtifactMetadata{
+				Name:       "autodetect",
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				StepName:   "step-1",
+				// Type not specified - should auto-detect
+			},
+			SourcePath: srcFile,
+		}
+
+		err = UploadArtifactActivity(ctx, store, input)
+		assert.NoError(t, err)
+	})
+
+	t.Run("auto-detect directory type", func(t *testing.T) {
+		// Create a test directory
+		srcDir := t.TempDir()
+		err := os.WriteFile(filepath.Join(srcDir, "file.txt"), []byte("test"), 0o644)
+		require.NoError(t, err)
+
+		input := UploadArtifactInput{
+			Metadata: ArtifactMetadata{
+				Name:       "autodetect-dir",
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				StepName:   "step-1",
+				// Type not specified - should auto-detect as directory
+			},
+			SourcePath: srcDir,
+		}
+
+		err = UploadArtifactActivity(ctx, store, input)
+		assert.NoError(t, err)
+	})
+
+	t.Run("unsupported artifact type", func(t *testing.T) {
+		srcFile := filepath.Join(t.TempDir(), "test.txt")
+		err := os.WriteFile(srcFile, []byte("test"), 0o644)
+		require.NoError(t, err)
+
+		input := UploadArtifactInput{
+			Metadata: ArtifactMetadata{
+				Name:       "test",
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				StepName:   "step-1",
+				Type:       "unsupported-type",
+			},
+			SourcePath: srcFile,
+		}
+
+		err = UploadArtifactActivity(ctx, store, input)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported artifact type")
+	})
+
+	t.Run("archive type upload", func(t *testing.T) {
+		// Create a test directory
+		srcDir := t.TempDir()
+		err := os.WriteFile(filepath.Join(srcDir, "file.txt"), []byte("test"), 0o644)
+		require.NoError(t, err)
+
+		input := UploadArtifactInput{
+			Metadata: ArtifactMetadata{
+				Name:       "archive-test",
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+				StepName:   "step-1",
+				Type:       "archive",
+			},
+			SourcePath: srcDir,
+		}
+
+		err = UploadArtifactActivity(ctx, store, input)
+		assert.NoError(t, err)
+	})
+}
+
+func TestDownloadArtifactActivity_ErrorCases(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("unsupported artifact type", func(t *testing.T) {
+		// Upload an artifact with unsupported type for download
+		metadata := ArtifactMetadata{
+			Name:       "test",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+			Type:       "file",
+		}
+
+		err := store.Upload(ctx, metadata, bytes.NewReader([]byte("test")))
+		require.NoError(t, err)
+
+		// Try to download with unsupported type
+		metadata.Type = "unsupported"
+		input := DownloadArtifactInput{
+			Metadata: metadata,
+			DestPath: filepath.Join(t.TempDir(), "dest.txt"),
+		}
+
+		err = DownloadArtifactActivity(ctx, store, input)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported artifact type")
+	})
+
+	t.Run("download archive type", func(t *testing.T) {
+		// Create and upload a directory as archive
+		srcDir := t.TempDir()
+		err := os.WriteFile(filepath.Join(srcDir, "file.txt"), []byte("test"), 0o644)
+		require.NoError(t, err)
+
+		metadata := ArtifactMetadata{
+			Name:       "archive-download",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+			Type:       "archive",
+		}
+
+		uploadInput := UploadArtifactInput{
+			Metadata:   metadata,
+			SourcePath: srcDir,
+		}
+
+		err = UploadArtifactActivity(ctx, store, uploadInput)
+		require.NoError(t, err)
+
+		// Download as archive
+		destDir := t.TempDir()
+		downloadInput := DownloadArtifactInput{
+			Metadata: metadata,
+			DestPath: destDir,
+		}
+
+		err = DownloadArtifactActivity(ctx, store, downloadInput)
+		assert.NoError(t, err)
+	})
+}

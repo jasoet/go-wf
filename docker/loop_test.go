@@ -4,6 +4,11 @@ package docker
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/testsuite"
 )
 
 func TestLoopInput_Validate(t *testing.T) {
@@ -447,4 +452,148 @@ func BenchmarkSubstituteContainerInput(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = substituteContainerInput(template, "file.csv", i, params)
 	}
+}
+
+// Workflow tests
+func TestLoopWorkflow(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := LoopInput{
+		Items: []string{"item1", "item2", "item3"},
+		Template: ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 3, result.ItemCount)
+	assert.Equal(t, 3, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+}
+
+func TestLoopWorkflow_Sequential(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := LoopInput{
+		Items: []string{"step1", "step2"},
+		Template: ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.ItemCount)
+	assert.Equal(t, 2, result.TotalSuccess)
+}
+
+func TestParameterizedLoopWorkflow(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env":    {"dev", "prod"},
+			"region": {"us-west", "us-east"},
+		},
+		Template: ContainerExecutionInput{
+			Image:   "deployer:v1",
+			Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 4, result.ItemCount) // 2 envs * 2 regions = 4 combinations
+	assert.Equal(t, 4, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+}
+
+func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	// Mock the container execution activity
+	env.OnActivity(StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&ContainerExecutionOutput{
+			ContainerID: "test-container",
+			ExitCode:    0,
+			Success:     true,
+		}, nil,
+	)
+
+	input := ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"version": {"1.0", "2.0"},
+		},
+		Template: ContainerExecutionInput{
+			Image:   "builder:v1",
+			Command: []string{"build", "--version={{.version}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.ItemCount)
+	assert.Equal(t, 2, result.TotalSuccess)
 }
