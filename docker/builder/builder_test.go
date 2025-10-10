@@ -48,6 +48,21 @@ func TestNewWorkflowBuilder(t *testing.T) {
 				maxConcurrency: 5,
 			},
 		},
+		{
+			name: "with cleanup",
+			opts: []BuilderOption{
+				WithCleanup(true),
+			},
+			want: &WorkflowBuilder{
+				name:          "test",
+				containers:    []docker.ContainerExecutionInput{},
+				exitHandlers:  []docker.ContainerExecutionInput{},
+				stopOnError:   true,
+				cleanup:       true,
+				parallelMode:  false,
+				failFast:      false,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -55,6 +70,7 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			got := NewWorkflowBuilder("test", tt.opts...)
 			assert.Equal(t, tt.want.name, got.name)
 			assert.Equal(t, tt.want.stopOnError, got.stopOnError)
+			assert.Equal(t, tt.want.cleanup, got.cleanup)
 			assert.Equal(t, tt.want.parallelMode, got.parallelMode)
 			assert.Equal(t, tt.want.failFast, got.failFast)
 			assert.Equal(t, tt.want.maxConcurrency, got.maxConcurrency)
@@ -62,6 +78,32 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			assert.NotNil(t, got.exitHandlers)
 		})
 	}
+}
+
+func TestBuilderOptions_GlobalTimeoutAndAutoRemove(t *testing.T) {
+	t.Run("WithGlobalTimeout applies to existing containers", func(t *testing.T) {
+		builder := NewWorkflowBuilder("test").
+			AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
+			AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+
+		// Apply WithGlobalTimeout option
+		WithGlobalTimeout(5 * time.Minute)(builder)
+
+		assert.Equal(t, 5*time.Minute, builder.containers[0].RunTimeout)
+		assert.Equal(t, 5*time.Minute, builder.containers[1].RunTimeout)
+	})
+
+	t.Run("WithGlobalAutoRemove applies to existing containers", func(t *testing.T) {
+		builder := NewWorkflowBuilder("test").
+			AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
+			AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+
+		// Apply WithGlobalAutoRemove option
+		WithGlobalAutoRemove(true)(builder)
+
+		assert.True(t, builder.containers[0].AutoRemove)
+		assert.True(t, builder.containers[1].AutoRemove)
+	})
 }
 
 func TestWorkflowBuilder_Add(t *testing.T) {
@@ -154,6 +196,26 @@ func TestWorkflowBuilder_AddExitHandler(t *testing.T) {
 	builder.AddExitHandler(cleanup).AddExitHandler(notify)
 
 	assert.Equal(t, 2, builder.ExitHandlerCount())
+}
+
+func TestWorkflowBuilder_AddExitHandlerInput(t *testing.T) {
+	builder := NewWorkflowBuilder("test")
+
+	cleanup := docker.ContainerExecutionInput{
+		Image:   "alpine:latest",
+		Command: []string{"cleanup.sh"},
+	}
+
+	notify := docker.ContainerExecutionInput{
+		Image:   "curlimages/curl:latest",
+		Command: []string{"curl", "https://webhook.site"},
+	}
+
+	builder.AddExitHandlerInput(cleanup).AddExitHandlerInput(notify)
+
+	assert.Equal(t, 2, builder.ExitHandlerCount())
+	assert.Equal(t, "alpine:latest", builder.exitHandlers[0].Image)
+	assert.Equal(t, "curlimages/curl:latest", builder.exitHandlers[1].Image)
 }
 
 func TestWorkflowBuilder_BuildPipeline(t *testing.T) {

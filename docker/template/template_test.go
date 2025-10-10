@@ -159,6 +159,24 @@ func TestScriptValidation(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "missing image",
+			script: &Script{
+				name:     "test",
+				language: "bash",
+				command:  []string{"bash", "-c"},
+			},
+			expectError: true,
+		},
+		{
+			name: "missing command",
+			script: &Script{
+				name:     "test",
+				language: "bash",
+				image:    "bash:5.2",
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -187,6 +205,23 @@ func TestHTTPValidation(t *testing.T) {
 		{
 			name:        "missing URL",
 			http:        NewHTTP("test"),
+			expectError: true,
+		},
+		{
+			name: "missing name",
+			http: &HTTP{
+				url:       "https://example.com",
+				method:    "GET",
+				curlImage: "curlimages/curl:latest",
+			},
+			expectError: true,
+		},
+		{
+			name: "missing method",
+			http: &HTTP{
+				name: "test",
+				url:  "https://example.com",
+			},
 			expectError: true,
 		},
 	}
@@ -229,6 +264,20 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			},
 		},
 		{
+			name: "script with environment map",
+			script: NewBashScript("test", "echo $VAR1 $VAR2 $VAR3",
+				WithScriptEnvMap(map[string]string{
+					"VAR1": "value1",
+					"VAR2": "value2",
+					"VAR3": "value3",
+				})),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				assert.Equal(t, "value1", input.Env["VAR1"])
+				assert.Equal(t, "value2", input.Env["VAR2"])
+				assert.Equal(t, "value3", input.Env["VAR3"])
+			},
+		},
+		{
 			name: "script with work directory",
 			script: NewPythonScript("test", "print('hello')",
 				WithScriptWorkingDir("/workspace")),
@@ -242,6 +291,23 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 				WithScriptVolume("/host", "/container")),
 			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
 				assert.Equal(t, "/container", input.Volumes["/host"])
+			},
+		},
+		{
+			name: "script with auto remove",
+			script: NewBashScript("test", "echo test",
+				WithScriptAutoRemove(true)),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				assert.True(t, input.AutoRemove)
+			},
+		},
+		{
+			name: "script with ports",
+			script: NewBashScript("test", "echo test",
+				WithScriptPorts("8080:8080", "9090:9090")),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				assert.Contains(t, input.Ports, "8080:8080")
+				assert.Contains(t, input.Ports, "9090:9090")
 			},
 		},
 		{
@@ -350,12 +416,107 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 				assert.Equal(t, "custom/curl:v1", input.Image)
 			},
 		},
+		{
+			name: "http with multiple headers",
+			http: NewHTTP("test",
+				WithHTTPURL("https://api.example.com"),
+				WithHTTPHeaders(map[string]string{
+					"Authorization": "Bearer token",
+					"Content-Type":  "application/json",
+					"Accept":        "application/json",
+				})),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				script := input.Command[len(input.Command)-1]
+				assert.Contains(t, script, "Authorization: Bearer token")
+				assert.Contains(t, script, "Content-Type: application/json")
+				assert.Contains(t, script, "Accept: application/json")
+			},
+		},
+		{
+			name: "http with auto remove",
+			http: NewHTTP("test",
+				WithHTTPURL("https://api.example.com"),
+				WithHTTPAutoRemove(true)),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				assert.True(t, input.AutoRemove)
+			},
+		},
+		{
+			name: "http with follow redirect",
+			http: NewHTTP("test",
+				WithHTTPURL("https://api.example.com"),
+				WithHTTPFollowRedirect(true)),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				script := input.Command[len(input.Command)-1]
+				assert.Contains(t, script, "-L")
+			},
+		},
+		{
+			name: "http with insecure",
+			http: NewHTTP("test",
+				WithHTTPURL("https://api.example.com"),
+				WithHTTPInsecure(true)),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				script := input.Command[len(input.Command)-1]
+				assert.Contains(t, script, "-k")
+			},
+		},
+		{
+			name: "http with env variables",
+			http: NewHTTP("test",
+				WithHTTPURL("https://api.example.com"),
+				WithHTTPEnv("API_KEY", "secret123")),
+			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+				assert.Equal(t, "secret123", input.Env["API_KEY"])
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := tt.http.ToInput()
 			tt.expected(t, input)
+		})
+	}
+}
+
+func TestContainerValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		container   *Container
+		expectError bool
+	}{
+		{
+			name:        "valid container",
+			container:   NewContainer("test", "alpine:latest", WithCommand("echo", "hello")),
+			expectError: false,
+		},
+		{
+			name: "missing name",
+			container: &Container{
+				image:   "alpine:latest",
+				command: []string{"echo", "hello"},
+			},
+			expectError: true,
+		},
+		{
+			name: "missing image",
+			container: &Container{
+				name:    "test",
+				command: []string{"echo", "hello"},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.container.Validate()
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
