@@ -115,7 +115,7 @@ go-wf/
 └── README.md         # This file
 ```
 
-## 🤖 AI Agent Instructions
+## AI Agent Instructions
 
 **Repository Type:** Library
 

@@ -9,6 +9,10 @@ func RegisterWorkflows(w worker.Worker) {
 	w.RegisterWorkflow(ExecuteContainerWorkflow)
 	w.RegisterWorkflow(ContainerPipelineWorkflow)
 	w.RegisterWorkflow(ParallelContainersWorkflow)
+	w.RegisterWorkflow(LoopWorkflow)
+	w.RegisterWorkflow(ParameterizedLoopWorkflow)
+	w.RegisterWorkflow(DAGWorkflow)
+	w.RegisterWorkflow(WorkflowWithParameters)
 }
 
 // RegisterActivities registers all docker activities with a worker.

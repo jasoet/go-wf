@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -107,4 +108,81 @@ func (i *PipelineInput) Validate() error {
 func (i *ParallelInput) Validate() error {
 	validate := validator.New()
 	return validate.Struct(i)
+}
+
+// LoopInput defines loop iteration over items (withItems pattern).
+type LoopInput struct {
+	// Items to iterate over
+	Items []string `json:"items" validate:"required,min=1"`
+
+	// Template container to execute for each item
+	Template ContainerExecutionInput `json:"template" validate:"required"`
+
+	// Parallel execution mode
+	Parallel bool `json:"parallel"`
+
+	// MaxConcurrency limits parallel executions (0 = unlimited)
+	MaxConcurrency int `json:"max_concurrency,omitempty"`
+
+	// FailureStrategy determines how to handle failures
+	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+}
+
+// ParameterizedLoopInput defines loop iteration with multiple parameters (withParam pattern).
+type ParameterizedLoopInput struct {
+	// Parameters contains multiple parameter arrays to iterate over
+	// The loop will create the cartesian product of all parameters
+	Parameters map[string][]string `json:"parameters" validate:"required,min=1"`
+
+	// Template container to execute for each parameter combination
+	Template ContainerExecutionInput `json:"template" validate:"required"`
+
+	// Parallel execution mode
+	Parallel bool `json:"parallel"`
+
+	// MaxConcurrency limits parallel executions (0 = unlimited)
+	MaxConcurrency int `json:"max_concurrency,omitempty"`
+
+	// FailureStrategy determines how to handle failures
+	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+}
+
+// LoopOutput defines loop execution results.
+type LoopOutput struct {
+	Results       []ContainerExecutionOutput `json:"results"`
+	TotalSuccess  int                        `json:"total_success"`
+	TotalFailed   int                        `json:"total_failed"`
+	TotalDuration time.Duration              `json:"total_duration"`
+	ItemCount     int                        `json:"item_count"`
+}
+
+// Validate validates loop input using struct tags.
+func (i *LoopInput) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(i); err != nil {
+		return err
+	}
+	return i.Template.Validate()
+}
+
+// Validate validates parameterized loop input using struct tags.
+func (i *ParameterizedLoopInput) Validate() error {
+	validate := validator.New()
+	if err := validate.Struct(i); err != nil {
+		return err
+	}
+
+	// Ensure at least one parameter array exists
+	if len(i.Parameters) == 0 {
+		return fmt.Errorf("at least one parameter array is required")
+	}
+
+	// Ensure all parameter arrays are non-empty
+	for key, values := range i.Parameters {
+		if len(values) == 0 {
+			return fmt.Errorf("parameter array '%s' cannot be empty", key)
+		}
+	}
+
+	return i.Template.Validate()
 }

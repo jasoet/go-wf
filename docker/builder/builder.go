@@ -360,3 +360,233 @@ func (b *WorkflowBuilder) WithAutoRemove(autoRemove bool) *WorkflowBuilder {
 	}
 	return b
 }
+
+// LoopBuilder provides a fluent API for constructing loop workflow inputs.
+type LoopBuilder struct {
+	items          []string
+	parameters     map[string][]string
+	template       docker.ContainerExecutionInput
+	parallel       bool
+	maxConcurrency int
+	failFast       bool
+	errors         []error
+}
+
+// NewLoopBuilder creates a new loop builder with the specified items.
+//
+// Parameters:
+//   - items: Array of items to iterate over
+//
+// Example:
+//
+//	builder := NewLoopBuilder([]string{"file1.csv", "file2.csv", "file3.csv"})
+func NewLoopBuilder(items []string) *LoopBuilder {
+	return &LoopBuilder{
+		items:    items,
+		parallel: false,
+		failFast: false,
+	}
+}
+
+// NewParameterizedLoopBuilder creates a new parameterized loop builder.
+//
+// Parameters:
+//   - parameters: Map of parameter names to arrays of values
+//
+// Example:
+//
+//	builder := NewParameterizedLoopBuilder(map[string][]string{
+//	    "env": {"dev", "staging", "prod"},
+//	    "region": {"us-west", "us-east"},
+//	})
+func NewParameterizedLoopBuilder(parameters map[string][]string) *LoopBuilder {
+	return &LoopBuilder{
+		parameters: parameters,
+		parallel:   false,
+		failFast:   false,
+	}
+}
+
+// WithTemplate sets the container template for the loop.
+//
+// Example:
+//
+//	builder.WithTemplate(docker.ContainerExecutionInput{
+//	    Image: "processor:v1",
+//	    Command: []string{"process", "{{item}}"},
+//	})
+func (lb *LoopBuilder) WithTemplate(template docker.ContainerExecutionInput) *LoopBuilder {
+	lb.template = template
+	return lb
+}
+
+// WithSource sets the container template from a workflow source.
+//
+// Example:
+//
+//	builder.WithSource(source)
+func (lb *LoopBuilder) WithSource(source WorkflowSource) *LoopBuilder {
+	if source == nil {
+		lb.errors = append(lb.errors, fmt.Errorf("cannot use nil source"))
+		return lb
+	}
+	lb.template = source.ToInput()
+	return lb
+}
+
+// Parallel configures the loop to execute in parallel.
+//
+// Example:
+//
+//	builder.Parallel(true)
+func (lb *LoopBuilder) Parallel(parallel bool) *LoopBuilder {
+	lb.parallel = parallel
+	return lb
+}
+
+// MaxConcurrency sets the maximum number of concurrent iterations.
+//
+// Example:
+//
+//	builder.Parallel(true).MaxConcurrency(5)
+func (lb *LoopBuilder) MaxConcurrency(max int) *LoopBuilder {
+	lb.maxConcurrency = max
+	return lb
+}
+
+// FailFast configures fail-fast behavior.
+//
+// Example:
+//
+//	builder.FailFast(true)
+func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
+	lb.failFast = failFast
+	return lb
+}
+
+// BuildLoop creates a loop workflow configuration for simple item iteration.
+//
+// Returns:
+//   - LoopInput configured with all settings
+//   - error if validation fails
+//
+// Example:
+//
+//	input, err := builder.BuildLoop()
+//	if err != nil {
+//	    return err
+//	}
+//	output, err := docker.LoopWorkflow(ctx, input)
+func (lb *LoopBuilder) BuildLoop() (*docker.LoopInput, error) {
+	// Check for errors
+	if len(lb.errors) > 0 {
+		return nil, lb.errors[0]
+	}
+
+	// Validate items
+	if len(lb.items) == 0 {
+		return nil, fmt.Errorf("loop requires at least one item")
+	}
+
+	// Determine failure strategy
+	failureStrategy := "continue"
+	if lb.failFast {
+		failureStrategy = "fail_fast"
+	}
+
+	// Create loop input
+	input := &docker.LoopInput{
+		Items:           lb.items,
+		Template:        lb.template,
+		Parallel:        lb.parallel,
+		MaxConcurrency:  lb.maxConcurrency,
+		FailureStrategy: failureStrategy,
+	}
+
+	// Validate input
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("loop validation failed: %w", err)
+	}
+
+	return input, nil
+}
+
+// BuildParameterizedLoop creates a parameterized loop workflow configuration.
+//
+// Returns:
+//   - ParameterizedLoopInput configured with all settings
+//   - error if validation fails
+//
+// Example:
+//
+//	input, err := builder.BuildParameterizedLoop()
+//	if err != nil {
+//	    return err
+//	}
+//	output, err := docker.ParameterizedLoopWorkflow(ctx, input)
+func (lb *LoopBuilder) BuildParameterizedLoop() (*docker.ParameterizedLoopInput, error) {
+	// Check for errors
+	if len(lb.errors) > 0 {
+		return nil, lb.errors[0]
+	}
+
+	// Validate parameters
+	if len(lb.parameters) == 0 {
+		return nil, fmt.Errorf("parameterized loop requires at least one parameter")
+	}
+
+	// Determine failure strategy
+	failureStrategy := "continue"
+	if lb.failFast {
+		failureStrategy = "fail_fast"
+	}
+
+	// Create parameterized loop input
+	input := &docker.ParameterizedLoopInput{
+		Parameters:      lb.parameters,
+		Template:        lb.template,
+		Parallel:        lb.parallel,
+		MaxConcurrency:  lb.maxConcurrency,
+		FailureStrategy: failureStrategy,
+	}
+
+	// Validate input
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("parameterized loop validation failed: %w", err)
+	}
+
+	return input, nil
+}
+
+// ForEach creates a loop builder for iterating over items.
+// This is a convenience method for quick loop creation.
+//
+// Example:
+//
+//	items := []string{"file1.csv", "file2.csv", "file3.csv"}
+//	template := docker.ContainerExecutionInput{
+//	    Image: "processor:v1",
+//	    Command: []string{"process", "{{item}}"},
+//	}
+//	input, err := builder.ForEach(items, template)
+func ForEach(items []string, template docker.ContainerExecutionInput) *LoopBuilder {
+	return NewLoopBuilder(items).WithTemplate(template)
+}
+
+// ForEachParam creates a parameterized loop builder.
+// This is a convenience method for quick parameterized loop creation.
+//
+// Example:
+//
+//	params := map[string][]string{
+//	    "env": {"dev", "staging", "prod"},
+//	    "region": {"us-west", "us-east"},
+//	}
+//	template := docker.ContainerExecutionInput{
+//	    Image: "deployer:v1",
+//	    Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
+//	}
+//	input, err := builder.ForEachParam(params, template)
+func ForEachParam(parameters map[string][]string, template docker.ContainerExecutionInput) *LoopBuilder {
+	return NewParameterizedLoopBuilder(parameters).WithTemplate(template)
+}

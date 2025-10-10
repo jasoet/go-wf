@@ -8,7 +8,7 @@ require (
 	github.com/nexus-rpc/sdk-go v0.4.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
-	go.temporal.io/sdk v1.36.0
+	go.temporal.io/sdk v1.37.0
 )
 
 require (

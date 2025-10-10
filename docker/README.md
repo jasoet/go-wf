@@ -103,10 +103,10 @@ import (
 
 // Build a simple CI/CD pipeline
 input, err := builder.NewWorkflowBuilder("ci-cd").
-    Add(template.NewContainer("build", "golang:1.25",
+    Add(template.NewContainer("build", "golang:1.23",
         template.WithCommand("go", "build", "-o", "app"),
         template.WithWorkDir("/workspace"))).
-    Add(template.NewContainer("test", "golang:1.25",
+    Add(template.NewContainer("test", "golang:1.23",
         template.WithCommand("go", "test", "./..."),
         template.WithWorkDir("/workspace"))).
     Add(template.NewContainer("deploy", "deployer:v1",
@@ -156,7 +156,7 @@ Enhanced container execution with fluent options:
 container := template.NewContainer("postgres", "postgres:16-alpine",
     template.WithEnv("POSTGRES_PASSWORD", "secret"),
     template.WithEnv("POSTGRES_DB", "mydb"),
-    template.WithPort("5432", "5432"),
+    template.WithPorts("5432:5432"),
     template.WithVolume("/data", "/var/lib/postgresql/data"),
     template.WithWaitForLog("ready to accept connections"),
     template.WithWorkDir("/app"),
@@ -245,19 +245,19 @@ import "github.com/jasoet/go-wf/docker/patterns"
 
 // Build → Test → Deploy pipeline
 input, err := patterns.BuildTestDeploy(
-    "golang:1.25",
-    "golang:1.25",
+    "golang:1.23",
+    "golang:1.23",
     "deployer:v1")
 
 // With health check after deployment
 input, err := patterns.BuildTestDeployWithHealthCheck(
-    "golang:1.25",
+    "golang:1.23",
     "deployer:v1",
     "https://myapp.com/health")
 
 // With Slack notification
 input, err := patterns.BuildTestDeployWithNotification(
-    "golang:1.25",
+    "golang:1.23",
     "deployer:v1",
     "https://hooks.slack.com/services/...",
     `{"text": "Deploy complete"}`)
@@ -284,7 +284,7 @@ input, err := patterns.ParallelDataProcessing(
 
 // Parallel test suite
 input, err := patterns.ParallelTestSuite(
-    "golang:1.25",
+    "golang:1.23",
     map[string]string{
         "unit":        "go test ./internal/...",
         "integration": "go test ./tests/integration/...",
@@ -327,7 +327,7 @@ input := docker.DAGWorkflowInput{
             Name: "build",
             Container: docker.ExtendedContainerInput{
                 ContainerExecutionInput: docker.ContainerExecutionInput{
-                    Image:   "golang:1.25",
+                    Image:   "golang:1.23",
                     Command: []string{"go", "build"},
                 },
             },
@@ -337,7 +337,7 @@ input := docker.DAGWorkflowInput{
             Name: "test-unit",
             Container: docker.ExtendedContainerInput{
                 ContainerExecutionInput: docker.ContainerExecutionInput{
-                    Image:   "golang:1.25",
+                    Image:   "golang:1.23",
                     Command: []string{"go", "test", "./..."},
                 },
             },
@@ -347,7 +347,7 @@ input := docker.DAGWorkflowInput{
             Name: "test-integration",
             Container: docker.ExtendedContainerInput{
                 ContainerExecutionInput: docker.ContainerExecutionInput{
-                    Image:   "golang:1.25",
+                    Image:   "golang:1.23",
                     Command: []string{"go", "test", "-tags=integration", "./..."},
                 },
             },
@@ -585,6 +585,13 @@ input := docker.ParallelInput{
 }
 ```
 
+### DAGWorkflow
+
+Executes containers in a directed acyclic graph with dependency management.
+
+**Input:** `DAGWorkflowInput`
+**Output:** `DAGWorkflowOutput`
+
 ## Wait Strategies
 
 ### Log-based
@@ -666,19 +673,72 @@ go test -tags=integration ./docker/...
 go test -coverprofile=coverage.out ./docker/...
 ```
 
+## Argo Workflows Comparison
+
+This package provides **~70% feature parity** with Argo Workflows, offering similar capabilities with a type-safe Go API instead of YAML. See [ARGO_COMPARISON.md](./ARGO_COMPARISON.md) for detailed feature comparison.
+
+### Key Advantages over Argo Workflows
+- **Type-Safe API** - Compile-time validation vs YAML
+- **Simpler Developer Experience** - Fluent Go API
+- **No Kubernetes Required** - Works with plain Docker
+- **Better Local Development** - Easy testing and debugging
+- **Pre-built Patterns** - Ready-to-use CI/CD workflows
+- **Temporal Benefits** - Built-in observability, retries, versioning
+
+### Argo-equivalent Features
+| Argo Workflows | go-wf/docker | Example |
+|---------------|--------------|---------|
+| Container Template | `template.NewContainer` | `basic.go` |
+| Script Template | `template.NewBashScript`, etc. | `builder.go` |
+| DAG | `DAGWorkflow` | `dag.go` |
+| Steps (Sequential) | `ContainerPipelineWorkflow` | `pipeline.go` |
+| Steps (Parallel) | `ParallelContainersWorkflow` | `parallel.go` |
+| Parameters | `WorkflowParameter` | `advanced.go` |
+| Resource Limits | `ResourceLimits` | `advanced.go` |
+| Conditionals | `ConditionalBehavior` | `advanced.go` |
+| Exit Handlers | `AddExitHandler` | `builder.go` |
+| Retries | Temporal retry policies | All examples |
+| Lifecycle Ops | `Submit`, `Cancel`, `Watch`, etc. | See operations.go |
+
+### Notable Gaps
+- **Loops (withItems/withParam)** - Use programmatic container creation
+- **Sidecars** - Not yet supported (K8s-specific)
+- **Suspend/Resume** - Use Temporal signals as workaround
+- **Artifact Storage** - Defined but not implemented
+- **Explicit Data Passing** - No built-in output → input mapping
+
+See [ARGO_COMPARISON.md](./ARGO_COMPARISON.md) for complete details and workarounds.
+See [ROADMAP.md](./ROADMAP.md) for implementation plans to close these gaps.
+
 ## Examples
 
 See [examples/](./examples/) directory for complete working examples:
 
-- `basic.go` - Simple container execution
-- `pipeline.go` - Sequential workflow
-- `parallel.go` - Parallel execution
-- `worker/main.go` - Worker setup
+### Core Examples
+- `basic.go` - Simple container execution with wait strategies
+- `pipeline.go` - Sequential workflow (Argo Steps equivalent)
+- `parallel.go` - Parallel execution with concurrency control
+- `worker/main.go` - Worker setup and registration
+
+### Argo-like Examples
+- `dag.go` - Complex DAG workflow with dependencies (Argo DAG equivalent)
+- `builder.go` - Builder patterns with templates (Argo WorkflowTemplate equivalent)
+- `advanced.go` - Parameters, resources, conditionals (Argo advanced features)
 
 Run examples:
 
 ```bash
+# Start Temporal server
+temporal server start-dev
+
+# In another terminal, run worker
+go run -tags=example ./docker/examples/worker/main.go
+
+# In another terminal, run examples
 go run -tags=example ./docker/examples/basic.go
+go run -tags=example ./docker/examples/dag.go
+go run -tags=example ./docker/examples/builder.go
+go run -tags=example ./docker/examples/advanced.go
 ```
 
 ## Error Handling

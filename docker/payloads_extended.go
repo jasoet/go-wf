@@ -61,6 +61,44 @@ type SecretReference struct {
 	EnvVar string `json:"env_var" validate:"required"`
 }
 
+// OutputDefinition defines how to capture output from a container.
+type OutputDefinition struct {
+	// Name is the output identifier
+	Name string `json:"name" validate:"required"`
+
+	// ValueFrom specifies where to extract the value from
+	// Options: "stdout", "stderr", "exitCode", "file"
+	ValueFrom string `json:"value_from" validate:"required,oneof=stdout stderr exitCode file"`
+
+	// Path is the file path to read (required when ValueFrom is "file")
+	Path string `json:"path,omitempty"`
+
+	// JSONPath for extracting specific values from JSON output
+	// Example: "$.build.id" to extract build.id from JSON
+	JSONPath string `json:"json_path,omitempty"`
+
+	// Regex pattern to extract value using regex
+	Regex string `json:"regex,omitempty"`
+
+	// Default value if extraction fails
+	Default string `json:"default,omitempty"`
+}
+
+// InputMapping defines how to map outputs from previous steps to inputs.
+type InputMapping struct {
+	// Name is the environment variable or parameter name
+	Name string `json:"name" validate:"required"`
+
+	// From specifies the source in format "step-name.output-name"
+	From string `json:"from" validate:"required"`
+
+	// Default value if the source is not available
+	Default string `json:"default,omitempty"`
+
+	// Required indicates if this input must be present
+	Required bool `json:"required"`
+}
+
 // ExtendedContainerInput extends ContainerExecutionInput with advanced features.
 type ExtendedContainerInput struct {
 	ContainerExecutionInput
@@ -86,6 +124,12 @@ type ExtendedContainerInput struct {
 
 	// Dependencies on other containers
 	DependsOn []string `json:"depends_on,omitempty"`
+
+	// Output definitions for capturing container outputs
+	Outputs []OutputDefinition `json:"outputs,omitempty"`
+
+	// Input mappings from previous step outputs
+	Inputs []InputMapping `json:"inputs,omitempty"`
 }
 
 // WorkflowParameter defines a workflow input parameter.

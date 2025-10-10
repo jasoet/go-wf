@@ -88,8 +88,10 @@ func TestExecuteContainerWorkflowExecution(t *testing.T) {
 func TestRegisterWorkflows(t *testing.T) {
 	mw := new(mockWorker)
 
-	// Expect RegisterWorkflow to be called 3 times (one for each workflow)
-	mw.On("RegisterWorkflow", mock.Anything).Return().Times(3)
+	// Expect RegisterWorkflow to be called 7 times (one for each workflow)
+	// ExecuteContainerWorkflow, ContainerPipelineWorkflow, ParallelContainersWorkflow,
+	// LoopWorkflow, ParameterizedLoopWorkflow, DAGWorkflow, WorkflowWithParameters
+	mw.On("RegisterWorkflow", mock.Anything).Return().Times(7)
 
 	RegisterWorkflows(mw)
 
@@ -112,8 +114,8 @@ func TestRegisterActivities(t *testing.T) {
 func TestRegisterAll(t *testing.T) {
 	mw := new(mockWorker)
 
-	// Expect 3 workflows + 1 activity = 4 total registrations
-	mw.On("RegisterWorkflow", mock.Anything).Return().Times(3)
+	// Expect 7 workflows + 1 activity = 8 total registrations
+	mw.On("RegisterWorkflow", mock.Anything).Return().Times(7)
 	mw.On("RegisterActivity", mock.Anything).Return().Once()
 
 	RegisterAll(mw)
