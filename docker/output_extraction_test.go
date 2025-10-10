@@ -114,74 +114,74 @@ func TestExtractOutput_Stderr(t *testing.T) {
 
 func TestExtractJSONPath(t *testing.T) {
 	tests := []struct {
-		name     string
-		jsonStr  string
-		path     string
-		want     string
-		wantErr  bool
+		name    string
+		jsonStr string
+		path    string
+		want    string
+		wantErr bool
 	}{
 		{
-			name:     "simple field",
-			jsonStr:  `{"version": "1.2.3"}`,
-			path:     "$.version",
-			want:     "1.2.3",
-			wantErr:  false,
+			name:    "simple field",
+			jsonStr: `{"version": "1.2.3"}`,
+			path:    "$.version",
+			want:    "1.2.3",
+			wantErr: false,
 		},
 		{
-			name:     "nested field",
-			jsonStr:  `{"build": {"id": "12345", "version": "1.2.3"}}`,
-			path:     "$.build.id",
-			want:     "12345",
-			wantErr:  false,
+			name:    "nested field",
+			jsonStr: `{"build": {"id": "12345", "version": "1.2.3"}}`,
+			path:    "$.build.id",
+			want:    "12345",
+			wantErr: false,
 		},
 		{
-			name:     "array index",
-			jsonStr:  `{"tags": ["v1", "v2", "v3"]}`,
-			path:     "$.tags[1]",
-			want:     "v2",
-			wantErr:  false,
+			name:    "array index",
+			jsonStr: `{"tags": ["v1", "v2", "v3"]}`,
+			path:    "$.tags[1]",
+			want:    "v2",
+			wantErr: false,
 		},
 		{
-			name:     "nested array",
-			jsonStr:  `{"builds": [{"id": "1"}, {"id": "2"}]}`,
-			path:     "$.builds[0].id",
-			want:     "1",
-			wantErr:  false,
+			name:    "nested array",
+			jsonStr: `{"builds": [{"id": "1"}, {"id": "2"}]}`,
+			path:    "$.builds[0].id",
+			want:    "1",
+			wantErr: false,
 		},
 		{
-			name:     "number field",
-			jsonStr:  `{"count": 42}`,
-			path:     "$.count",
-			want:     "42",
-			wantErr:  false,
+			name:    "number field",
+			jsonStr: `{"count": 42}`,
+			path:    "$.count",
+			want:    "42",
+			wantErr: false,
 		},
 		{
-			name:     "boolean field",
-			jsonStr:  `{"success": true}`,
-			path:     "$.success",
-			want:     "true",
-			wantErr:  false,
+			name:    "boolean field",
+			jsonStr: `{"success": true}`,
+			path:    "$.success",
+			want:    "true",
+			wantErr: false,
 		},
 		{
-			name:     "missing field",
-			jsonStr:  `{"version": "1.2.3"}`,
-			path:     "$.missing",
-			want:     "",
-			wantErr:  true,
+			name:    "missing field",
+			jsonStr: `{"version": "1.2.3"}`,
+			path:    "$.missing",
+			want:    "",
+			wantErr: true,
 		},
 		{
-			name:     "invalid JSON",
-			jsonStr:  `{invalid}`,
-			path:     "$.version",
-			want:     "",
-			wantErr:  true,
+			name:    "invalid JSON",
+			jsonStr: `{invalid}`,
+			path:    "$.version",
+			want:    "",
+			wantErr: true,
 		},
 		{
-			name:     "path without $",
-			jsonStr:  `{"version": "1.2.3"}`,
-			path:     "version",
-			want:     "1.2.3",
-			wantErr:  false,
+			name:    "path without $",
+			jsonStr: `{"version": "1.2.3"}`,
+			path:    "version",
+			want:    "1.2.3",
+			wantErr: false,
 		},
 	}
 
@@ -309,7 +309,7 @@ func TestExtractOutputs(t *testing.T) {
 func TestSubstituteInputs(t *testing.T) {
 	stepOutputs := map[string]map[string]string{
 		"build": {
-			"version": "1.2.3",
+			"version":  "1.2.3",
 			"build_id": "12345",
 		},
 		"test": {
@@ -396,7 +396,7 @@ func TestSubstituteInputs_RequiredMissing(t *testing.T) {
 func TestResolveInputMapping(t *testing.T) {
 	stepOutputs := map[string]map[string]string{
 		"build": {
-			"version": "1.2.3",
+			"version":  "1.2.3",
 			"build_id": "12345",
 		},
 	}
