@@ -1,11 +1,13 @@
-package docker
+package workflow
 
 import (
 	"testing"
+
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 func TestExtractOutput_Stdout(t *testing.T) {
-	output := &ContainerExecutionOutput{
+	output := &payload.ContainerExecutionOutput{
 		Stdout:   "version: v1.2.3",
 		Stderr:   "",
 		ExitCode: 0,
@@ -14,13 +16,13 @@ func TestExtractOutput_Stdout(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		def     OutputDefinition
+		def     payload.OutputDefinition
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "extract from stdout",
-			def: OutputDefinition{
+			def: payload.OutputDefinition{
 				Name:      "version",
 				ValueFrom: "stdout",
 			},
@@ -29,7 +31,7 @@ func TestExtractOutput_Stdout(t *testing.T) {
 		},
 		{
 			name: "extract with regex",
-			def: OutputDefinition{
+			def: payload.OutputDefinition{
 				Name:      "version",
 				ValueFrom: "stdout",
 				Regex:     `v(\d+\.\d+\.\d+)`,
@@ -39,7 +41,7 @@ func TestExtractOutput_Stdout(t *testing.T) {
 		},
 		{
 			name: "extract with default on regex mismatch",
-			def: OutputDefinition{
+			def: payload.OutputDefinition{
 				Name:      "version",
 				ValueFrom: "stdout",
 				Regex:     `build: (\d+)`,
@@ -65,14 +67,14 @@ func TestExtractOutput_Stdout(t *testing.T) {
 }
 
 func TestExtractOutput_ExitCode(t *testing.T) {
-	output := &ContainerExecutionOutput{
+	output := &payload.ContainerExecutionOutput{
 		Stdout:   "",
 		Stderr:   "",
 		ExitCode: 42,
 		Success:  false,
 	}
 
-	def := OutputDefinition{
+	def := payload.OutputDefinition{
 		Name:      "exit_code",
 		ValueFrom: "exitCode",
 	}
@@ -88,14 +90,14 @@ func TestExtractOutput_ExitCode(t *testing.T) {
 }
 
 func TestExtractOutput_Stderr(t *testing.T) {
-	output := &ContainerExecutionOutput{
+	output := &payload.ContainerExecutionOutput{
 		Stdout:   "",
 		Stderr:   "Error: something went wrong",
 		ExitCode: 1,
 		Success:  false,
 	}
 
-	def := OutputDefinition{
+	def := payload.OutputDefinition{
 		Name:      "error",
 		ValueFrom: "stderr",
 	}
@@ -257,14 +259,14 @@ func TestExtractRegex(t *testing.T) {
 }
 
 func TestExtractOutputs(t *testing.T) {
-	output := &ContainerExecutionOutput{
+	output := &payload.ContainerExecutionOutput{
 		Stdout:   `{"build": {"id": "12345", "version": "1.2.3"}}`,
 		Stderr:   "",
 		ExitCode: 0,
 		Success:  true,
 	}
 
-	definitions := []OutputDefinition{
+	definitions := []payload.OutputDefinition{
 		{
 			Name:      "build_id",
 			ValueFrom: "stdout",
@@ -315,11 +317,11 @@ func TestSubstituteInputs(t *testing.T) {
 		},
 	}
 
-	containerInput := &ContainerExecutionInput{
+	containerInput := &payload.ContainerExecutionInput{
 		Image: "deployer:v1",
 	}
 
-	inputs := []InputMapping{
+	inputs := []payload.InputMapping{
 		{
 			Name:     "BUILD_VERSION",
 			From:     "build.version",
@@ -373,11 +375,11 @@ func TestSubstituteInputs_RequiredMissing(t *testing.T) {
 		},
 	}
 
-	containerInput := &ContainerExecutionInput{
+	containerInput := &payload.ContainerExecutionInput{
 		Image: "deployer:v1",
 	}
 
-	inputs := []InputMapping{
+	inputs := []payload.InputMapping{
 		{
 			Name:     "MISSING_VALUE",
 			From:     "missing.value",
@@ -401,13 +403,13 @@ func TestResolveInputMapping(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		mapping InputMapping
+		mapping payload.InputMapping
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "valid mapping",
-			mapping: InputMapping{
+			mapping: payload.InputMapping{
 				Name: "VERSION",
 				From: "build.version",
 			},
@@ -416,7 +418,7 @@ func TestResolveInputMapping(t *testing.T) {
 		},
 		{
 			name: "missing step",
-			mapping: InputMapping{
+			mapping: payload.InputMapping{
 				Name:    "VERSION",
 				From:    "missing.version",
 				Default: "default",
@@ -426,7 +428,7 @@ func TestResolveInputMapping(t *testing.T) {
 		},
 		{
 			name: "missing output",
-			mapping: InputMapping{
+			mapping: payload.InputMapping{
 				Name:    "VALUE",
 				From:    "build.missing",
 				Default: "default",
@@ -436,7 +438,7 @@ func TestResolveInputMapping(t *testing.T) {
 		},
 		{
 			name: "invalid format",
-			mapping: InputMapping{
+			mapping: payload.InputMapping{
 				Name:    "VALUE",
 				From:    "invalid",
 				Default: "",
@@ -482,13 +484,13 @@ func BenchmarkExtractRegex(b *testing.B) {
 }
 
 func BenchmarkExtractOutputs(b *testing.B) {
-	output := &ContainerExecutionOutput{
+	output := &payload.ContainerExecutionOutput{
 		Stdout:   `{"build": {"id": "12345", "version": "1.2.3"}}`,
 		ExitCode: 0,
 		Success:  true,
 	}
 
-	definitions := []OutputDefinition{
+	definitions := []payload.OutputDefinition{
 		{Name: "build_id", ValueFrom: "stdout", JSONPath: "$.build.id"},
 		{Name: "version", ValueFrom: "stdout", JSONPath: "$.build.version"},
 		{Name: "exit_code", ValueFrom: "exitCode"},

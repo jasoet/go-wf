@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
@@ -37,7 +38,7 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Execute container workflow
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image: "postgres:16-alpine",
 		Env: map[string]string{
 			"POSTGRES_PASSWORD": "test",
@@ -45,7 +46,7 @@ func main() {
 			"POSTGRES_DB":       "test",
 		},
 		Ports: []string{"5432:5432"},
-		WaitStrategy: docker.WaitStrategyConfig{
+		WaitStrategy: payload.WaitStrategyConfig{
 			Type:           "log",
 			LogMessage:     "ready to accept connections",
 			StartupTimeout: 30 * time.Second,
@@ -69,7 +70,7 @@ func main() {
 	log.Printf("Started workflow ID: %s, RunID: %s", we.GetID(), we.GetRunID())
 
 	// Wait for result
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Fatalf("Workflow failed: %v", err)
 	}

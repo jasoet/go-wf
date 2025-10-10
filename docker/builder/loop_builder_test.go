@@ -3,7 +3,7 @@ package builder
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -90,7 +90,7 @@ func TestNewParameterizedLoopBuilder(t *testing.T) {
 func TestLoopBuilder_WithTemplate(t *testing.T) {
 	builder := NewLoopBuilder([]string{"item1", "item2"})
 
-	template := docker.ContainerExecutionInput{
+	template := payload.ContainerExecutionInput{
 		Image:   "processor:v1",
 		Command: []string{"process", "{{item}}"},
 		Env: map[string]string{
@@ -114,7 +114,7 @@ func TestLoopBuilder_WithSource(t *testing.T) {
 	}{
 		{
 			name: "valid source",
-			source: NewContainerSource(docker.ContainerExecutionInput{
+			source: NewContainerSource(payload.ContainerExecutionInput{
 				Image:   "alpine:latest",
 				Command: []string{"echo", "test"},
 			}),
@@ -180,19 +180,19 @@ func TestLoopBuilder_BuildLoop(t *testing.T) {
 		name        string
 		setupFunc   func() *LoopBuilder
 		expectError bool
-		validate    func(t *testing.T, input *docker.LoopInput)
+		validate    func(t *testing.T, input *payload.LoopInput)
 	}{
 		{
 			name: "valid loop",
 			setupFunc: func() *LoopBuilder {
 				return NewLoopBuilder([]string{"item1", "item2", "item3"}).
-					WithTemplate(docker.ContainerExecutionInput{
+					WithTemplate(payload.ContainerExecutionInput{
 						Image:   "processor:v1",
 						Command: []string{"process", "{{item}}"},
 					})
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.LoopInput) {
+			validate: func(t *testing.T, input *payload.LoopInput) {
 				assert.Len(t, input.Items, 3)
 				assert.Equal(t, "processor:v1", input.Template.Image)
 				assert.False(t, input.Parallel)
@@ -203,13 +203,13 @@ func TestLoopBuilder_BuildLoop(t *testing.T) {
 			name: "parallel loop with fail fast",
 			setupFunc: func() *LoopBuilder {
 				return NewLoopBuilder([]string{"item1", "item2"}).
-					WithTemplate(docker.ContainerExecutionInput{Image: "alpine:latest"}).
+					WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 					Parallel(true).
 					FailFast(true).
 					MaxConcurrency(5)
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.LoopInput) {
+			validate: func(t *testing.T, input *payload.LoopInput) {
 				assert.True(t, input.Parallel)
 				assert.Equal(t, "fail_fast", input.FailureStrategy)
 				assert.Equal(t, 5, input.MaxConcurrency)
@@ -219,7 +219,7 @@ func TestLoopBuilder_BuildLoop(t *testing.T) {
 			name: "empty items",
 			setupFunc: func() *LoopBuilder {
 				return NewLoopBuilder([]string{}).
-					WithTemplate(docker.ContainerExecutionInput{Image: "alpine:latest"})
+					WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: true,
 			validate:    nil,
@@ -228,7 +228,7 @@ func TestLoopBuilder_BuildLoop(t *testing.T) {
 			name: "nil items",
 			setupFunc: func() *LoopBuilder {
 				return NewLoopBuilder(nil).
-					WithTemplate(docker.ContainerExecutionInput{Image: "alpine:latest"})
+					WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: true,
 			validate:    nil,
@@ -268,7 +268,7 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 		name        string
 		setupFunc   func() *LoopBuilder
 		expectError bool
-		validate    func(t *testing.T, input *docker.ParameterizedLoopInput)
+		validate    func(t *testing.T, input *payload.ParameterizedLoopInput)
 	}{
 		{
 			name: "valid parameterized loop",
@@ -276,13 +276,13 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 				return NewParameterizedLoopBuilder(map[string][]string{
 					"env":    {"dev", "staging", "prod"},
 					"region": {"us-west", "us-east"},
-				}).WithTemplate(docker.ContainerExecutionInput{
+				}).WithTemplate(payload.ContainerExecutionInput{
 					Image:   "deployer:v1",
 					Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
 				})
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.ParameterizedLoopInput) {
+			validate: func(t *testing.T, input *payload.ParameterizedLoopInput) {
 				assert.Len(t, input.Parameters, 2)
 				assert.Equal(t, "deployer:v1", input.Template.Image)
 				assert.False(t, input.Parallel)
@@ -295,13 +295,13 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 				return NewParameterizedLoopBuilder(map[string][]string{
 					"version": {"1.0", "2.0"},
 				}).
-					WithTemplate(docker.ContainerExecutionInput{Image: "builder:v1"}).
+					WithTemplate(payload.ContainerExecutionInput{Image: "builder:v1"}).
 					Parallel(true).
 					FailFast(true).
 					MaxConcurrency(10)
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.ParameterizedLoopInput) {
+			validate: func(t *testing.T, input *payload.ParameterizedLoopInput) {
 				assert.True(t, input.Parallel)
 				assert.Equal(t, "fail_fast", input.FailureStrategy)
 				assert.Equal(t, 10, input.MaxConcurrency)
@@ -311,7 +311,7 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 			name: "empty parameters",
 			setupFunc: func() *LoopBuilder {
 				return NewParameterizedLoopBuilder(map[string][]string{}).
-					WithTemplate(docker.ContainerExecutionInput{Image: "alpine:latest"})
+					WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: true,
 			validate:    nil,
@@ -320,7 +320,7 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 			name: "nil parameters",
 			setupFunc: func() *LoopBuilder {
 				return NewParameterizedLoopBuilder(nil).
-					WithTemplate(docker.ContainerExecutionInput{Image: "alpine:latest"})
+					WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: true,
 			validate:    nil,
@@ -348,7 +348,7 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 
 func TestForEach(t *testing.T) {
 	items := []string{"file1.csv", "file2.csv", "file3.csv"}
-	template := docker.ContainerExecutionInput{
+	template := payload.ContainerExecutionInput{
 		Image:   "processor:v1",
 		Command: []string{"process", "{{item}}"},
 	}
@@ -366,7 +366,7 @@ func TestForEachParam(t *testing.T) {
 		"env":    {"dev", "staging", "prod"},
 		"region": {"us-west", "us-east"},
 	}
-	template := docker.ContainerExecutionInput{
+	template := payload.ContainerExecutionInput{
 		Image:   "deployer:v1",
 		Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
 	}
@@ -382,7 +382,7 @@ func TestForEachParam(t *testing.T) {
 func TestLoopBuilder_ChainedCalls(t *testing.T) {
 	// Test fluent API with chained calls
 	input, err := NewLoopBuilder([]string{"batch1.json", "batch2.json", "batch3.json"}).
-		WithTemplate(docker.ContainerExecutionInput{
+		WithTemplate(payload.ContainerExecutionInput{
 			Image:   "data-processor:v1",
 			Command: []string{"process", "--file={{item}}"},
 		}).
@@ -405,7 +405,7 @@ func TestParameterizedLoopBuilder_ChainedCalls(t *testing.T) {
 		"go_version": {"1.21", "1.22", "1.23"},
 		"platform":   {"linux", "darwin", "windows"},
 	}).
-		WithTemplate(docker.ContainerExecutionInput{
+		WithTemplate(payload.ContainerExecutionInput{
 			Image:   "builder:v1",
 			Command: []string{"build", "--go={{.go_version}}", "--platform={{.platform}}"},
 		}).

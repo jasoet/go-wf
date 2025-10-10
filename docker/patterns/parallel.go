@@ -3,8 +3,8 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/template"
 )
 
@@ -15,7 +15,7 @@ import (
 //	input, err := patterns.FanOutFanIn(
 //	    "alpine:latest",
 //	    []string{"task-1", "task-2", "task-3"})
-func FanOutFanIn(image string, tasks []string) (*docker.ParallelInput, error) {
+func FanOutFanIn(image string, tasks []string) (*payload.ParallelInput, error) {
 	if len(tasks) == 0 {
 		return nil, fmt.Errorf("at least one task is required")
 	}
@@ -40,7 +40,7 @@ func FanOutFanIn(image string, tasks []string) (*docker.ParallelInput, error) {
 //	    "processor:v1",
 //	    []string{"data-1.csv", "data-2.csv", "data-3.csv"},
 //	    "process.sh")
-func ParallelDataProcessing(image string, dataItems []string, command string) (*docker.ParallelInput, error) {
+func ParallelDataProcessing(image string, dataItems []string, command string) (*payload.ParallelInput, error) {
 	if len(dataItems) == 0 {
 		return nil, fmt.Errorf("at least one data item is required")
 	}
@@ -69,7 +69,7 @@ func ParallelDataProcessing(image string, dataItems []string, command string) (*
 //	        "unit": "go test ./internal/...",
 //	        "integration": "go test ./tests/integration/...",
 //	    })
-func ParallelTestSuite(image string, testSuites map[string]string) (*docker.ParallelInput, error) {
+func ParallelTestSuite(image string, testSuites map[string]string) (*payload.ParallelInput, error) {
 	if len(testSuites) == 0 {
 		return nil, fmt.Errorf("at least one test suite is required")
 	}
@@ -94,7 +94,7 @@ func ParallelTestSuite(image string, testSuites map[string]string) (*docker.Para
 //	input, err := patterns.ParallelDeployment(
 //	    "deployer:v1",
 //	    []string{"us-west", "us-east", "eu-central"})
-func ParallelDeployment(deployImage string, regions []string) (*docker.ParallelInput, error) {
+func ParallelDeployment(deployImage string, regions []string) (*payload.ParallelInput, error) {
 	if len(regions) == 0 {
 		return nil, fmt.Errorf("at least one region is required")
 	}
@@ -123,7 +123,7 @@ func ParallelDeployment(deployImage string, regions []string) (*docker.ParallelI
 //	    []string{"file1.txt", "file2.txt"},
 //	    "wc -w",
 //	    "awk '{sum+=$1} END {print sum}'")
-func MapReduce(image string, inputs []string, mapCmd, reduceCmd string) (*docker.PipelineInput, error) {
+func MapReduce(image string, inputs []string, mapCmd, reduceCmd string) (*payload.PipelineInput, error) {
 	if len(inputs) == 0 {
 		return nil, fmt.Errorf("at least one input is required")
 	}

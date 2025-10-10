@@ -1,6 +1,10 @@
-package docker
+package payload
 
-import "time"
+import (
+	"time"
+
+	"github.com/jasoet/go-wf/docker/errors"
+)
 
 // ConditionalBehavior defines how containers behave based on conditions.
 type ConditionalBehavior struct {
@@ -181,7 +185,7 @@ type DAGWorkflowInput struct {
 // Validate validates DAG workflow input.
 func (i *DAGWorkflowInput) Validate() error {
 	if len(i.Nodes) == 0 {
-		return ErrInvalidInput.Wrap("at least one node is required")
+		return errors.ErrInvalidInput.Wrap("at least one node is required")
 	}
 
 	// Check for circular dependencies (simplified check)
@@ -193,7 +197,7 @@ func (i *DAGWorkflowInput) Validate() error {
 	for _, node := range i.Nodes {
 		for _, dep := range node.Dependencies {
 			if !nodeMap[dep] {
-				return ErrInvalidInput.Wrap("dependency node not found: " + dep)
+				return errors.ErrInvalidInput.Wrap("dependency node not found: " + dep)
 			}
 		}
 	}

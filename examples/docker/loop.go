@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
 	"github.com/jasoet/go-wf/docker/patterns"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"go.temporal.io/sdk/client"
 )
@@ -62,9 +62,9 @@ func simpleParallelLoopExample(ctx context.Context, c client.Client) {
 	// Process multiple files in parallel
 	files := []string{"data1.csv", "data2.csv", "data3.csv", "data4.csv"}
 
-	input := docker.LoopInput{
+	input := payload.LoopInput{
 		Items: files,
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "alpine:latest",
 			Command: []string{"sh", "-c", "echo 'Processing file: {{item}} at index {{index}}' && sleep 1"},
 			Env: map[string]string{
@@ -88,7 +88,7 @@ func simpleParallelLoopExample(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started parallel loop workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -102,9 +102,9 @@ func sequentialLoopExample(ctx context.Context, c client.Client) {
 	// Deploy to regions sequentially (to control rate limiting)
 	regions := []string{"us-west-1", "us-east-1", "eu-central-1"}
 
-	input := docker.LoopInput{
+	input := payload.LoopInput{
 		Items: regions,
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "alpine:latest",
 			Command: []string{"sh", "-c", "echo 'Deploying to region: {{item}}' && sleep 2"},
 			Env: map[string]string{
@@ -128,7 +128,7 @@ func sequentialLoopExample(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started sequential loop workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -140,12 +140,12 @@ func sequentialLoopExample(ctx context.Context, c client.Client) {
 
 func parameterizedLoopExample(ctx context.Context, c client.Client) {
 	// Deploy to all combinations of environments and regions
-	input := docker.ParameterizedLoopInput{
+	input := payload.ParameterizedLoopInput{
 		Parameters: map[string][]string{
 			"env":    {"dev", "staging", "prod"},
 			"region": {"us-west", "us-east"},
 		},
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "alpine:latest",
 			Command: []string{"sh", "-c", "echo 'Deploying to env={{.env}} region={{.region}}' && sleep 1"},
 			Env: map[string]string{
@@ -170,7 +170,7 @@ func parameterizedLoopExample(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started parameterized loop workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -184,7 +184,7 @@ func loopBuilderExample(ctx context.Context, c client.Client) {
 	// Using loop builder for fluent API
 	items := []string{"task-1", "task-2", "task-3"}
 
-	template := docker.ContainerExecutionInput{
+	template := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"sh", "-c", "echo 'Executing task: {{item}}' && sleep 1"},
 	}
@@ -212,7 +212,7 @@ func loopBuilderExample(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started builder loop workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -246,7 +246,7 @@ func loopPatternExample(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started matrix build workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -280,7 +280,7 @@ func batchProcessingExample(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started batch processing workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)

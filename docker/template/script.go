@@ -3,7 +3,7 @@ package template
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // Script is a WorkflowSource that creates a script-based container execution.
@@ -85,7 +85,7 @@ func NewScript(name, language string, opts ...ScriptOption) *Script {
 }
 
 // ToInput implements WorkflowSource interface.
-func (s *Script) ToInput() docker.ContainerExecutionInput {
+func (s *Script) ToInput() payload.ContainerExecutionInput {
 	// Validate script content
 	if s.scriptContent == "" {
 		// If no script content, create a no-op script
@@ -95,7 +95,7 @@ func (s *Script) ToInput() docker.ContainerExecutionInput {
 	// Build command with script content
 	command := append(s.command, s.scriptContent)
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      s.image,
 		Command:    command,
 		Env:        s.env,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/template"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
@@ -111,7 +112,7 @@ func runCICDPipeline(c client.Client) {
 		*input,
 	)
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Printf("Pipeline failed: %v", err)
 		return
@@ -157,7 +158,7 @@ print("%s processed successfully")
 		*input,
 	)
 
-	var result docker.ParallelOutput
+	var result payload.ParallelOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Printf("Parallel processing failed: %v", err)
 		return
@@ -201,7 +202,7 @@ print(f"Platform: {platform.system()}")`)).
 		*input,
 	)
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	we.Get(context.Background(), &result)
 	log.Printf("Scripts demo completed: Success=%d", result.TotalSuccess)
 }
@@ -234,7 +235,7 @@ func runHTTPExamples(c client.Client) {
 		*input,
 	)
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	we.Get(context.Background(), &result)
 	log.Printf("HTTP operations completed: Success=%d", result.TotalSuccess)
 }
@@ -270,7 +271,7 @@ func runLoopPattern(c client.Client) {
 		*input,
 	)
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	we.Get(context.Background(), &result)
 	log.Printf("Loop pattern completed: %d environments deployed", result.TotalSuccess)
 }
@@ -311,7 +312,7 @@ func runExitHandlers(c client.Client) {
 		*input,
 	)
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	we.Get(context.Background(), &result)
 	log.Printf("Exit handler demo completed")
 }

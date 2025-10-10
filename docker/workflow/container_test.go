@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/testsuite"
 )
@@ -16,12 +16,12 @@ func TestExecuteContainerWorkflow_Success(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"echo", "hello"},
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&docker.ContainerExecutionOutput{
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		ContainerID: "container-123",
 		Success:     true,
 		ExitCode:    0,
@@ -38,7 +38,7 @@ func TestExecuteContainerWorkflow_Success(t *testing.T) {
 		t.Fatalf("Workflow failed: %v", err)
 	}
 
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("Failed to get result: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestExecuteContainerWorkflow_InvalidInput(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 
 	// Missing required image field
-	input := docker.ContainerExecutionInput{}
+	input := payload.ContainerExecutionInput{}
 
 	env.ExecuteWorkflow(ExecuteContainerWorkflow, input)
 
@@ -72,13 +72,13 @@ func TestExecuteContainerWorkflow_WithTimeout(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		RunTimeout: 5 * time.Minute,
 	}
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ExecuteContainerWorkflow, input)
 
@@ -92,7 +92,7 @@ func TestExecuteContainerWorkflow_ActivityError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image: "alpine:latest",
 	}
 

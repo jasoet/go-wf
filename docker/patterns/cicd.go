@@ -1,8 +1,8 @@
 package patterns
 
 import (
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/template"
 )
 
@@ -14,7 +14,7 @@ import (
 //	    "golang:1.25",
 //	    "golang:1.25",
 //	    "deployer:v1")
-func BuildTestDeploy(buildImage, testImage, deployImage string) (*docker.PipelineInput, error) {
+func BuildTestDeploy(buildImage, testImage, deployImage string) (*payload.PipelineInput, error) {
 	// Build stage
 	build := template.NewContainer("build", buildImage,
 		template.WithCommand("sh", "-c", "echo 'Building...' && go build -o app"),
@@ -45,7 +45,7 @@ func BuildTestDeploy(buildImage, testImage, deployImage string) (*docker.Pipelin
 //	    "golang:1.25",
 //	    "deployer:v1",
 //	    "https://myapp.com/health")
-func BuildTestDeployWithHealthCheck(buildImage, deployImage, healthURL string) (*docker.PipelineInput, error) {
+func BuildTestDeployWithHealthCheck(buildImage, deployImage, healthURL string) (*payload.PipelineInput, error) {
 	build := template.NewContainer("build", buildImage,
 		template.WithCommand("go", "build", "-o", "app"),
 		template.WithWorkDir("/workspace"))
@@ -77,7 +77,7 @@ func BuildTestDeployWithHealthCheck(buildImage, deployImage, healthURL string) (
 //	    "deployer:v1",
 //	    "https://hooks.slack.com/...",
 //	    `{"text": "Deploy complete"}`)
-func BuildTestDeployWithNotification(buildImage, deployImage, webhookURL, message string) (*docker.PipelineInput, error) {
+func BuildTestDeployWithNotification(buildImage, deployImage, webhookURL, message string) (*payload.PipelineInput, error) {
 	build := template.NewContainer("build", buildImage,
 		template.WithCommand("go", "build", "-o", "app"))
 
@@ -108,7 +108,7 @@ func BuildTestDeployWithNotification(buildImage, deployImage, webhookURL, messag
 //	input, err := patterns.MultiEnvironmentDeploy(
 //	    "deployer:v1",
 //	    []string{"staging", "production"})
-func MultiEnvironmentDeploy(deployImage string, environments []string) (*docker.PipelineInput, error) {
+func MultiEnvironmentDeploy(deployImage string, environments []string) (*payload.PipelineInput, error) {
 	wb := builder.NewWorkflowBuilder("multi-env-deploy")
 
 	for _, env := range environments {

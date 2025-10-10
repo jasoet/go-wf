@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 // ContainerPipelineWorkflow executes containers sequentially.
-func ContainerPipelineWorkflow(ctx workflow.Context, input docker.PipelineInput) (*docker.PipelineOutput, error) {
+func ContainerPipelineWorkflow(ctx workflow.Context, input payload.PipelineInput) (*payload.PipelineOutput, error) {
 	logger := workflow.GetLogger(ctx)
 	logger.Info("Starting container pipeline workflow", "steps", len(input.Containers))
 
@@ -21,8 +21,8 @@ func ContainerPipelineWorkflow(ctx workflow.Context, input docker.PipelineInput)
 	}
 
 	startTime := workflow.Now(ctx)
-	output := &docker.PipelineOutput{
-		Results: make([]docker.ContainerExecutionOutput, 0, len(input.Containers)),
+	output := &payload.PipelineOutput{
+		Results: make([]payload.ContainerExecutionOutput, 0, len(input.Containers)),
 	}
 
 	// Default activity options
@@ -49,7 +49,7 @@ func ContainerPipelineWorkflow(ctx workflow.Context, input docker.PipelineInput)
 			"image", containerInput.Image)
 
 		// Execute step
-		var result docker.ContainerExecutionOutput
+		var result payload.ContainerExecutionOutput
 		err := workflow.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
 
 		output.Results = append(output.Results, result)

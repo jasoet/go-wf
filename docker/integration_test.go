@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -108,7 +109,7 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 	defer w.Stop()
 
 	// Execute workflow
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"echo", "integration test"},
 		AutoRemove: true,
@@ -127,7 +128,7 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 	}
 
 	// Wait for result
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}
@@ -179,8 +180,8 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 	defer w.Stop()
 
 	// Execute pipeline workflow
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Image:      "alpine:latest",
 				Command:    []string{"echo", "step 1"},
@@ -210,7 +211,7 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 	}
 
 	// Wait for result
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}
@@ -262,8 +263,8 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 	defer w.Stop()
 
 	// Execute parallel workflow
-	input := docker.ParallelInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Image:      "alpine:latest",
 				Command:    []string{"echo", "task 1"},
@@ -299,7 +300,7 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 	}
 
 	// Wait for result
-	var result docker.ParallelOutput
+	var result payload.ParallelOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}
@@ -347,7 +348,7 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 	}
 	defer w.Stop()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"sh", "-c", "echo $TEST_VAR"},
 		Env:        map[string]string{"TEST_VAR": "test_value"},
@@ -368,7 +369,7 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 		t.Fatalf("Failed to start workflow: %v", err)
 	}
 
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}
@@ -412,7 +413,7 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 	}
 	defer w.Stop()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"pwd"},
 		WorkDir:    "/tmp",
@@ -431,7 +432,7 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 		t.Fatalf("Failed to start workflow: %v", err)
 	}
 
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}
@@ -472,7 +473,7 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 	}
 	defer w.Stop()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Entrypoint: []string{"/bin/sh", "-c"},
 		Command:    []string{"echo test"},
@@ -491,7 +492,7 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 		t.Fatalf("Failed to start workflow: %v", err)
 	}
 
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}
@@ -532,7 +533,7 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 	}
 	defer w.Stop()
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"id"},
 		User:       "nobody",
@@ -551,7 +552,7 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 		t.Fatalf("Failed to start workflow: %v", err)
 	}
 
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(ctx, &result); err != nil {
 		t.Fatalf("Workflow failed: %v", err)
 	}

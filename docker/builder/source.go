@@ -1,8 +1,6 @@
 package builder
 
-import (
-	"github.com/jasoet/go-wf/docker"
-)
+import "github.com/jasoet/go-wf/docker/payload"
 
 // WorkflowSource represents a composable workflow component that can generate
 // container execution inputs. This allows building complex workflows from reusable parts.
@@ -14,22 +12,22 @@ import (
 //	    env string
 //	}
 //
-//	func (d *DeploymentStep) ToInput() docker.ContainerExecutionInput {
-//	    return docker.ContainerExecutionInput{
+//	func (d *DeploymentStep) ToInput() payload.ContainerExecutionInput {
+//	    return payload.ContainerExecutionInput{
 //	        Image: d.image,
 //	        Env: map[string]string{"ENV": d.env},
 //	    }
 //	}
 type WorkflowSource interface {
 	// ToInput converts the source into a ContainerExecutionInput
-	ToInput() docker.ContainerExecutionInput
+	ToInput() payload.ContainerExecutionInput
 }
 
 // WorkflowSourceFunc is a function adapter for WorkflowSource interface.
-type WorkflowSourceFunc func() docker.ContainerExecutionInput
+type WorkflowSourceFunc func() payload.ContainerExecutionInput
 
 // ToInput implements WorkflowSource interface.
-func (f WorkflowSourceFunc) ToInput() docker.ContainerExecutionInput {
+func (f WorkflowSourceFunc) ToInput() payload.ContainerExecutionInput {
 	return f()
 }
 
@@ -38,18 +36,18 @@ func (f WorkflowSourceFunc) ToInput() docker.ContainerExecutionInput {
 //
 // Example:
 //
-//	input := docker.ContainerExecutionInput{Image: "alpine:latest"}
+//	input := payload.ContainerExecutionInput{Image: "alpine:latest"}
 //	source := builder.ContainerSource(input)
 type ContainerSource struct {
-	input docker.ContainerExecutionInput
+	input payload.ContainerExecutionInput
 }
 
 // NewContainerSource creates a new container source.
-func NewContainerSource(input docker.ContainerExecutionInput) *ContainerSource {
+func NewContainerSource(input payload.ContainerExecutionInput) *ContainerSource {
 	return &ContainerSource{input: input}
 }
 
 // ToInput implements WorkflowSource interface.
-func (c *ContainerSource) ToInput() docker.ContainerExecutionInput {
+func (c *ContainerSource) ToInput() payload.ContainerExecutionInput {
 	return c.input
 }

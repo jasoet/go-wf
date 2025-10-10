@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // HTTP is a WorkflowSource that creates an HTTP request using a container.
@@ -66,7 +66,7 @@ func NewHTTP(name string, opts ...HTTPOption) *HTTP {
 }
 
 // ToInput implements WorkflowSource interface.
-func (h *HTTP) ToInput() docker.ContainerExecutionInput {
+func (h *HTTP) ToInput() payload.ContainerExecutionInput {
 	// Build curl command
 	curlArgs := []string{
 		"-X", h.method,
@@ -100,7 +100,7 @@ func (h *HTTP) ToInput() docker.ContainerExecutionInput {
 	// Create validation script
 	script := h.buildValidationScript(curlArgs)
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      h.curlImage,
 		Command:    []string{"sh", "-c"},
 		Entrypoint: nil,

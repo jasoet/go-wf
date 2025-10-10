@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
@@ -58,12 +59,12 @@ func main() {
 	//                       |
 	//                   smoke-test
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "checkout",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine/git",
 						Command:    []string{"sh", "-c", "echo 'Checking out code...' && sleep 1"},
 						AutoRemove: true,
@@ -72,8 +73,8 @@ func main() {
 			},
 			{
 				Name: "install",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "node:20-alpine",
 						Command:    []string{"sh", "-c", "echo 'Installing dependencies...' && sleep 2"},
 						AutoRemove: true,
@@ -83,8 +84,8 @@ func main() {
 			},
 			{
 				Name: "build",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "node:20-alpine",
 						Command:    []string{"sh", "-c", "echo 'Building application...' && sleep 3"},
 						AutoRemove: true,
@@ -100,8 +101,8 @@ func main() {
 			},
 			{
 				Name: "lint",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "node:20-alpine",
 						Command:    []string{"sh", "-c", "echo 'Running linter...' && sleep 2"},
 						AutoRemove: true,
@@ -111,8 +112,8 @@ func main() {
 			},
 			{
 				Name: "security-scan",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "aquasec/trivy:latest",
 						Command:    []string{"sh", "-c", "echo 'Running security scan...' && sleep 2"},
 						AutoRemove: true,
@@ -122,8 +123,8 @@ func main() {
 			},
 			{
 				Name: "test-unit",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "node:20-alpine",
 						Command:    []string{"sh", "-c", "echo 'Running unit tests...' && sleep 3"},
 						AutoRemove: true,
@@ -133,8 +134,8 @@ func main() {
 			},
 			{
 				Name: "test-integration",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "node:20-alpine",
 						Command:    []string{"sh", "-c", "echo 'Running integration tests...' && sleep 4"},
 						AutoRemove: true,
@@ -144,8 +145,8 @@ func main() {
 			},
 			{
 				Name: "test-e2e",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "mcr.microsoft.com/playwright:latest",
 						Command:    []string{"sh", "-c", "echo 'Running E2E tests...' && sleep 5"},
 						AutoRemove: true,
@@ -155,8 +156,8 @@ func main() {
 			},
 			{
 				Name: "deploy",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Deploying to staging...' && sleep 2"},
 						Env:        map[string]string{"ENVIRONMENT": "staging"},
@@ -167,8 +168,8 @@ func main() {
 			},
 			{
 				Name: "health-check",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "curlimages/curl:latest",
 						Command:    []string{"sh", "-c", "echo 'Health check...' && sleep 1"},
 						AutoRemove: true,
@@ -178,8 +179,8 @@ func main() {
 			},
 			{
 				Name: "smoke-test",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Running smoke tests...' && sleep 2"},
 						AutoRemove: true,
@@ -207,7 +208,7 @@ func main() {
 	log.Printf("View in Temporal Web UI: http://localhost:8233/namespaces/default/workflows/%s", we.GetID())
 
 	// Wait for result
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Fatalf("DAG workflow failed: %v", err)
 	}

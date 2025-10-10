@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
@@ -36,10 +37,10 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Execute parallel workflow - Run multiple test suites concurrently
-	input := docker.ParallelInput{
+	input := payload.ParallelInput{
 		MaxConcurrency:  3,
 		FailureStrategy: "continue", // Continue even if some fail
-		Containers: []docker.ContainerExecutionInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Name:    "unit-tests",
 				Image:   "golang:1.23-alpine",
@@ -73,7 +74,7 @@ func main() {
 	log.Printf("Started parallel workflow: %s", we.GetID())
 
 	// Wait for result
-	var result docker.ParallelOutput
+	var result payload.ParallelOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Fatalf("Parallel execution failed: %v", err)
 	}

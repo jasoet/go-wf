@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -62,7 +63,7 @@ func main() {
 // Example 1: Workflow Parameters (Similar to Argo parameters)
 func runParameterizedWorkflow(c client.Client) {
 	// Define workflow with template variables
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"sh", "-c", "echo 'Deploying version {{.version}} to {{.environment}}' && echo 'Repository: {{.repo}}'"},
 		Env: map[string]string{
@@ -76,7 +77,7 @@ func runParameterizedWorkflow(c client.Client) {
 	}
 
 	// Define parameters (like Argo's parameters)
-	params := []docker.WorkflowParameter{
+	params := []payload.WorkflowParameter{
 		{Name: "version", Value: "v1.2.3"},
 		{Name: "environment", Value: "production"},
 		{Name: "repo", Value: "https://github.com/myorg/myapp"},
@@ -94,7 +95,7 @@ func runParameterizedWorkflow(c client.Client) {
 		params,
 	)
 
-	var result docker.ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Printf("Parameterized workflow failed: %v", err)
 		return
@@ -106,12 +107,12 @@ func runParameterizedWorkflow(c client.Client) {
 
 // Example 2: Resource Limits (CPU, Memory, GPU)
 func runResourceLimitedWorkflow(c client.Client) {
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "small-task",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Running small task' && sleep 1"},
 						AutoRemove: true,
@@ -126,8 +127,8 @@ func runResourceLimitedWorkflow(c client.Client) {
 			},
 			{
 				Name: "large-task",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Running large task' && sleep 2"},
 						AutoRemove: true,
@@ -143,8 +144,8 @@ func runResourceLimitedWorkflow(c client.Client) {
 			},
 			{
 				Name: "ml-task",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "tensorflow/tensorflow:latest",
 						Command:    []string{"sh", "-c", "echo 'Running ML training' && sleep 2"},
 						AutoRemove: true,
@@ -172,7 +173,7 @@ func runResourceLimitedWorkflow(c client.Client) {
 		input,
 	)
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Printf("Resource-limited workflow failed: %v", err)
 		return
@@ -183,12 +184,12 @@ func runResourceLimitedWorkflow(c client.Client) {
 
 // Example 3: Conditional Execution & ContinueOnFail
 func runConditionalWorkflow(c client.Client) {
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "test",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Running tests' && exit 0"},
 						AutoRemove: true,
@@ -197,8 +198,8 @@ func runConditionalWorkflow(c client.Client) {
 			},
 			{
 				Name: "deploy-staging",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Deploying to staging' && sleep 1"},
 						Env:        map[string]string{"ENVIRONMENT": "staging"},
@@ -214,8 +215,8 @@ func runConditionalWorkflow(c client.Client) {
 			},
 			{
 				Name: "deploy-production",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Deploying to production' && sleep 1"},
 						Env:        map[string]string{"ENVIRONMENT": "production"},
@@ -231,8 +232,8 @@ func runConditionalWorkflow(c client.Client) {
 			},
 			{
 				Name: "rollback",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"sh", "-c", "echo 'Rolling back deployment'"},
 						AutoRemove: true,
@@ -259,7 +260,7 @@ func runConditionalWorkflow(c client.Client) {
 		input,
 	)
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Printf("Conditional workflow failed: %v", err)
 		return
@@ -273,9 +274,9 @@ func runConditionalWorkflow(c client.Client) {
 
 // Example 4: Wait Strategies (Container Readiness)
 func runWaitStrategiesDemo(c client.Client) {
-	input := docker.PipelineInput{
+	input := payload.PipelineInput{
 		StopOnError: true,
-		Containers: []docker.ContainerExecutionInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Name:  "log-wait",
 				Image: "postgres:16-alpine",
@@ -283,7 +284,7 @@ func runWaitStrategiesDemo(c client.Client) {
 					"POSTGRES_PASSWORD": "test",
 					"POSTGRES_DB":       "testdb",
 				},
-				WaitStrategy: docker.WaitStrategyConfig{
+				WaitStrategy: payload.WaitStrategyConfig{
 					Type:           "log",
 					LogMessage:     "ready to accept connections",
 					StartupTimeout: 30 * time.Second,
@@ -293,7 +294,7 @@ func runWaitStrategiesDemo(c client.Client) {
 			{
 				Name:  "port-wait",
 				Image: "redis:7-alpine",
-				WaitStrategy: docker.WaitStrategyConfig{
+				WaitStrategy: payload.WaitStrategyConfig{
 					Type:           "port",
 					Port:           "6379",
 					StartupTimeout: 10 * time.Second,
@@ -306,7 +307,7 @@ func runWaitStrategiesDemo(c client.Client) {
 				Env: map[string]string{
 					"POSTGRES_PASSWORD": "test",
 				},
-				WaitStrategy: docker.WaitStrategyConfig{
+				WaitStrategy: payload.WaitStrategyConfig{
 					Type:           "healthy",
 					StartupTimeout: 30 * time.Second,
 				},
@@ -324,7 +325,7 @@ func runWaitStrategiesDemo(c client.Client) {
 		input,
 	)
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Printf("Wait strategies demo failed: %v", err)
 		return

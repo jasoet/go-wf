@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // substituteTemplate replaces template variables in a string.
@@ -28,7 +28,7 @@ func substituteTemplate(template string, item string, index int, params map[stri
 }
 
 // substituteContainerInput creates a new container input with substituted values.
-func substituteContainerInput(template docker.ContainerExecutionInput, item string, index int, params map[string]string) docker.ContainerExecutionInput {
+func substituteContainerInput(template payload.ContainerExecutionInput, item string, index int, params map[string]string) payload.ContainerExecutionInput {
 	result := template
 
 	// Substitute in image

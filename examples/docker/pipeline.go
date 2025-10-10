@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
@@ -36,10 +37,10 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Execute pipeline workflow - Build → Test → Deploy simulation
-	input := docker.PipelineInput{
+	input := payload.PipelineInput{
 		StopOnError: true,
 		Cleanup:     true,
-		Containers: []docker.ContainerExecutionInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Name:    "build",
 				Image:   "golang:1.23-alpine",
@@ -73,7 +74,7 @@ func main() {
 	log.Printf("Started pipeline workflow: %s", we.GetID())
 
 	// Wait for result
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	if err := we.Get(context.Background(), &result); err != nil {
 		log.Fatalf("Pipeline failed: %v", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/stretchr/testify/mock"
@@ -66,14 +67,14 @@ func TestExecuteContainerWorkflowExecution(t *testing.T) {
 
 	// Mock the activity to avoid actual container execution
 	// Use mock.Anything for context parameter
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&ContainerExecutionOutput{
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		ContainerID: "test-container-id",
 		Success:     true,
 		ExitCode:    0,
 	}, nil)
 
 	// Execute the workflow
-	env.ExecuteWorkflow(workflow.ExecuteContainerWorkflow, ContainerExecutionInput{
+	env.ExecuteWorkflow(workflow.ExecuteContainerWorkflow, payload.ContainerExecutionInput{
 		Image: "alpine:latest",
 	})
 

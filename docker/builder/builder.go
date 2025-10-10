@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 const (
@@ -27,8 +27,8 @@ const (
 //	    Build()
 type WorkflowBuilder struct {
 	name           string
-	containers     []docker.ContainerExecutionInput
-	exitHandlers   []docker.ContainerExecutionInput
+	containers     []payload.ContainerExecutionInput
+	exitHandlers   []payload.ContainerExecutionInput
 	stopOnError    bool
 	cleanup        bool
 	parallelMode   bool
@@ -48,8 +48,8 @@ type WorkflowBuilder struct {
 func NewWorkflowBuilder(name string, opts ...BuilderOption) *WorkflowBuilder {
 	b := &WorkflowBuilder{
 		name:         name,
-		containers:   make([]docker.ContainerExecutionInput, 0),
-		exitHandlers: make([]docker.ContainerExecutionInput, 0),
+		containers:   make([]payload.ContainerExecutionInput, 0),
+		exitHandlers: make([]payload.ContainerExecutionInput, 0),
 		stopOnError:  true,
 		cleanup:      false,
 		parallelMode: false,
@@ -87,11 +87,11 @@ func (b *WorkflowBuilder) Add(source WorkflowSource) *WorkflowBuilder {
 //
 // Example:
 //
-//	builder.AddInput(docker.ContainerExecutionInput{
+//	builder.AddInput(payload.ContainerExecutionInput{
 //	    Image: "alpine:latest",
 //	    Command: []string{"echo", "hello"},
 //	})
-func (b *WorkflowBuilder) AddInput(input docker.ContainerExecutionInput) *WorkflowBuilder {
+func (b *WorkflowBuilder) AddInput(input payload.ContainerExecutionInput) *WorkflowBuilder {
 	b.containers = append(b.containers, input)
 	return b
 }
@@ -118,11 +118,11 @@ func (b *WorkflowBuilder) AddExitHandler(source WorkflowSource) *WorkflowBuilder
 //
 // Example:
 //
-//	builder.AddExitHandlerInput(docker.ContainerExecutionInput{
+//	builder.AddExitHandlerInput(payload.ContainerExecutionInput{
 //	    Image: "alpine:latest",
 //	    Command: []string{"cleanup.sh"},
 //	})
-func (b *WorkflowBuilder) AddExitHandlerInput(input docker.ContainerExecutionInput) *WorkflowBuilder {
+func (b *WorkflowBuilder) AddExitHandlerInput(input payload.ContainerExecutionInput) *WorkflowBuilder {
 	b.exitHandlers = append(b.exitHandlers, input)
 	return b
 }
@@ -195,7 +195,7 @@ func (b *WorkflowBuilder) MaxConcurrency(max int) *WorkflowBuilder {
 //	    return err
 //	}
 //	output, err := docker.ContainerPipelineWorkflow(ctx, input)
-func (b *WorkflowBuilder) BuildPipeline() (*docker.PipelineInput, error) {
+func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
 	// Check for errors
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
@@ -207,7 +207,7 @@ func (b *WorkflowBuilder) BuildPipeline() (*docker.PipelineInput, error) {
 	}
 
 	// Create pipeline input
-	input := &docker.PipelineInput{
+	input := &payload.PipelineInput{
 		Containers:  b.containers,
 		StopOnError: b.stopOnError,
 		Cleanup:     b.cleanup,
@@ -235,7 +235,7 @@ func (b *WorkflowBuilder) BuildPipeline() (*docker.PipelineInput, error) {
 //	    return err
 //	}
 //	output, err := docker.ParallelContainersWorkflow(ctx, input)
-func (b *WorkflowBuilder) BuildParallel() (*docker.ParallelInput, error) {
+func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
 	// Check for errors
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
@@ -253,7 +253,7 @@ func (b *WorkflowBuilder) BuildParallel() (*docker.ParallelInput, error) {
 	}
 
 	// Create parallel input
-	input := &docker.ParallelInput{
+	input := &payload.ParallelInput{
 		Containers:      b.containers,
 		MaxConcurrency:  b.maxConcurrency,
 		FailureStrategy: failureStrategy,
@@ -281,9 +281,9 @@ func (b *WorkflowBuilder) BuildParallel() (*docker.ParallelInput, error) {
 //	    return err
 //	}
 //	switch v := input.(type) {
-//	case *docker.PipelineInput:
+//	case *payload.PipelineInput:
 //	    output, err := docker.ContainerPipelineWorkflow(ctx, *v)
-//	case *docker.ParallelInput:
+//	case *payload.ParallelInput:
 //	    output, err := docker.ParallelContainersWorkflow(ctx, *v)
 //	}
 func (b *WorkflowBuilder) Build() (interface{}, error) {
@@ -307,7 +307,7 @@ func (b *WorkflowBuilder) Build() (interface{}, error) {
 //	    return err
 //	}
 //	output, err := docker.ExecuteContainerWorkflow(ctx, input)
-func (b *WorkflowBuilder) BuildSingle() (*docker.ContainerExecutionInput, error) {
+func (b *WorkflowBuilder) BuildSingle() (*payload.ContainerExecutionInput, error) {
 	// Check for errors
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
@@ -372,7 +372,7 @@ func (b *WorkflowBuilder) WithAutoRemove(autoRemove bool) *WorkflowBuilder {
 type LoopBuilder struct {
 	items          []string
 	parameters     map[string][]string
-	template       docker.ContainerExecutionInput
+	template       payload.ContainerExecutionInput
 	parallel       bool
 	maxConcurrency int
 	failFast       bool
@@ -418,11 +418,11 @@ func NewParameterizedLoopBuilder(parameters map[string][]string) *LoopBuilder {
 //
 // Example:
 //
-//	builder.WithTemplate(docker.ContainerExecutionInput{
+//	builder.WithTemplate(payload.ContainerExecutionInput{
 //	    Image: "processor:v1",
 //	    Command: []string{"process", "{{item}}"},
 //	})
-func (lb *LoopBuilder) WithTemplate(template docker.ContainerExecutionInput) *LoopBuilder {
+func (lb *LoopBuilder) WithTemplate(template payload.ContainerExecutionInput) *LoopBuilder {
 	lb.template = template
 	return lb
 }
@@ -484,7 +484,7 @@ func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
 //	    return err
 //	}
 //	output, err := docker.LoopWorkflow(ctx, input)
-func (lb *LoopBuilder) BuildLoop() (*docker.LoopInput, error) {
+func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
 	// Check for errors
 	if len(lb.errors) > 0 {
 		return nil, lb.errors[0]
@@ -502,7 +502,7 @@ func (lb *LoopBuilder) BuildLoop() (*docker.LoopInput, error) {
 	}
 
 	// Create loop input
-	input := &docker.LoopInput{
+	input := &payload.LoopInput{
 		Items:           lb.items,
 		Template:        lb.template,
 		Parallel:        lb.parallel,
@@ -531,7 +531,7 @@ func (lb *LoopBuilder) BuildLoop() (*docker.LoopInput, error) {
 //	    return err
 //	}
 //	output, err := docker.ParameterizedLoopWorkflow(ctx, input)
-func (lb *LoopBuilder) BuildParameterizedLoop() (*docker.ParameterizedLoopInput, error) {
+func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput, error) {
 	// Check for errors
 	if len(lb.errors) > 0 {
 		return nil, lb.errors[0]
@@ -549,7 +549,7 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*docker.ParameterizedLoopInput,
 	}
 
 	// Create parameterized loop input
-	input := &docker.ParameterizedLoopInput{
+	input := &payload.ParameterizedLoopInput{
 		Parameters:      lb.parameters,
 		Template:        lb.template,
 		Parallel:        lb.parallel,
@@ -571,12 +571,12 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*docker.ParameterizedLoopInput,
 // Example:
 //
 //	items := []string{"file1.csv", "file2.csv", "file3.csv"}
-//	template := docker.ContainerExecutionInput{
+//	template := payload.ContainerExecutionInput{
 //	    Image: "processor:v1",
 //	    Command: []string{"process", "{{item}}"},
 //	}
 //	input, err := builder.ForEach(items, template)
-func ForEach(items []string, template docker.ContainerExecutionInput) *LoopBuilder {
+func ForEach(items []string, template payload.ContainerExecutionInput) *LoopBuilder {
 	return NewLoopBuilder(items).WithTemplate(template)
 }
 
@@ -589,11 +589,11 @@ func ForEach(items []string, template docker.ContainerExecutionInput) *LoopBuild
 //	    "env": {"dev", "staging", "prod"},
 //	    "region": {"us-west", "us-east"},
 //	}
-//	template := docker.ContainerExecutionInput{
+//	template := payload.ContainerExecutionInput{
 //	    Image: "deployer:v1",
 //	    Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
 //	}
 //	input, err := builder.ForEachParam(params, template)
-func ForEachParam(parameters map[string][]string, template docker.ContainerExecutionInput) *LoopBuilder {
+func ForEachParam(parameters map[string][]string, template payload.ContainerExecutionInput) *LoopBuilder {
 	return NewParameterizedLoopBuilder(parameters).WithTemplate(template)
 }

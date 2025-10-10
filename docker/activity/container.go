@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	dockerpkg "github.com/jasoet/pkg/v2/docker"
 	"go.temporal.io/sdk/activity"
 )
@@ -12,7 +12,7 @@ import (
 // StartContainerActivity starts a container, waits for completion, and returns results.
 //
 //nolint:gocyclo,funlen // This function orchestrates container lifecycle which requires conditional logic and multiple steps
-func StartContainerActivity(ctx context.Context, input docker.ContainerExecutionInput) (*docker.ContainerExecutionOutput, error) {
+func StartContainerActivity(ctx context.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 	logger := activity.GetLogger(ctx)
 	logger.Info("Starting container", "image", input.Image, "name", input.Name)
 
@@ -73,7 +73,7 @@ func StartContainerActivity(ctx context.Context, input docker.ContainerExecution
 	// Create executor
 	exec, err := dockerpkg.New(opts...)
 	if err != nil {
-		return &docker.ContainerExecutionOutput{
+		return &payload.ContainerExecutionOutput{
 			Name:       input.Name,
 			StartedAt:  startTime,
 			FinishedAt: time.Now(),
@@ -84,7 +84,7 @@ func StartContainerActivity(ctx context.Context, input docker.ContainerExecution
 
 	// Start container
 	if err := exec.Start(ctx); err != nil {
-		return &docker.ContainerExecutionOutput{
+		return &payload.ContainerExecutionOutput{
 			Name:       input.Name,
 			StartedAt:  startTime,
 			FinishedAt: time.Now(),
@@ -134,7 +134,7 @@ func StartContainerActivity(ctx context.Context, input docker.ContainerExecution
 		}
 	}
 
-	output := &docker.ContainerExecutionOutput{
+	output := &payload.ContainerExecutionOutput{
 		ContainerID: containerID,
 		Name:        input.Name,
 		ExitCode:    int(exitCode),
@@ -162,7 +162,7 @@ func StartContainerActivity(ctx context.Context, input docker.ContainerExecution
 }
 
 // buildWaitStrategy converts config to docker wait strategy.
-func buildWaitStrategy(cfg docker.WaitStrategyConfig) dockerpkg.WaitStrategy {
+func buildWaitStrategy(cfg payload.WaitStrategyConfig) dockerpkg.WaitStrategy {
 	timeout := cfg.StartupTimeout
 	if timeout == 0 {
 		timeout = 60 * time.Second

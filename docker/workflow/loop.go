@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -16,7 +16,7 @@ const (
 )
 
 // LoopWorkflow executes containers in a loop over items (withItems pattern).
-func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOutput, error) {
+func LoopWorkflow(ctx workflow.Context, input payload.LoopInput) (*payload.LoopOutput, error) {
 	logger := workflow.GetLogger(ctx)
 	logger.Info("Starting loop workflow",
 		"items", len(input.Items),
@@ -42,8 +42,8 @@ func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOut
 	}
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
-	output := &docker.LoopOutput{
-		Results:   make([]docker.ContainerExecutionOutput, 0, len(input.Items)),
+	output := &payload.LoopOutput{
+		Results:   make([]payload.ContainerExecutionOutput, 0, len(input.Items)),
 		ItemCount: len(input.Items),
 	}
 
@@ -66,7 +66,7 @@ func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOut
 
 		// Collect results
 		for i, future := range futures {
-			var result docker.ContainerExecutionOutput
+			var result payload.ContainerExecutionOutput
 			err := future.Get(ctx, &result)
 
 			output.Results = append(output.Results, result)
@@ -98,7 +98,7 @@ func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOut
 				"image", containerInput.Image)
 
 			// Execute container activity
-			var result docker.ContainerExecutionOutput
+			var result payload.ContainerExecutionOutput
 			err := workflow.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
 
 			output.Results = append(output.Results, result)
@@ -132,7 +132,7 @@ func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOut
 }
 
 // ParameterizedLoopWorkflow executes containers with parameterized loops (withParam pattern).
-func ParameterizedLoopWorkflow(ctx workflow.Context, input docker.ParameterizedLoopInput) (*docker.LoopOutput, error) {
+func ParameterizedLoopWorkflow(ctx workflow.Context, input payload.ParameterizedLoopInput) (*payload.LoopOutput, error) {
 	logger := workflow.GetLogger(ctx)
 	logger.Info("Starting parameterized loop workflow",
 		"parameters", len(input.Parameters),
@@ -164,8 +164,8 @@ func ParameterizedLoopWorkflow(ctx workflow.Context, input docker.ParameterizedL
 	}
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
-	output := &docker.LoopOutput{
-		Results:   make([]docker.ContainerExecutionOutput, 0, len(combinations)),
+	output := &payload.LoopOutput{
+		Results:   make([]payload.ContainerExecutionOutput, 0, len(combinations)),
 		ItemCount: len(combinations),
 	}
 
@@ -188,7 +188,7 @@ func ParameterizedLoopWorkflow(ctx workflow.Context, input docker.ParameterizedL
 
 		// Collect results
 		for i, future := range futures {
-			var result docker.ContainerExecutionOutput
+			var result payload.ContainerExecutionOutput
 			err := future.Get(ctx, &result)
 
 			output.Results = append(output.Results, result)
@@ -220,7 +220,7 @@ func ParameterizedLoopWorkflow(ctx workflow.Context, input docker.ParameterizedL
 				"image", containerInput.Image)
 
 			// Execute container activity
-			var result docker.ContainerExecutionOutput
+			var result payload.ContainerExecutionOutput
 			err := workflow.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
 
 			output.Results = append(output.Results, result)

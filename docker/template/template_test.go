@@ -3,7 +3,7 @@ package template
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -93,12 +93,12 @@ func TestContainerWaitStrategies(t *testing.T) {
 	tests := []struct {
 		name     string
 		option   ContainerOption
-		validate func(t *testing.T, input docker.ContainerExecutionInput)
+		validate func(t *testing.T, input payload.ContainerExecutionInput)
 	}{
 		{
 			name:   "wait for log",
 			option: WithWaitForLog("ready to accept connections"),
-			validate: func(t *testing.T, input docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "log", input.WaitStrategy.Type)
 				assert.Equal(t, "ready to accept connections", input.WaitStrategy.LogMessage)
 			},
@@ -106,7 +106,7 @@ func TestContainerWaitStrategies(t *testing.T) {
 		{
 			name:   "wait for port",
 			option: WithWaitForPort("5432"),
-			validate: func(t *testing.T, input docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "port", input.WaitStrategy.Type)
 				assert.Equal(t, "5432", input.WaitStrategy.Port)
 			},
@@ -114,7 +114,7 @@ func TestContainerWaitStrategies(t *testing.T) {
 		{
 			name:   "wait for HTTP",
 			option: WithWaitForHTTP("8080", "/health", 200),
-			validate: func(t *testing.T, input docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "http", input.WaitStrategy.Type)
 				assert.Equal(t, "8080", input.WaitStrategy.Port)
 				assert.Equal(t, "/health", input.WaitStrategy.HTTPPath)
@@ -124,7 +124,7 @@ func TestContainerWaitStrategies(t *testing.T) {
 		{
 			name:   "wait for healthy",
 			option: WithWaitForHealthy(),
-			validate: func(t *testing.T, input docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "healthy", input.WaitStrategy.Type)
 			},
 		},
@@ -242,14 +242,14 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 	tests := []struct {
 		name     string
 		script   *Script
-		expected func(*testing.T, docker.ContainerExecutionInput)
+		expected func(*testing.T, payload.ContainerExecutionInput)
 	}{
 		{
 			name: "script with custom image",
 			script: NewScript("test", "bash",
 				WithScriptImage("custom/bash:v1"),
 				WithScriptContent("echo test")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "custom/bash:v1", input.Image)
 			},
 		},
@@ -258,7 +258,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			script: NewBashScript("test", "echo $VAR1 $VAR2",
 				WithScriptEnv("VAR1", "value1"),
 				WithScriptEnv("VAR2", "value2")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "value1", input.Env["VAR1"])
 				assert.Equal(t, "value2", input.Env["VAR2"])
 			},
@@ -271,7 +271,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 					"VAR2": "value2",
 					"VAR3": "value3",
 				})),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "value1", input.Env["VAR1"])
 				assert.Equal(t, "value2", input.Env["VAR2"])
 				assert.Equal(t, "value3", input.Env["VAR3"])
@@ -281,7 +281,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			name: "script with work directory",
 			script: NewPythonScript("test", "print('hello')",
 				WithScriptWorkingDir("/workspace")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "/workspace", input.WorkDir)
 			},
 		},
@@ -289,7 +289,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			name: "script with volume",
 			script: NewNodeScript("test", "console.log('test')",
 				WithScriptVolume("/host", "/container")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "/container", input.Volumes["/host"])
 			},
 		},
@@ -297,7 +297,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			name: "script with auto remove",
 			script: NewBashScript("test", "echo test",
 				WithScriptAutoRemove(true)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.True(t, input.AutoRemove)
 			},
 		},
@@ -305,7 +305,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			name: "script with ports",
 			script: NewBashScript("test", "echo test",
 				WithScriptPorts("8080:8080", "9090:9090")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Contains(t, input.Ports, "8080:8080")
 				assert.Contains(t, input.Ports, "9090:9090")
 			},
@@ -314,7 +314,7 @@ func TestScriptOptionsComprehensive(t *testing.T) {
 			name: "script with custom command",
 			script: NewScript("test", "bash",
 				WithScriptCommand("bash", "-x", "-e")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Contains(t, input.Command, "bash")
 				assert.Contains(t, input.Command, "-x")
 				assert.Contains(t, input.Command, "-e")
@@ -361,7 +361,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 	tests := []struct {
 		name     string
 		http     *HTTP
-		expected func(*testing.T, docker.ContainerExecutionInput)
+		expected func(*testing.T, payload.ContainerExecutionInput)
 	}{
 		{
 			name: "http with headers",
@@ -369,7 +369,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPHeader("Authorization", "Bearer token"),
 				WithHTTPHeader("Content-Type", "application/json")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "-H")
 				assert.Contains(t, script, "Authorization: Bearer token")
@@ -382,7 +382,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPMethod("POST"),
 				WithHTTPBody(`{"key": "value"}`)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "-d")
 			},
@@ -392,7 +392,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPExpectedStatus(201)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "201")
 			},
@@ -402,7 +402,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPTimeout(45)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "--max-time 45")
 			},
@@ -412,7 +412,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPCurlImage("custom/curl:v1")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "custom/curl:v1", input.Image)
 			},
 		},
@@ -425,7 +425,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 					"Content-Type":  "application/json",
 					"Accept":        "application/json",
 				})),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "Authorization: Bearer token")
 				assert.Contains(t, script, "Content-Type: application/json")
@@ -437,7 +437,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPAutoRemove(true)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.True(t, input.AutoRemove)
 			},
 		},
@@ -446,7 +446,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPFollowRedirect(true)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "-L")
 			},
@@ -456,7 +456,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPInsecure(true)),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
 				assert.Contains(t, script, "-k")
 			},
@@ -466,7 +466,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			http: NewHTTP("test",
 				WithHTTPURL("https://api.example.com"),
 				WithHTTPEnv("API_KEY", "secret123")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "secret123", input.Env["API_KEY"])
 			},
 		},
@@ -525,13 +525,13 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 	tests := []struct {
 		name      string
 		container *Container
-		expected  func(*testing.T, docker.ContainerExecutionInput)
+		expected  func(*testing.T, payload.ContainerExecutionInput)
 	}{
 		{
 			name: "container with entrypoint",
 			container: NewContainer("test", "alpine:latest",
 				WithEntrypoint("/bin/sh", "-c")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, []string{"/bin/sh", "-c"}, input.Entrypoint)
 			},
 		},
@@ -540,7 +540,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 			container: NewContainer("test", "alpine:latest",
 				WithLabel("app", "myapp"),
 				WithLabel("version", "1.0")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "myapp", input.Labels["app"])
 				assert.Equal(t, "1.0", input.Labels["version"])
 			},
@@ -549,7 +549,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 			name: "container with volumes",
 			container: NewContainer("test", "alpine:latest",
 				WithVolume("/host/path", "/container/path")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "/container/path", input.Volumes["/host/path"])
 			},
 		},
@@ -557,7 +557,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 			name: "container with user",
 			container: NewContainer("test", "alpine:latest",
 				WithUser("1000:1000")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "1000:1000", input.User)
 			},
 		},
@@ -565,7 +565,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 			name: "container with work dir",
 			container: NewContainer("test", "alpine:latest",
 				WithWorkDir("/workspace")),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "/workspace", input.WorkDir)
 			},
 		},
@@ -576,7 +576,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 					"VAR1": "value1",
 					"VAR2": "value2",
 				})),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "value1", input.Env["VAR1"])
 				assert.Equal(t, "value2", input.Env["VAR2"])
 			},
@@ -588,7 +588,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 					"/host1": "/container1",
 					"/host2": "/container2",
 				})),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "/container1", input.Volumes["/host1"])
 				assert.Equal(t, "/container2", input.Volumes["/host2"])
 			},
@@ -601,7 +601,7 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 					"version": "1.0",
 					"env":     "prod",
 				})),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "myapp", input.Labels["app"])
 				assert.Equal(t, "1.0", input.Labels["version"])
 				assert.Equal(t, "prod", input.Labels["env"])
@@ -610,11 +610,11 @@ func TestContainerOptionsComprehensive(t *testing.T) {
 		{
 			name: "container with wait strategy",
 			container: NewContainer("test", "alpine:latest",
-				WithWaitStrategy(docker.WaitStrategyConfig{
+				WithWaitStrategy(payload.WaitStrategyConfig{
 					Type:       "log",
 					LogMessage: "ready",
 				})),
-			expected: func(t *testing.T, input docker.ContainerExecutionInput) {
+			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				assert.Equal(t, "log", input.WaitStrategy.Type)
 				assert.Equal(t, "ready", input.WaitStrategy.LogMessage)
 			},

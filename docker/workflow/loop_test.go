@@ -3,8 +3,8 @@ package workflow
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -15,14 +15,14 @@ import (
 func TestLoopInput_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   docker.LoopInput
+		input   payload.LoopInput
 		wantErr bool
 	}{
 		{
 			name: "valid loop input",
-			input: docker.LoopInput{
+			input: payload.LoopInput{
 				Items: []string{"item1", "item2", "item3"},
-				Template: docker.ContainerExecutionInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 				Parallel:        true,
@@ -32,9 +32,9 @@ func TestLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "empty items",
-			input: docker.LoopInput{
+			input: payload.LoopInput{
 				Items: []string{},
-				Template: docker.ContainerExecutionInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 			},
@@ -42,8 +42,8 @@ func TestLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "nil items",
-			input: docker.LoopInput{
-				Template: docker.ContainerExecutionInput{
+			input: payload.LoopInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 			},
@@ -51,17 +51,17 @@ func TestLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing image in template",
-			input: docker.LoopInput{
+			input: payload.LoopInput{
 				Items:    []string{"item1"},
-				Template: docker.ContainerExecutionInput{},
+				Template: payload.ContainerExecutionInput{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid with max concurrency",
-			input: docker.LoopInput{
+			input: payload.LoopInput{
 				Items: []string{"item1", "item2"},
-				Template: docker.ContainerExecutionInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 				Parallel:       true,
@@ -85,17 +85,17 @@ func TestLoopInput_Validate(t *testing.T) {
 func TestParameterizedLoopInput_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   docker.ParameterizedLoopInput
+		input   payload.ParameterizedLoopInput
 		wantErr bool
 	}{
 		{
 			name: "valid parameterized loop",
-			input: docker.ParameterizedLoopInput{
+			input: payload.ParameterizedLoopInput{
 				Parameters: map[string][]string{
 					"env":    {"dev", "prod"},
 					"region": {"us-west", "us-east"},
 				},
-				Template: docker.ContainerExecutionInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "deployer:v1",
 				},
 			},
@@ -103,9 +103,9 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "empty parameters",
-			input: docker.ParameterizedLoopInput{
+			input: payload.ParameterizedLoopInput{
 				Parameters: map[string][]string{},
-				Template: docker.ContainerExecutionInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "alpine:latest",
 				},
 			},
@@ -113,12 +113,12 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "parameter with empty array",
-			input: docker.ParameterizedLoopInput{
+			input: payload.ParameterizedLoopInput{
 				Parameters: map[string][]string{
 					"env":    {"dev", "prod"},
 					"region": {},
 				},
-				Template: docker.ContainerExecutionInput{
+				Template: payload.ContainerExecutionInput{
 					Image: "deployer:v1",
 				},
 			},
@@ -126,11 +126,11 @@ func TestParameterizedLoopInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing image in template",
-			input: docker.ParameterizedLoopInput{
+			input: payload.ParameterizedLoopInput{
 				Parameters: map[string][]string{
 					"env": {"dev"},
 				},
-				Template: docker.ContainerExecutionInput{},
+				Template: payload.ContainerExecutionInput{},
 			},
 			wantErr: true,
 		},
@@ -220,21 +220,21 @@ func TestSubstituteTemplate(t *testing.T) {
 func TestSubstituteContainerInput(t *testing.T) {
 	tests := []struct {
 		name     string
-		template docker.ContainerExecutionInput
+		template payload.ContainerExecutionInput
 		item     string
 		index    int
 		params   map[string]string
-		validate func(*testing.T, docker.ContainerExecutionInput)
+		validate func(*testing.T, payload.ContainerExecutionInput)
 	}{
 		{
 			name: "substitute in image",
-			template: docker.ContainerExecutionInput{
+			template: payload.ContainerExecutionInput{
 				Image: "processor:{{item}}",
 			},
 			item:   "v1",
 			index:  0,
 			params: nil,
-			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, result payload.ContainerExecutionInput) {
 				if result.Image != "processor:v1" {
 					t.Errorf("Image = %v, want processor:v1", result.Image)
 				}
@@ -242,14 +242,14 @@ func TestSubstituteContainerInput(t *testing.T) {
 		},
 		{
 			name: "substitute in command",
-			template: docker.ContainerExecutionInput{
+			template: payload.ContainerExecutionInput{
 				Image:   "alpine:latest",
 				Command: []string{"echo", "Processing {{item}} at index {{index}}"},
 			},
 			item:   "file.txt",
 			index:  5,
 			params: nil,
-			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, result payload.ContainerExecutionInput) {
 				if len(result.Command) != 2 {
 					t.Errorf("Command length = %v, want 2", len(result.Command))
 				}
@@ -260,7 +260,7 @@ func TestSubstituteContainerInput(t *testing.T) {
 		},
 		{
 			name: "substitute in env",
-			template: docker.ContainerExecutionInput{
+			template: payload.ContainerExecutionInput{
 				Image: "alpine:latest",
 				Env: map[string]string{
 					"ITEM":  "{{item}}",
@@ -271,7 +271,7 @@ func TestSubstituteContainerInput(t *testing.T) {
 			item:   "data.csv",
 			index:  2,
 			params: map[string]string{"env": "production"},
-			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, result payload.ContainerExecutionInput) {
 				if result.Env["ITEM"] != "data.csv" {
 					t.Errorf("Env[ITEM] = %v, want data.csv", result.Env["ITEM"])
 				}
@@ -285,14 +285,14 @@ func TestSubstituteContainerInput(t *testing.T) {
 		},
 		{
 			name: "substitute in name",
-			template: docker.ContainerExecutionInput{
+			template: payload.ContainerExecutionInput{
 				Image: "alpine:latest",
 				Name:  "container-{{index}}",
 			},
 			item:   "",
 			index:  10,
 			params: nil,
-			validate: func(t *testing.T, result docker.ContainerExecutionInput) {
+			validate: func(t *testing.T, result payload.ContainerExecutionInput) {
 				if result.Name != "container-10" {
 					t.Errorf("Name = %v, want container-10", result.Name)
 				}
@@ -425,16 +425,16 @@ func TestLoopWorkflow(t *testing.T) {
 
 	// Mock the container execution activity
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{
+		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
 			Success:     true,
 		}, nil,
 	)
 
-	input := docker.LoopInput{
+	input := payload.LoopInput{
 		Items: []string{"item1", "item2", "item3"},
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "alpine:latest",
 			Command: []string{"echo", "{{item}}"},
 		},
@@ -447,7 +447,7 @@ func TestLoopWorkflow(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 3, result.ItemCount)
 	assert.Equal(t, 3, result.TotalSuccess)
@@ -461,16 +461,16 @@ func TestLoopWorkflow_Sequential(t *testing.T) {
 
 	// Mock the container execution activity
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{
+		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
 			Success:     true,
 		}, nil,
 	)
 
-	input := docker.LoopInput{
+	input := payload.LoopInput{
 		Items: []string{"step1", "step2"},
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "alpine:latest",
 			Command: []string{"echo", "{{item}}"},
 		},
@@ -483,7 +483,7 @@ func TestLoopWorkflow_Sequential(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.ItemCount)
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -496,19 +496,19 @@ func TestParameterizedLoopWorkflow(t *testing.T) {
 
 	// Mock the container execution activity
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{
+		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
 			Success:     true,
 		}, nil,
 	)
 
-	input := docker.ParameterizedLoopInput{
+	input := payload.ParameterizedLoopInput{
 		Parameters: map[string][]string{
 			"env":    {"dev", "prod"},
 			"region": {"us-west", "us-east"},
 		},
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "deployer:v1",
 			Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
 		},
@@ -521,7 +521,7 @@ func TestParameterizedLoopWorkflow(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 4, result.ItemCount) // 2 envs * 2 regions = 4 combinations
 	assert.Equal(t, 4, result.TotalSuccess)
@@ -535,18 +535,18 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 
 	// Mock the container execution activity
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{
+		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
 			Success:     true,
 		}, nil,
 	)
 
-	input := docker.ParameterizedLoopInput{
+	input := payload.ParameterizedLoopInput{
 		Parameters: map[string][]string{
 			"version": {"1.0", "2.0"},
 		},
-		Template: docker.ContainerExecutionInput{
+		Template: payload.ContainerExecutionInput{
 			Image:   "builder:v1",
 			Command: []string{"build", "--version={{.version}}"},
 		},
@@ -559,7 +559,7 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result docker.LoopOutput
+	var result payload.LoopOutput
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.ItemCount)
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -590,7 +590,7 @@ func BenchmarkGenerateParameterCombinations(b *testing.B) {
 }
 
 func BenchmarkSubstituteContainerInput(b *testing.B) {
-	template := docker.ContainerExecutionInput{
+	template := payload.ContainerExecutionInput{
 		Image:   "processor:{{item}}",
 		Command: []string{"process", "{{item}}", "--index={{index}}"},
 		Env: map[string]string{

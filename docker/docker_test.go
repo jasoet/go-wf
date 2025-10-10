@@ -1,32 +1,37 @@
-//go:build integration
-// +build integration
-
 package docker
 
 import (
+	"github.com/nexus-rpc/sdk-go/nexus"
+	sdkactivity "go.temporal.io/sdk/activity"
+	sdkworkflow "go.temporal.io/sdk/workflow"
 	"testing"
 	"time"
 
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 )
 
-// mockWorker implements the Worker interface for testing
-type mockWorker struct{}
+// integrationMockWorker implements the Worker interface for testing
+type integrationMockWorker struct{}
 
-func (m *mockWorker) RegisterWorkflow(interface{})                         {}
-func (m *mockWorker) RegisterWorkflowWithOptions(interface{}, interface{}) {}
-func (m *mockWorker) RegisterDynamicWorkflow(interface{}, interface{})     {}
-func (m *mockWorker) RegisterActivity(interface{})                         {}
-func (m *mockWorker) RegisterActivityWithOptions(interface{}, interface{}) {}
-func (m *mockWorker) RegisterDynamicActivity(interface{}, interface{})     {}
-func (m *mockWorker) RegisterNexusService(interface{})                     {}
-func (m *mockWorker) Run(<-chan interface{}) error                         { return nil }
-func (m *mockWorker) Start() error                                         { return nil }
-func (m *mockWorker) Stop()                                                {}
+func (m *integrationMockWorker) RegisterWorkflow(interface{}) {}
+func (m *integrationMockWorker) RegisterWorkflowWithOptions(interface{}, sdkworkflow.RegisterOptions) {
+}
+func (m *integrationMockWorker) RegisterDynamicWorkflow(interface{}, sdkworkflow.DynamicRegisterOptions) {
+}
+func (m *integrationMockWorker) RegisterActivity(interface{}) {}
+func (m *integrationMockWorker) RegisterActivityWithOptions(interface{}, sdkactivity.RegisterOptions) {
+}
+func (m *integrationMockWorker) RegisterDynamicActivity(interface{}, sdkactivity.DynamicRegisterOptions) {
+}
+func (m *integrationMockWorker) RegisterNexusService(*nexus.Service) {}
+func (m *integrationMockWorker) Run(<-chan interface{}) error        { return nil }
+func (m *integrationMockWorker) Start() error                        { return nil }
+func (m *integrationMockWorker) Stop()                               {}
 
 func TestIntegrationContainerExecution(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
@@ -35,7 +40,7 @@ func TestIntegrationContainerExecution(t *testing.T) {
 	// Register the activity
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"echo", "Hello, World!"},
 		AutoRemove: true,
@@ -46,7 +51,7 @@ func TestIntegrationContainerExecution(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	err := env.GetWorkflowResult(&result)
 	require.NoError(t, err)
 	assert.NotEmpty(t, result.ContainerID)
@@ -59,8 +64,8 @@ func TestIntegrationPipelineWorkflow(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := PipelineInput{
-		Containers: []ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Image:      "alpine:latest",
 				Command:    []string{"echo", "Step 1"},
@@ -87,8 +92,8 @@ func TestIntegrationParallelWorkflow(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := ParallelInput{
-		Containers: []ContainerExecutionInput{
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
 			{
 				Image:      "alpine:latest",
 				Name:       "task1",
@@ -117,10 +122,10 @@ func TestIntegrationContainerWithWaitStrategy(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image: "nginx:alpine",
 		Ports: []string{"0:80"}, // Use random port
-		WaitStrategy: WaitStrategyConfig{
+		WaitStrategy: payload.WaitStrategyConfig{
 			Type:       "log",
 			LogMessage: "start worker processes",
 		},
@@ -140,7 +145,7 @@ func TestIntegrationContainerWithEnvironment(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"sh", "-c", "echo $TEST_VAR"},
 		Env: map[string]string{
@@ -154,7 +159,7 @@ func TestIntegrationContainerWithEnvironment(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result ContainerExecutionOutput
+	var result payload.ContainerExecutionOutput
 	err := env.GetWorkflowResult(&result)
 	require.NoError(t, err)
 	assert.Contains(t, result.Stdout, "test_value")
@@ -166,12 +171,12 @@ func TestIntegrationDAGWorkflow(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := DAGWorkflowInput{
-		Nodes: []DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "first",
-				Container: ExtendedContainerInput{
-					ContainerExecutionInput: ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"echo", "First task"},
 						AutoRemove: true,
@@ -180,8 +185,8 @@ func TestIntegrationDAGWorkflow(t *testing.T) {
 			},
 			{
 				Name: "second",
-				Container: ExtendedContainerInput{
-					ContainerExecutionInput: ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"echo", "Second task"},
 						AutoRemove: true,
@@ -206,7 +211,7 @@ func TestIntegrationContainerWithVolumes(t *testing.T) {
 	env.RegisterActivity(activity.StartContainerActivity)
 
 	// Create a temporary file to mount
-	input := ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"sh", "-c", "echo 'test content' > /data/test.txt && cat /data/test.txt"},
 		AutoRemove: true,
@@ -220,7 +225,7 @@ func TestIntegrationContainerWithVolumes(t *testing.T) {
 
 func TestIntegrationWorkflowRegistration(t *testing.T) {
 	// Test that workflows and activities can be registered without error
-	w := &mockWorker{}
+	w := &integrationMockWorker{}
 
 	// These should not panic
 	assert.NotPanics(t, func() {

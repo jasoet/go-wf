@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jasoet/go-wf/docker/payload"
 	wf "github.com/jasoet/go-wf/docker/workflow"
 	"go.temporal.io/sdk/client"
 )
@@ -30,17 +31,17 @@ func SubmitWorkflow(ctx context.Context, c client.Client, input interface{}, tas
 
 	var workflowFunc interface{}
 	switch v := input.(type) {
-	case ContainerExecutionInput:
+	case payload.ContainerExecutionInput:
 		workflowFunc = wf.ExecuteContainerWorkflow
-	case *ContainerExecutionInput:
+	case *payload.ContainerExecutionInput:
 		workflowFunc = wf.ExecuteContainerWorkflow
-	case PipelineInput:
+	case payload.PipelineInput:
 		workflowFunc = wf.ContainerPipelineWorkflow
-	case *PipelineInput:
+	case *payload.PipelineInput:
 		workflowFunc = wf.ContainerPipelineWorkflow
-	case ParallelInput:
+	case payload.ParallelInput:
 		workflowFunc = wf.ParallelContainersWorkflow
-	case *ParallelInput:
+	case *payload.ParallelInput:
 		workflowFunc = wf.ParallelContainersWorkflow
 	default:
 		return nil, fmt.Errorf("unsupported workflow input type: %T", v)

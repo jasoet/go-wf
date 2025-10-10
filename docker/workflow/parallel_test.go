@@ -3,8 +3,8 @@ package workflow
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/testsuite"
 )
@@ -14,8 +14,8 @@ func TestParallelContainersWorkflow_Success(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ParallelInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Name: "task1"},
 			{Image: "nginx:alpine", Name: "task2"},
 		},
@@ -23,7 +23,7 @@ func TestParallelContainersWorkflow_Success(t *testing.T) {
 	}
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
 
@@ -31,7 +31,7 @@ func TestParallelContainersWorkflow_Success(t *testing.T) {
 		t.Fatal("Workflow did not complete")
 	}
 
-	var result docker.ParallelOutput
+	var result payload.ParallelOutput
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("Failed to get result: %v", err)
 	}
@@ -46,8 +46,8 @@ func TestParallelContainersWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ParallelInput{
-		Containers: []docker.ContainerExecutionInput{},
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{},
 	}
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -66,8 +66,8 @@ func TestParallelContainersWorkflow_FailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ParallelInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Name: "task1"},
 			{Image: "alpine:latest", Name: "task2"},
 		},
@@ -76,11 +76,11 @@ func TestParallelContainersWorkflow_FailFast(t *testing.T) {
 
 	// First fails
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
-		&docker.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
 
 	// Second succeeds
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
 
@@ -98,8 +98,8 @@ func TestParallelContainersWorkflow_ContinueStrategy(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.ParallelInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Name: "task1"},
 			{Image: "alpine:latest", Name: "task2"},
 		},
@@ -108,11 +108,11 @@ func TestParallelContainersWorkflow_ContinueStrategy(t *testing.T) {
 
 	// First fails
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
-		&docker.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
 
 	// Second succeeds
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
 
@@ -124,7 +124,7 @@ func TestParallelContainersWorkflow_ContinueStrategy(t *testing.T) {
 		t.Errorf("Workflow should not error with continue strategy: %v", env.GetWorkflowError())
 	}
 
-	var result docker.ParallelOutput
+	var result payload.ParallelOutput
 	env.GetWorkflowResult(&result)
 
 	if result.TotalFailed != 1 {

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/testsuite"
@@ -17,7 +17,7 @@ func TestDAGWorkflow(t *testing.T) {
 
 	// Mock the activity
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{
+		&payload.ContainerExecutionOutput{
 			ContainerID: "container-123",
 			ExitCode:    0,
 			Success:     true,
@@ -26,12 +26,12 @@ func TestDAGWorkflow(t *testing.T) {
 			FinishedAt:  time.Now().Add(1 * time.Second),
 		}, nil)
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "build",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "golang:1.25",
 						Command: []string{"go", "build"},
 					},
@@ -39,8 +39,8 @@ func TestDAGWorkflow(t *testing.T) {
 			},
 			{
 				Name: "test",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "golang:1.25",
 						Command: []string{"go", "test"},
 					},
@@ -59,17 +59,17 @@ func TestDAGWorkflow(t *testing.T) {
 func TestDAGWorkflowValidation(t *testing.T) {
 	tests := []struct {
 		name        string
-		input       docker.DAGWorkflowInput
+		input       payload.DAGWorkflowInput
 		expectError bool
 	}{
 		{
 			name: "valid DAG",
-			input: docker.DAGWorkflowInput{
-				Nodes: []docker.DAGNode{
+			input: payload.DAGWorkflowInput{
+				Nodes: []payload.DAGNode{
 					{
 						Name: "task1",
-						Container: docker.ExtendedContainerInput{
-							ContainerExecutionInput: docker.ContainerExecutionInput{
+						Container: payload.ExtendedContainerInput{
+							ContainerExecutionInput: payload.ContainerExecutionInput{
 								Image: "alpine:latest",
 							},
 						},
@@ -80,19 +80,19 @@ func TestDAGWorkflowValidation(t *testing.T) {
 		},
 		{
 			name: "empty nodes",
-			input: docker.DAGWorkflowInput{
-				Nodes: []docker.DAGNode{},
+			input: payload.DAGWorkflowInput{
+				Nodes: []payload.DAGNode{},
 			},
 			expectError: true,
 		},
 		{
 			name: "missing dependency",
-			input: docker.DAGWorkflowInput{
-				Nodes: []docker.DAGNode{
+			input: payload.DAGWorkflowInput{
+				Nodes: []payload.DAGNode{
 					{
 						Name: "task1",
-						Container: docker.ExtendedContainerInput{
-							ContainerExecutionInput: docker.ContainerExecutionInput{
+						Container: payload.ExtendedContainerInput{
+							ContainerExecutionInput: payload.ContainerExecutionInput{
 								Image: "alpine:latest",
 							},
 						},
@@ -122,7 +122,7 @@ func TestDAGWorkflowFailFast(t *testing.T) {
 
 	// Mock activity to return failure for first call, success for second
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).
-		Return(&docker.ContainerExecutionOutput{
+		Return(&payload.ContainerExecutionOutput{
 			ContainerID: "container-fail",
 			ExitCode:    1,
 			Success:     false,
@@ -130,27 +130,27 @@ func TestDAGWorkflowFailFast(t *testing.T) {
 		}, nil).Once()
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).
-		Return(&docker.ContainerExecutionOutput{
+		Return(&payload.ContainerExecutionOutput{
 			ContainerID: "container-ok",
 			ExitCode:    0,
 			Success:     true,
 			Duration:    1 * time.Second,
 		}, nil)
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "task1",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image: "alpine:latest",
 					},
 				},
 			},
 			{
 				Name: "task2",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image: "alpine:latest",
 					},
 				},
@@ -171,13 +171,13 @@ func TestWorkflowWithParameters(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{
+		&payload.ContainerExecutionOutput{
 			ContainerID: "container-123",
 			ExitCode:    0,
 			Duration:    1 * time.Second,
 		}, nil)
 
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"echo", "{{.version}}"},
 		Env: map[string]string{
@@ -185,7 +185,7 @@ func TestWorkflowWithParameters(t *testing.T) {
 		},
 	}
 
-	params := []docker.WorkflowParameter{
+	params := []payload.WorkflowParameter{
 		{Name: "version", Value: "v1.2.3"},
 	}
 

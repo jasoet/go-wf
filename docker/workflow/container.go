@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 // ExecuteContainerWorkflow runs a single container and returns results.
-func ExecuteContainerWorkflow(ctx workflow.Context, input docker.ContainerExecutionInput) (*docker.ContainerExecutionOutput, error) {
+func ExecuteContainerWorkflow(ctx workflow.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 	logger := workflow.GetLogger(ctx)
 	logger.Info("Starting container execution workflow",
 		"image", input.Image,
@@ -41,7 +41,7 @@ func ExecuteContainerWorkflow(ctx workflow.Context, input docker.ContainerExecut
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
 	// Execute container activity
-	var output docker.ContainerExecutionOutput
+	var output payload.ContainerExecutionOutput
 	err := workflow.ExecuteActivity(ctx, activity.StartContainerActivity, input).Get(ctx, &output)
 	if err != nil {
 		logger.Error("Container execution failed", "error", err)

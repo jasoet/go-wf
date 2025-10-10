@@ -1,4 +1,4 @@
-package docker
+package workflow
 
 import (
 	"encoding/json"
@@ -7,10 +7,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // ExtractOutput extracts a value from container output based on the definition.
-func ExtractOutput(def OutputDefinition, containerOutput *ContainerExecutionOutput) (string, error) {
+func ExtractOutput(def payload.OutputDefinition, containerOutput *payload.ContainerExecutionOutput) (string, error) {
 	var rawValue string
 	var err error
 
@@ -71,7 +73,7 @@ func ExtractOutput(def OutputDefinition, containerOutput *ContainerExecutionOutp
 }
 
 // ExtractOutputs extracts all outputs defined in the list.
-func ExtractOutputs(definitions []OutputDefinition, containerOutput *ContainerExecutionOutput) (map[string]string, error) {
+func ExtractOutputs(definitions []payload.OutputDefinition, containerOutput *payload.ContainerExecutionOutput) (map[string]string, error) {
 	outputs := make(map[string]string, len(definitions))
 
 	for _, def := range definitions {
@@ -205,7 +207,7 @@ func readFile(path string) (string, error) {
 
 // SubstituteInputs applies input mappings to container environment variables.
 // It resolves step outputs and substitutes them into the container input.
-func SubstituteInputs(containerInput *ContainerExecutionInput, inputs []InputMapping, stepOutputs map[string]map[string]string) error {
+func SubstituteInputs(containerInput *payload.ContainerExecutionInput, inputs []payload.InputMapping, stepOutputs map[string]map[string]string) error {
 	if containerInput.Env == nil {
 		containerInput.Env = make(map[string]string)
 	}
@@ -231,7 +233,7 @@ func SubstituteInputs(containerInput *ContainerExecutionInput, inputs []InputMap
 
 // resolveInputMapping resolves an input mapping from step outputs.
 // Format: "step-name.output-name"
-func resolveInputMapping(mapping InputMapping, stepOutputs map[string]map[string]string) (string, error) {
+func resolveInputMapping(mapping payload.InputMapping, stepOutputs map[string]map[string]string) (string, error) {
 	// Parse "step-name.output-name"
 	parts := strings.SplitN(mapping.From, ".", 2)
 	if len(parts) != 2 {

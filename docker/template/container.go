@@ -3,7 +3,7 @@ package template
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // Container is a WorkflowSource that creates a container execution.
@@ -27,7 +27,7 @@ type Container struct {
 	user         string
 	autoRemove   bool
 	labels       map[string]string
-	waitStrategy docker.WaitStrategyConfig
+	waitStrategy payload.WaitStrategyConfig
 }
 
 // NewContainer creates a new container workflow source.
@@ -62,8 +62,8 @@ func NewContainer(name, image string, opts ...ContainerOption) *Container {
 }
 
 // ToInput implements WorkflowSource interface.
-func (c *Container) ToInput() docker.ContainerExecutionInput {
-	input := docker.ContainerExecutionInput{
+func (c *Container) ToInput() payload.ContainerExecutionInput {
+	input := payload.ContainerExecutionInput{
 		Image:        c.image,
 		Command:      c.command,
 		Entrypoint:   c.entrypoint,
@@ -268,11 +268,11 @@ func WithLabels(labels map[string]string) ContainerOption {
 // Example:
 //
 //	container := NewContainer("postgres", "postgres:16-alpine",
-//	    WithWaitStrategy(docker.WaitStrategyConfig{
+//	    WithWaitStrategy(payload.WaitStrategyConfig{
 //	        Type: "log",
 //	        LogMessage: "ready to accept connections",
 //	    }))
-func WithWaitStrategy(strategy docker.WaitStrategyConfig) ContainerOption {
+func WithWaitStrategy(strategy payload.WaitStrategyConfig) ContainerOption {
 	return func(c *Container) {
 		c.waitStrategy = strategy
 	}
@@ -286,7 +286,7 @@ func WithWaitStrategy(strategy docker.WaitStrategyConfig) ContainerOption {
 //	    WithWaitForLog("ready to accept connections"))
 func WithWaitForLog(logMessage string) ContainerOption {
 	return func(c *Container) {
-		c.waitStrategy = docker.WaitStrategyConfig{
+		c.waitStrategy = payload.WaitStrategyConfig{
 			Type:       "log",
 			LogMessage: logMessage,
 		}
@@ -301,7 +301,7 @@ func WithWaitForLog(logMessage string) ContainerOption {
 //	    WithWaitForPort("5432"))
 func WithWaitForPort(port string) ContainerOption {
 	return func(c *Container) {
-		c.waitStrategy = docker.WaitStrategyConfig{
+		c.waitStrategy = payload.WaitStrategyConfig{
 			Type: "port",
 			Port: port,
 		}
@@ -316,7 +316,7 @@ func WithWaitForPort(port string) ContainerOption {
 //	    WithWaitForHTTP("8080", "/health", 200))
 func WithWaitForHTTP(port, path string, expectedStatus int) ContainerOption {
 	return func(c *Container) {
-		c.waitStrategy = docker.WaitStrategyConfig{
+		c.waitStrategy = payload.WaitStrategyConfig{
 			Type:       "http",
 			Port:       port,
 			HTTPPath:   path,
@@ -333,7 +333,7 @@ func WithWaitForHTTP(port, path string, expectedStatus int) ContainerOption {
 //	    WithWaitForHealthy())
 func WithWaitForHealthy() ContainerOption {
 	return func(c *Container) {
-		c.waitStrategy = docker.WaitStrategyConfig{
+		c.waitStrategy = payload.WaitStrategyConfig{
 			Type: "healthy",
 		}
 	}

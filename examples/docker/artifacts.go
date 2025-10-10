@@ -9,6 +9,7 @@ import (
 
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/artifacts"
+	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/client"
 )
 
@@ -52,12 +53,12 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 	}
 	defer store.Close()
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "build",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "golang:1.25",
 						Command: []string{"sh", "-c", "go build -o /output/app . && echo 'Binary built successfully'"},
 						Volumes: []docker.VolumeMount{
@@ -67,7 +68,7 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 						WorkingDir: "/workspace",
 					},
 					// Define output artifacts to upload after build
-					OutputArtifacts: []docker.Artifact{
+					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/build-output/app",
@@ -78,8 +79,8 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "test",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", "/app/app --version && echo 'Binary test passed'"},
 						Volumes: []docker.VolumeMount{
@@ -87,7 +88,7 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 						},
 					},
 					// Define input artifacts to download before test
-					InputArtifacts: []docker.Artifact{
+					InputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/test-workspace/app",
@@ -114,7 +115,7 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -132,12 +133,12 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 	}
 	defer store.Close()
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "build",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image: "golang:1.25",
 						Command: []string{"sh", "-c", `
 							go build -o /output/app . &&
@@ -150,7 +151,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						WorkingDir: "/workspace",
 					},
 					// Multiple output artifacts
-					OutputArtifacts: []docker.Artifact{
+					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/build-output/app",
@@ -163,7 +164,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						},
 					},
 					// Capture version from output
-					Outputs: []docker.OutputDefinition{
+					Outputs: []payload.OutputDefinition{
 						{
 							Name:      "version",
 							ValueFrom: "stdout",
@@ -175,8 +176,8 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "test",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", "/app/app --version && cat /app/metadata.json"},
 						Volumes: []docker.VolumeMount{
@@ -184,7 +185,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						},
 					},
 					// Download artifacts from build
-					InputArtifacts: []docker.Artifact{
+					InputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/test-workspace/app",
@@ -197,7 +198,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						},
 					},
 					// Upload test results
-					OutputArtifacts: []docker.Artifact{
+					OutputArtifacts: []payload.Artifact{
 						{
 							Name:     "test-results",
 							Path:     "/tmp/test-results",
@@ -210,8 +211,8 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "deploy",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "deployer:v1",
 						Command: []string{"sh", "-c", "deploy --binary=/deploy/app --env=$ENVIRONMENT"},
 						Env: map[string]string{
@@ -222,7 +223,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						},
 					},
 					// Download binary from build
-					InputArtifacts: []docker.Artifact{
+					InputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/deploy-workspace/app",
@@ -230,7 +231,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						},
 					},
 					// Use version from build step
-					Inputs: []docker.InputMapping{
+					Inputs: []payload.InputMapping{
 						{
 							Name:     "VERSION",
 							From:     "build.version",
@@ -258,7 +259,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -296,12 +297,12 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 	}
 	defer store.Close()
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "process-data",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "data-processor:v1",
 						Command: []string{"sh", "-c", "process --input=/data/input.csv --output=/data/output.csv"},
 						Volumes: []docker.VolumeMount{
@@ -309,7 +310,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 						},
 					},
 					// Upload processed data to Minio
-					OutputArtifacts: []docker.Artifact{
+					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "processed-data",
 							Path: "/tmp/data/output.csv",
@@ -320,8 +321,8 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "analyze-results",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "data-analyzer:v1",
 						Command: []string{"sh", "-c", "analyze --input=/analysis/output.csv"},
 						Volumes: []docker.VolumeMount{
@@ -329,7 +330,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 						},
 					},
 					// Download processed data from Minio
-					InputArtifacts: []docker.Artifact{
+					InputArtifacts: []payload.Artifact{
 						{
 							Name: "processed-data",
 							Path: "/tmp/analysis/output.csv",
@@ -356,7 +357,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)

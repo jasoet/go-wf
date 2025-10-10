@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,8 +20,8 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			opts: nil,
 			want: &WorkflowBuilder{
 				name:           "test",
-				containers:     []docker.ContainerExecutionInput{},
-				exitHandlers:   []docker.ContainerExecutionInput{},
+				containers:     []payload.ContainerExecutionInput{},
+				exitHandlers:   []payload.ContainerExecutionInput{},
 				stopOnError:    true,
 				cleanup:        false,
 				parallelMode:   false,
@@ -39,8 +39,8 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			},
 			want: &WorkflowBuilder{
 				name:           "test",
-				containers:     []docker.ContainerExecutionInput{},
-				exitHandlers:   []docker.ContainerExecutionInput{},
+				containers:     []payload.ContainerExecutionInput{},
+				exitHandlers:   []payload.ContainerExecutionInput{},
 				stopOnError:    false,
 				cleanup:        false,
 				parallelMode:   true,
@@ -55,8 +55,8 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			},
 			want: &WorkflowBuilder{
 				name:         "test",
-				containers:   []docker.ContainerExecutionInput{},
-				exitHandlers: []docker.ContainerExecutionInput{},
+				containers:   []payload.ContainerExecutionInput{},
+				exitHandlers: []payload.ContainerExecutionInput{},
 				stopOnError:  true,
 				cleanup:      true,
 				parallelMode: false,
@@ -83,8 +83,8 @@ func TestNewWorkflowBuilder(t *testing.T) {
 func TestBuilderOptions_GlobalTimeoutAndAutoRemove(t *testing.T) {
 	t.Run("WithGlobalTimeout applies to existing containers", func(t *testing.T) {
 		builder := NewWorkflowBuilder("test").
-			AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-			AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 
 		// Apply WithGlobalTimeout option
 		WithGlobalTimeout(5 * time.Minute)(builder)
@@ -95,8 +95,8 @@ func TestBuilderOptions_GlobalTimeoutAndAutoRemove(t *testing.T) {
 
 	t.Run("WithGlobalAutoRemove applies to existing containers", func(t *testing.T) {
 		builder := NewWorkflowBuilder("test").
-			AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-			AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 
 		// Apply WithGlobalAutoRemove option
 		WithGlobalAutoRemove(true)(builder)
@@ -116,7 +116,7 @@ func TestWorkflowBuilder_Add(t *testing.T) {
 		{
 			name: "add single source",
 			sources: []WorkflowSource{
-				NewContainerSource(docker.ContainerExecutionInput{
+				NewContainerSource(payload.ContainerExecutionInput{
 					Image: "alpine:latest",
 				}),
 			},
@@ -126,9 +126,9 @@ func TestWorkflowBuilder_Add(t *testing.T) {
 		{
 			name: "add multiple sources",
 			sources: []WorkflowSource{
-				NewContainerSource(docker.ContainerExecutionInput{Image: "alpine:latest"}),
-				NewContainerSource(docker.ContainerExecutionInput{Image: "busybox:latest"}),
-				NewContainerSource(docker.ContainerExecutionInput{Image: "nginx:latest"}),
+				NewContainerSource(payload.ContainerExecutionInput{Image: "alpine:latest"}),
+				NewContainerSource(payload.ContainerExecutionInput{Image: "busybox:latest"}),
+				NewContainerSource(payload.ContainerExecutionInput{Image: "nginx:latest"}),
 			},
 			wantCount:   3,
 			expectError: false,
@@ -164,11 +164,11 @@ func TestWorkflowBuilder_Add(t *testing.T) {
 func TestWorkflowBuilder_AddInput(t *testing.T) {
 	builder := NewWorkflowBuilder("test")
 
-	input1 := docker.ContainerExecutionInput{
+	input1 := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"echo", "test1"},
 	}
-	input2 := docker.ContainerExecutionInput{
+	input2 := payload.ContainerExecutionInput{
 		Image:   "busybox:latest",
 		Command: []string{"echo", "test2"},
 	}
@@ -183,12 +183,12 @@ func TestWorkflowBuilder_AddInput(t *testing.T) {
 func TestWorkflowBuilder_AddExitHandler(t *testing.T) {
 	builder := NewWorkflowBuilder("test")
 
-	cleanup := NewContainerSource(docker.ContainerExecutionInput{
+	cleanup := NewContainerSource(payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"cleanup.sh"},
 	})
 
-	notify := NewContainerSource(docker.ContainerExecutionInput{
+	notify := NewContainerSource(payload.ContainerExecutionInput{
 		Image:   "curlimages/curl:latest",
 		Command: []string{"curl", "https://webhook.site"},
 	})
@@ -201,12 +201,12 @@ func TestWorkflowBuilder_AddExitHandler(t *testing.T) {
 func TestWorkflowBuilder_AddExitHandlerInput(t *testing.T) {
 	builder := NewWorkflowBuilder("test")
 
-	cleanup := docker.ContainerExecutionInput{
+	cleanup := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"cleanup.sh"},
 	}
 
-	notify := docker.ContainerExecutionInput{
+	notify := payload.ContainerExecutionInput{
 		Image:   "curlimages/curl:latest",
 		Command: []string{"curl", "https://webhook.site"},
 	}
@@ -223,17 +223,17 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 		name        string
 		setupFunc   func() *WorkflowBuilder
 		expectError bool
-		validate    func(t *testing.T, input *docker.PipelineInput)
+		validate    func(t *testing.T, input *payload.PipelineInput)
 	}{
 		{
 			name: "valid pipeline",
 			setupFunc: func() *WorkflowBuilder {
 				return NewWorkflowBuilder("test").
-					AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-					AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+					AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.PipelineInput) {
+			validate: func(t *testing.T, input *payload.PipelineInput) {
 				assert.NotNil(t, input)
 				assert.Len(t, input.Containers, 2)
 				assert.True(t, input.StopOnError)
@@ -251,12 +251,12 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 			name: "pipeline with custom settings",
 			setupFunc: func() *WorkflowBuilder {
 				return NewWorkflowBuilder("test").
-					AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
+					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 					StopOnError(false).
 					Cleanup(true)
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.PipelineInput) {
+			validate: func(t *testing.T, input *payload.PipelineInput) {
 				assert.False(t, input.StopOnError)
 				assert.True(t, input.Cleanup)
 			},
@@ -287,18 +287,18 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 		name        string
 		setupFunc   func() *WorkflowBuilder
 		expectError bool
-		validate    func(t *testing.T, input *docker.ParallelInput)
+		validate    func(t *testing.T, input *payload.ParallelInput)
 	}{
 		{
 			name: "valid parallel",
 			setupFunc: func() *WorkflowBuilder {
 				return NewWorkflowBuilder("test").
 					Parallel(true).
-					AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-					AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+					AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.ParallelInput) {
+			validate: func(t *testing.T, input *payload.ParallelInput) {
 				assert.NotNil(t, input)
 				assert.Len(t, input.Containers, 2)
 				assert.Equal(t, "continue", input.FailureStrategy)
@@ -311,10 +311,10 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 					Parallel(true).
 					FailFast(true).
 					MaxConcurrency(5).
-					AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"})
+					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: false,
-			validate: func(t *testing.T, input *docker.ParallelInput) {
+			validate: func(t *testing.T, input *payload.ParallelInput) {
 				assert.Equal(t, "fail_fast", input.FailureStrategy)
 				assert.Equal(t, 5, input.MaxConcurrency)
 			},
@@ -351,12 +351,12 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 func TestWorkflowBuilder_Build(t *testing.T) {
 	t.Run("builds pipeline by default", func(t *testing.T) {
 		builder := NewWorkflowBuilder("test").
-			AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"})
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
 
 		result, err := builder.Build()
 		require.NoError(t, err)
 
-		pipelineInput, ok := result.(*docker.PipelineInput)
+		pipelineInput, ok := result.(*payload.PipelineInput)
 		assert.True(t, ok, "Expected PipelineInput")
 		assert.NotNil(t, pipelineInput)
 	})
@@ -364,12 +364,12 @@ func TestWorkflowBuilder_Build(t *testing.T) {
 	t.Run("builds parallel when enabled", func(t *testing.T) {
 		builder := NewWorkflowBuilder("test").
 			Parallel(true).
-			AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"})
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
 
 		result, err := builder.Build()
 		require.NoError(t, err)
 
-		parallelInput, ok := result.(*docker.ParallelInput)
+		parallelInput, ok := result.(*payload.ParallelInput)
 		assert.True(t, ok, "Expected ParallelInput")
 		assert.NotNil(t, parallelInput)
 	})
@@ -385,7 +385,7 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 			name: "valid single",
 			setupFunc: func() *WorkflowBuilder {
 				return NewWorkflowBuilder("test").
-					AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"})
+					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: false,
 		},
@@ -400,8 +400,8 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 			name: "multiple containers returns first",
 			setupFunc: func() *WorkflowBuilder {
 				return NewWorkflowBuilder("test").
-					AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-					AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"})
+					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+					AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 			},
 			expectError: false,
 		},
@@ -426,8 +426,8 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 
 func TestWorkflowBuilder_WithTimeout(t *testing.T) {
 	builder := NewWorkflowBuilder("test").
-		AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-		AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"}).
+		AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+		AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"}).
 		WithTimeout(5 * time.Minute)
 
 	assert.Equal(t, 5*time.Minute, builder.containers[0].RunTimeout)
@@ -436,8 +436,8 @@ func TestWorkflowBuilder_WithTimeout(t *testing.T) {
 
 func TestWorkflowBuilder_WithAutoRemove(t *testing.T) {
 	builder := NewWorkflowBuilder("test").
-		AddInput(docker.ContainerExecutionInput{Image: "alpine:latest"}).
-		AddInput(docker.ContainerExecutionInput{Image: "busybox:latest"}).
+		AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+		AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"}).
 		WithAutoRemove(true)
 
 	assert.True(t, builder.containers[0].AutoRemove)
@@ -447,9 +447,9 @@ func TestWorkflowBuilder_WithAutoRemove(t *testing.T) {
 func TestWorkflowBuilder_ChainedCalls(t *testing.T) {
 	// Test fluent API with chained calls
 	input, err := NewWorkflowBuilder("test").
-		AddInput(docker.ContainerExecutionInput{Image: "golang:1.25", Name: "build"}).
-		AddInput(docker.ContainerExecutionInput{Image: "golang:1.25", Name: "test"}).
-		AddInput(docker.ContainerExecutionInput{Image: "deployer:v1", Name: "deploy"}).
+		AddInput(payload.ContainerExecutionInput{Image: "golang:1.25", Name: "build"}).
+		AddInput(payload.ContainerExecutionInput{Image: "golang:1.25", Name: "test"}).
+		AddInput(payload.ContainerExecutionInput{Image: "deployer:v1", Name: "deploy"}).
 		StopOnError(true).
 		Cleanup(true).
 		WithTimeout(10 * time.Minute).
@@ -466,7 +466,7 @@ func TestWorkflowBuilder_ChainedCalls(t *testing.T) {
 }
 
 func TestContainerSource(t *testing.T) {
-	input := docker.ContainerExecutionInput{
+	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"echo", "test"},
 		Env:     map[string]string{"KEY": "value"},
@@ -481,8 +481,8 @@ func TestContainerSource(t *testing.T) {
 }
 
 func TestWorkflowSourceFunc(t *testing.T) {
-	source := WorkflowSourceFunc(func() docker.ContainerExecutionInput {
-		return docker.ContainerExecutionInput{
+	source := WorkflowSourceFunc(func() payload.ContainerExecutionInput {
+		return payload.ContainerExecutionInput{
 			Image:   "alpine:latest",
 			Command: []string{"echo", "test"},
 		}

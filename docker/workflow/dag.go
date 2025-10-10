@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/artifacts"
+	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/temporal"
 	wf "go.temporal.io/sdk/workflow"
 )
@@ -18,15 +18,15 @@ import (
 //
 // Example:
 //
-//	input := docker.DAGWorkflowInput{
-//	    Nodes: []docker.DAGNode{
+//	input := payload.DAGWorkflowInput{
+//	    Nodes: []payload.DAGNode{
 //	        {Name: "build", Container: buildInput},
 //	        {Name: "test", Container: testInput, Dependencies: []string{"build"}},
 //	        {Name: "deploy", Container: deployInput, Dependencies: []string{"test"}},
 //	    },
 //	}
 //	output, err := docker.DAGWorkflow(ctx, input)
-func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWorkflowOutput, error) {
+func DAGWorkflow(ctx wf.Context, input payload.DAGWorkflowInput) (*payload.DAGWorkflowOutput, error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("Starting DAG workflow", "nodes", len(input.Nodes))
 
@@ -36,9 +36,9 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 	}
 
 	startTime := wf.Now(ctx)
-	output := &docker.DAGWorkflowOutput{
-		Results:     make(map[string]*docker.ContainerExecutionOutput),
-		NodeResults: make([]docker.NodeResult, 0, len(input.Nodes)),
+	output := &payload.DAGWorkflowOutput{
+		Results:     make(map[string]*payload.ContainerExecutionOutput),
+		NodeResults: make([]payload.NodeResult, 0, len(input.Nodes)),
 	}
 
 	// Build dependency map
@@ -49,7 +49,7 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 
 	// Execute nodes based on dependencies
 	executed := make(map[string]bool)
-	results := make(map[string]*docker.ContainerExecutionOutput)
+	results := make(map[string]*payload.ContainerExecutionOutput)
 	stepOutputs := make(map[string]map[string]string) // Store extracted outputs by step name
 	resultsMutex := sync.Mutex{}
 
@@ -77,7 +77,7 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 		resultsMutex.Unlock()
 
 		// Find node
-		var node *docker.DAGNode
+		var node *payload.DAGNode
 		for i := range input.Nodes {
 			if input.Nodes[i].Name == nodeName {
 				node = &input.Nodes[i]
@@ -114,7 +114,7 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 		// Apply input mappings if defined
 		if len(node.Container.Inputs) > 0 {
 			resultsMutex.Lock()
-			inputErr := docker.SubstituteInputs(&containerInput, node.Container.Inputs, stepOutputs)
+			inputErr := SubstituteInputs(&containerInput, node.Container.Inputs, stepOutputs)
 			resultsMutex.Unlock()
 
 			if inputErr != nil {
@@ -156,12 +156,12 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 		}
 
 		// Execute this node
-		var result docker.ContainerExecutionOutput
+		var result payload.ContainerExecutionOutput
 		err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
 
 		// Extract outputs if defined
 		if len(node.Container.Outputs) > 0 && result.Success {
-			outputs, extractErr := docker.ExtractOutputs(node.Container.Outputs, &result)
+			outputs, extractErr := ExtractOutputs(node.Container.Outputs, &result)
 			if extractErr != nil {
 				logger.Error("Failed to extract outputs", "name", nodeName, "error", extractErr)
 				// Don't fail the workflow, just log the error
@@ -210,7 +210,7 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 		executed[nodeName] = true
 		resultsMutex.Unlock()
 
-		nodeResult := docker.NodeResult{
+		nodeResult := payload.NodeResult{
 			NodeName:  nodeName,
 			Result:    &result,
 			StartTime: wf.Now(ctx),
@@ -264,16 +264,16 @@ func DAGWorkflow(ctx wf.Context, input docker.DAGWorkflowInput) (*docker.DAGWork
 //
 // Example:
 //
-//	input := docker.ContainerExecutionInput{
+//	input := payload.ContainerExecutionInput{
 //	    Image: "alpine:latest",
 //	    Command: []string{"echo", "{{.version}}"},
 //	    Env: map[string]string{"VERSION": "{{.version}}"},
 //	}
-//	params := []docker.WorkflowParameter{
+//	params := []payload.WorkflowParameter{
 //	    {Name: "version", Value: "v1.2.3"},
 //	}
 //	output, err := docker.WorkflowWithParameters(ctx, input, params)
-func WorkflowWithParameters(ctx wf.Context, input docker.ContainerExecutionInput, params []docker.WorkflowParameter) (*docker.ContainerExecutionOutput, error) {
+func WorkflowWithParameters(ctx wf.Context, input payload.ContainerExecutionInput, params []payload.WorkflowParameter) (*payload.ContainerExecutionOutput, error) {
 	// Substitute parameters in input
 	paramMap := make(map[string]string)
 	for _, param := range params {
@@ -303,7 +303,7 @@ func WorkflowWithParameters(ctx wf.Context, input docker.ContainerExecutionInput
 }
 
 // executeContainerInternal is a helper to execute container without workflow context creation.
-func executeContainerInternal(ctx wf.Context, input docker.ContainerExecutionInput) (*docker.ContainerExecutionOutput, error) {
+func executeContainerInternal(ctx wf.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("Executing container", "image", input.Image)
 
@@ -323,7 +323,7 @@ func executeContainerInternal(ctx wf.Context, input docker.ContainerExecutionInp
 	}
 	ctx = wf.WithActivityOptions(ctx, ao)
 
-	var output docker.ContainerExecutionOutput
+	var output payload.ContainerExecutionOutput
 	err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, input).Get(ctx, &output)
 
 	return &output, err

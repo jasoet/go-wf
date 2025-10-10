@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"go.temporal.io/sdk/client"
 )
@@ -49,17 +49,17 @@ func main() {
 }
 
 func buildTestDeployPipeline(ctx context.Context, c client.Client) {
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "build",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo '{"version":"1.2.3","build_id":"abc123"}' && exit 0`},
 					},
 					// Define outputs to capture
-					Outputs: []docker.OutputDefinition{
+					Outputs: []payload.OutputDefinition{
 						{
 							Name:      "version",
 							ValueFrom: "stdout",
@@ -79,13 +79,13 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "test",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo "Testing version: $BUILD_VERSION (build: $BUILD_ID)" && echo "Tests passed" && exit 0`},
 					},
 					// Map outputs from build step to inputs
-					Inputs: []docker.InputMapping{
+					Inputs: []payload.InputMapping{
 						{
 							Name:     "BUILD_VERSION",
 							From:     "build.version",
@@ -97,7 +97,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 							Required: true,
 						},
 					},
-					Outputs: []docker.OutputDefinition{
+					Outputs: []payload.OutputDefinition{
 						{
 							Name:      "test_result",
 							ValueFrom: "stdout",
@@ -109,12 +109,12 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "deploy",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo "Deploying version $VERSION to production" && echo "Deployment successful" && exit 0`},
 					},
-					Inputs: []docker.InputMapping{
+					Inputs: []payload.InputMapping{
 						{
 							Name:     "VERSION",
 							From:     "build.version",
@@ -145,7 +145,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started DAG workflow: WorkflowID=%s, RunID=%s\n", we.GetID(), we.GetRunID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -165,12 +165,12 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 }
 
 func jsonOutputExtraction(ctx context.Context, c client.Client) {
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "generate-config",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image: "alpine:latest",
 						Command: []string{"sh", "-c", `cat <<EOF
 {
@@ -188,7 +188,7 @@ func jsonOutputExtraction(ctx context.Context, c client.Client) {
 EOF
 `},
 					},
-					Outputs: []docker.OutputDefinition{
+					Outputs: []payload.OutputDefinition{
 						{
 							Name:      "db_host",
 							ValueFrom: "stdout",
@@ -214,12 +214,12 @@ EOF
 			},
 			{
 				Name: "use-config",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo "Connecting to $DB_HOST:$DB_PORT" && echo "Cache enabled: $CACHE_ENABLED" && echo "Primary server: $PRIMARY_SERVER"`},
 					},
-					Inputs: []docker.InputMapping{
+					Inputs: []payload.InputMapping{
 						{
 							Name:     "DB_HOST",
 							From:     "generate-config.db_host",
@@ -260,7 +260,7 @@ EOF
 
 	fmt.Printf("Started workflow: WorkflowID=%s\n", we.GetID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -278,16 +278,16 @@ EOF
 }
 
 func regexExtraction(ctx context.Context, c client.Client) {
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "build-app",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo "Building application..." && echo "Build completed: version v1.2.3, build #456" && echo "Artifact: myapp-v1.2.3.tar.gz"`},
 					},
-					Outputs: []docker.OutputDefinition{
+					Outputs: []payload.OutputDefinition{
 						{
 							Name:      "version",
 							ValueFrom: "stdout",
@@ -308,12 +308,12 @@ func regexExtraction(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "upload-artifact",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo "Uploading $ARTIFACT_NAME (version $VERSION, build $BUILD_NUM)"`},
 					},
-					Inputs: []docker.InputMapping{
+					Inputs: []payload.InputMapping{
 						{
 							Name:     "ARTIFACT_NAME",
 							From:     "build-app.artifact_name",
@@ -348,7 +348,7 @@ func regexExtraction(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started workflow: WorkflowID=%s\n", we.GetID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)
@@ -366,16 +366,16 @@ func regexExtraction(ctx context.Context, c client.Client) {
 }
 
 func multipleOutputsInputs(ctx context.Context, c client.Client) {
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
 			{
 				Name: "analyze",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo '{"files":100,"lines":5000,"complexity":"low"}' && echo "Analysis complete" >&2 && exit 0`},
 					},
-					Outputs: []docker.OutputDefinition{
+					Outputs: []payload.OutputDefinition{
 						{
 							Name:      "file_count",
 							ValueFrom: "stdout",
@@ -405,12 +405,12 @@ func multipleOutputsInputs(ctx context.Context, c client.Client) {
 			},
 			{
 				Name: "report",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
 						Command: []string{"sh", "-c", `echo "Analysis Report:" && echo "Files: $FILES, Lines: $LINES" && echo "Complexity: $COMPLEXITY, Status: $STATUS" && echo "Exit code: $EXIT_CODE"`},
 					},
-					Inputs: []docker.InputMapping{
+					Inputs: []payload.InputMapping{
 						{
 							Name:     "FILES",
 							From:     "analyze.file_count",
@@ -456,7 +456,7 @@ func multipleOutputsInputs(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Started workflow: WorkflowID=%s\n", we.GetID())
 
-	var result docker.DAGWorkflowOutput
+	var result payload.DAGWorkflowOutput
 	err = we.Get(ctx, &result)
 	if err != nil {
 		log.Fatalln("Unable to get workflow result", err)

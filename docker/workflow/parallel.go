@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 // ParallelContainersWorkflow executes multiple containers in parallel.
-func ParallelContainersWorkflow(ctx workflow.Context, input docker.ParallelInput) (*docker.ParallelOutput, error) {
+func ParallelContainersWorkflow(ctx workflow.Context, input payload.ParallelInput) (*payload.ParallelOutput, error) {
 	logger := workflow.GetLogger(ctx)
 	logger.Info("Starting parallel containers workflow",
 		"containers", len(input.Containers),
@@ -45,12 +45,12 @@ func ParallelContainersWorkflow(ctx workflow.Context, input docker.ParallelInput
 	}
 
 	// Collect results
-	output := &docker.ParallelOutput{
-		Results: make([]docker.ContainerExecutionOutput, 0, len(input.Containers)),
+	output := &payload.ParallelOutput{
+		Results: make([]payload.ContainerExecutionOutput, 0, len(input.Containers)),
 	}
 
 	for i, future := range futures {
-		var result docker.ContainerExecutionOutput
+		var result payload.ContainerExecutionOutput
 		err := future.Get(ctx, &result)
 
 		output.Results = append(output.Results, result)

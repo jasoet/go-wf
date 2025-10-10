@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/testsuite"
 )
@@ -16,8 +16,8 @@ func TestContainerPipelineWorkflow_Success(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Command: []string{"echo", "step1"}},
 			{Image: "alpine:latest", Command: []string{"echo", "step2"}},
 		},
@@ -25,7 +25,7 @@ func TestContainerPipelineWorkflow_Success(t *testing.T) {
 	}
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
 
@@ -37,7 +37,7 @@ func TestContainerPipelineWorkflow_Success(t *testing.T) {
 		t.Fatalf("Workflow failed: %v", err)
 	}
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	if err := env.GetWorkflowResult(&result); err != nil {
 		t.Fatalf("Failed to get result: %v", err)
 	}
@@ -52,8 +52,8 @@ func TestContainerPipelineWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{},
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{},
 	}
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -72,8 +72,8 @@ func TestContainerPipelineWorkflow_WithNamedSteps(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Name: "build"},
 			{Image: "alpine:latest", Name: "test"},
 			{Image: "alpine:latest", Name: "deploy"},
@@ -82,7 +82,7 @@ func TestContainerPipelineWorkflow_WithNamedSteps(t *testing.T) {
 	}
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
 
@@ -90,7 +90,7 @@ func TestContainerPipelineWorkflow_WithNamedSteps(t *testing.T) {
 		t.Fatal("Workflow did not complete")
 	}
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	env.GetWorkflowResult(&result)
 
 	if len(result.Results) != 3 {
@@ -103,8 +103,8 @@ func TestContainerPipelineWorkflow_StopOnError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Name: "step1"},
 			{Image: "alpine:latest", Name: "step2"},
 		},
@@ -113,11 +113,11 @@ func TestContainerPipelineWorkflow_StopOnError(t *testing.T) {
 
 	// First call succeeds
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	// Second call fails
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
-		&docker.ContainerExecutionOutput{Success: false, ExitCode: 1}, fmt.Errorf("container failed")).Once()
+		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, fmt.Errorf("container failed")).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
 
@@ -136,8 +136,8 @@ func TestContainerPipelineWorkflow_ContinueOnError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest", Name: "step1"},
 			{Image: "alpine:latest", Name: "step2"},
 			{Image: "alpine:latest", Name: "step3"},
@@ -147,15 +147,15 @@ func TestContainerPipelineWorkflow_ContinueOnError(t *testing.T) {
 
 	// First succeeds
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	// Second fails
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
-		&docker.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
 
 	// Third succeeds
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[2]).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
 
@@ -167,7 +167,7 @@ func TestContainerPipelineWorkflow_ContinueOnError(t *testing.T) {
 		t.Fatalf("Workflow should not error when StopOnError is false: %v", env.GetWorkflowError())
 	}
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	env.GetWorkflowResult(&result)
 
 	if result.TotalSuccess != 2 {
@@ -183,8 +183,8 @@ func TestContainerPipelineWorkflow_NoNamedSteps(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := payload.PipelineInput{
+		Containers: []payload.ContainerExecutionInput{
 			{Image: "alpine:latest"}, // No name
 			{Image: "alpine:latest"}, // No name
 		},
@@ -192,7 +192,7 @@ func TestContainerPipelineWorkflow_NoNamedSteps(t *testing.T) {
 	}
 
 	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
-		&docker.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
 
@@ -200,7 +200,7 @@ func TestContainerPipelineWorkflow_NoNamedSteps(t *testing.T) {
 		t.Fatal("Workflow did not complete")
 	}
 
-	var result docker.PipelineOutput
+	var result payload.PipelineOutput
 	env.GetWorkflowResult(&result)
 
 	if result.TotalSuccess != 2 {

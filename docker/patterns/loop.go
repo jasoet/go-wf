@@ -3,8 +3,8 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // ParallelLoop creates a parallel loop workflow over items.
@@ -16,12 +16,12 @@ import (
 //	    []string{"file1.csv", "file2.csv", "file3.csv"},
 //	    "processor:v1",
 //	    "process.sh {{item}}")
-func ParallelLoop(items []string, image string, command string) (*docker.LoopInput, error) {
+func ParallelLoop(items []string, image string, command string) (*payload.LoopInput, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("at least one item is required")
 	}
 
-	containerTemplate := docker.ContainerExecutionInput{
+	containerTemplate := payload.ContainerExecutionInput{
 		Image:   image,
 		Command: []string{"sh", "-c", command},
 		Env: map[string]string{
@@ -30,7 +30,7 @@ func ParallelLoop(items []string, image string, command string) (*docker.LoopInp
 		},
 	}
 
-	input := &docker.LoopInput{
+	input := &payload.LoopInput{
 		Items:           items,
 		Template:        containerTemplate,
 		Parallel:        true,
@@ -53,12 +53,12 @@ func ParallelLoop(items []string, image string, command string) (*docker.LoopInp
 //	    []string{"step1", "step2", "step3"},
 //	    "deployer:v1",
 //	    "deploy.sh {{item}}")
-func SequentialLoop(items []string, image string, command string) (*docker.LoopInput, error) {
+func SequentialLoop(items []string, image string, command string) (*payload.LoopInput, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("at least one item is required")
 	}
 
-	containerTemplate := docker.ContainerExecutionInput{
+	containerTemplate := payload.ContainerExecutionInput{
 		Image:   image,
 		Command: []string{"sh", "-c", command},
 		Env: map[string]string{
@@ -67,7 +67,7 @@ func SequentialLoop(items []string, image string, command string) (*docker.LoopI
 		},
 	}
 
-	input := &docker.LoopInput{
+	input := &payload.LoopInput{
 		Items:           items,
 		Template:        containerTemplate,
 		Parallel:        false,
@@ -90,12 +90,12 @@ func SequentialLoop(items []string, image string, command string) (*docker.LoopI
 //	    []string{"batch1.json", "batch2.json", "batch3.json"},
 //	    "data-processor:v1",
 //	    3)
-func BatchProcessing(dataFiles []string, processorImage string, maxConcurrency int) (*docker.LoopInput, error) {
+func BatchProcessing(dataFiles []string, processorImage string, maxConcurrency int) (*payload.LoopInput, error) {
 	if len(dataFiles) == 0 {
 		return nil, fmt.Errorf("at least one data file is required")
 	}
 
-	containerTemplate := docker.ContainerExecutionInput{
+	containerTemplate := payload.ContainerExecutionInput{
 		Image:   processorImage,
 		Command: []string{"process-batch"},
 		Env: map[string]string{
@@ -104,7 +104,7 @@ func BatchProcessing(dataFiles []string, processorImage string, maxConcurrency i
 		},
 	}
 
-	input := &docker.LoopInput{
+	input := &payload.LoopInput{
 		Items:           dataFiles,
 		Template:        containerTemplate,
 		Parallel:        true,
@@ -128,12 +128,12 @@ func BatchProcessing(dataFiles []string, processorImage string, maxConcurrency i
 //	    []string{"dev", "staging", "prod"},
 //	    []string{"us-west", "us-east", "eu-central"},
 //	    "deployer:v1")
-func MultiRegionDeployment(environments, regions []string, deployImage string) (*docker.ParameterizedLoopInput, error) {
+func MultiRegionDeployment(environments, regions []string, deployImage string) (*payload.ParameterizedLoopInput, error) {
 	if len(environments) == 0 || len(regions) == 0 {
 		return nil, fmt.Errorf("at least one environment and one region are required")
 	}
 
-	containerTemplate := docker.ContainerExecutionInput{
+	containerTemplate := payload.ContainerExecutionInput{
 		Image:   deployImage,
 		Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
 		Env: map[string]string{
@@ -143,7 +143,7 @@ func MultiRegionDeployment(environments, regions []string, deployImage string) (
 		},
 	}
 
-	input := &docker.ParameterizedLoopInput{
+	input := &payload.ParameterizedLoopInput{
 		Parameters: map[string][]string{
 			"env":    environments,
 			"region": regions,
@@ -171,7 +171,7 @@ func MultiRegionDeployment(environments, regions []string, deployImage string) (
 //	        "platform": {"linux", "darwin", "windows"},
 //	    },
 //	    "builder:v1")
-func MatrixBuild(buildMatrix map[string][]string, buildImage string) (*docker.ParameterizedLoopInput, error) {
+func MatrixBuild(buildMatrix map[string][]string, buildImage string) (*payload.ParameterizedLoopInput, error) {
 	if len(buildMatrix) == 0 {
 		return nil, fmt.Errorf("build matrix cannot be empty")
 	}
@@ -182,7 +182,7 @@ func MatrixBuild(buildMatrix map[string][]string, buildImage string) (*docker.Pa
 		cmdParts = append(cmdParts, fmt.Sprintf("--%s={{.%s}}", key, key))
 	}
 
-	containerTemplate := docker.ContainerExecutionInput{
+	containerTemplate := payload.ContainerExecutionInput{
 		Image:   buildImage,
 		Command: cmdParts,
 		Env: map[string]string{
@@ -195,7 +195,7 @@ func MatrixBuild(buildMatrix map[string][]string, buildImage string) (*docker.Pa
 		containerTemplate.Env[key] = fmt.Sprintf("{{.%s}}", key)
 	}
 
-	input := &docker.ParameterizedLoopInput{
+	input := &payload.ParameterizedLoopInput{
 		Parameters:      buildMatrix,
 		Template:        containerTemplate,
 		Parallel:        true,
@@ -221,12 +221,12 @@ func MatrixBuild(buildMatrix map[string][]string, buildImage string) (*docker.Pa
 //	    },
 //	    "ml-trainer:v1",
 //	    5)
-func ParameterSweep(parameters map[string][]string, trainerImage string, maxConcurrency int) (*docker.ParameterizedLoopInput, error) {
+func ParameterSweep(parameters map[string][]string, trainerImage string, maxConcurrency int) (*payload.ParameterizedLoopInput, error) {
 	if len(parameters) == 0 {
 		return nil, fmt.Errorf("at least one parameter is required")
 	}
 
-	containerTemplate := docker.ContainerExecutionInput{
+	containerTemplate := payload.ContainerExecutionInput{
 		Image:   trainerImage,
 		Command: []string{"train", "--config={{index}}"},
 		Env: map[string]string{
@@ -239,7 +239,7 @@ func ParameterSweep(parameters map[string][]string, trainerImage string, maxConc
 		containerTemplate.Env[key] = fmt.Sprintf("{{.%s}}", key)
 	}
 
-	input := &docker.ParameterizedLoopInput{
+	input := &payload.ParameterizedLoopInput{
 		Parameters:      parameters,
 		Template:        containerTemplate,
 		Parallel:        true,
@@ -263,7 +263,7 @@ func ParameterSweep(parameters map[string][]string, trainerImage string, maxConc
 //	input, err := patterns.ParallelLoopWithTemplate(
 //	    []string{"a", "b", "c"},
 //	    template)
-func ParallelLoopWithTemplate(items []string, templateSource builder.WorkflowSource) (*docker.LoopInput, error) {
+func ParallelLoopWithTemplate(items []string, templateSource builder.WorkflowSource) (*payload.LoopInput, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("at least one item is required")
 	}
@@ -272,7 +272,7 @@ func ParallelLoopWithTemplate(items []string, templateSource builder.WorkflowSou
 		return nil, fmt.Errorf("template source cannot be nil")
 	}
 
-	input := &docker.LoopInput{
+	input := &payload.LoopInput{
 		Items:           items,
 		Template:        templateSource.ToInput(),
 		Parallel:        true,
