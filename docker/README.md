@@ -693,53 +693,66 @@ This package provides **~70% feature parity** with Argo Workflows, offering simi
 | DAG | `DAGWorkflow` | `dag.go` |
 | Steps (Sequential) | `ContainerPipelineWorkflow` | `pipeline.go` |
 | Steps (Parallel) | `ParallelContainersWorkflow` | `parallel.go` |
+| Loops (withItems) | `LoopWorkflow` | `loop.go` |
+| Loops (withParam) | `ParameterizedLoopWorkflow` | `loop.go` |
 | Parameters | `WorkflowParameter` | `advanced.go` |
 | Resource Limits | `ResourceLimits` | `advanced.go` |
 | Conditionals | `ConditionalBehavior` | `advanced.go` |
 | Exit Handlers | `AddExitHandler` | `builder.go` |
+| Data Passing | `OutputDefinition`, `InputMapping` | `data-passing.go` |
+| Artifacts | `Artifact`, `ArtifactStore` | `artifacts.go` |
 | Retries | Temporal retry policies | All examples |
 | Lifecycle Ops | `Submit`, `Cancel`, `Watch`, etc. | See operations.go |
 
 ### Notable Gaps
-- **Loops (withItems/withParam)** - Use programmatic container creation
 - **Sidecars** - Not yet supported (K8s-specific)
 - **Suspend/Resume** - Use Temporal signals as workaround
-- **Artifact Storage** - Defined but not implemented
-- **Explicit Data Passing** - No built-in output → input mapping
 
 See [ARGO_COMPARISON.md](./ARGO_COMPARISON.md) for complete details and workarounds.
 See [ROADMAP.md](./ROADMAP.md) for implementation plans to close these gaps.
 
 ## Examples
 
-See [examples/](./examples/) directory for complete working examples:
+See [examples/docker/](../examples/docker/) directory for complete working examples with comprehensive documentation.
 
 ### Core Examples
-- `basic.go` - Simple container execution with wait strategies
-- `pipeline.go` - Sequential workflow (Argo Steps equivalent)
+- `basic.go` - Single container execution with wait strategies
+- `pipeline.go` - Sequential workflow (Build → Test → Deploy)
 - `parallel.go` - Parallel execution with concurrency control
 - `worker/main.go` - Worker setup and registration
 
-### Argo-like Examples
+### Advanced Workflows
 - `dag.go` - Complex DAG workflow with dependencies (Argo DAG equivalent)
-- `builder.go` - Builder patterns with templates (Argo WorkflowTemplate equivalent)
-- `advanced.go` - Parameters, resources, conditionals (Argo advanced features)
+- `loop.go` - Loop patterns: withItems, withParam, matrix builds, batch processing
+- `data-passing.go` - Explicit data passing between steps with JSONPath and regex extraction
+- `artifacts.go` - Artifact storage and retrieval (local and Minio/S3)
 
-Run examples:
+### Builder & Templates
+- `builder.go` - Builder patterns with script templates and HTTP operations
+- `advanced.go` - Parameters, resource limits, conditionals, wait strategies
+
+### Quick Start
 
 ```bash
 # Start Temporal server
 temporal server start-dev
 
 # In another terminal, run worker
-go run -tags=example ./docker/examples/worker/main.go
+cd examples/docker/worker
+go run -tags example main.go
 
-# In another terminal, run examples
-go run -tags=example ./docker/examples/basic.go
-go run -tags=example ./docker/examples/dag.go
-go run -tags=example ./docker/examples/builder.go
-go run -tags=example ./docker/examples/advanced.go
+# In another terminal, run any example
+cd examples/docker
+go run -tags example basic.go
+go run -tags example dag.go
+go run -tags example loop.go
+go run -tags example data-passing.go
+go run -tags example artifacts.go
+go run -tags example builder.go
+go run -tags example advanced.go
 ```
+
+For detailed documentation, see [examples/docker/README.md](../examples/docker/README.md).
 
 ## Error Handling
 

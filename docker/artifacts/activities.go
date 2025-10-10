@@ -9,6 +9,13 @@ import (
 	"path/filepath"
 )
 
+const (
+	// ArtifactTypeDirectory represents a directory artifact type.
+	ArtifactTypeDirectory = "directory"
+	// ArtifactTypeFile represents a file artifact type.
+	ArtifactTypeFile = "file"
+)
+
 // UploadArtifactInput contains input for uploading an artifact.
 type UploadArtifactInput struct {
 	// Metadata contains artifact metadata
@@ -37,17 +44,17 @@ func UploadArtifactActivity(ctx context.Context, store ArtifactStore, input Uplo
 		}
 
 		if fileInfo.IsDir() {
-			input.Metadata.Type = "directory"
+			input.Metadata.Type = ArtifactTypeDirectory
 		} else {
-			input.Metadata.Type = "file"
+			input.Metadata.Type = ArtifactTypeFile
 		}
 	}
 
 	// Handle different artifact types
 	switch input.Metadata.Type {
-	case "file":
+	case ArtifactTypeFile:
 		return uploadFile(ctx, store, input)
-	case "directory", "archive":
+	case ArtifactTypeDirectory, "archive":
 		return uploadDirectory(ctx, store, input)
 	default:
 		return fmt.Errorf("unsupported artifact type: %s", input.Metadata.Type)
@@ -60,7 +67,7 @@ func uploadFile(ctx context.Context, store ArtifactStore, input UploadArtifactIn
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Get file info for size
 	fileInfo, err := file.Stat()
@@ -97,13 +104,13 @@ func DownloadArtifactActivity(ctx context.Context, store ArtifactStore, input Do
 	if err != nil {
 		return fmt.Errorf("failed to download artifact: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Handle different artifact types
 	switch input.Metadata.Type {
-	case "file":
+	case ArtifactTypeFile:
 		return downloadFile(reader, input.DestPath)
-	case "directory", "archive":
+	case ArtifactTypeDirectory, "archive":
 		return downloadDirectory(reader, input.DestPath)
 	default:
 		return fmt.Errorf("unsupported artifact type: %s", input.Metadata.Type)
@@ -122,7 +129,11 @@ func downloadFile(reader io.Reader, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", closeErr)
+		}
+	}()
 
 	// Copy data
 	_, err = io.Copy(file, reader)

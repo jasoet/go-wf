@@ -10,6 +10,7 @@ import (
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
 	"github.com/jasoet/go-wf/docker/patterns"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"go.temporal.io/sdk/client"
 )
 
@@ -77,10 +78,10 @@ func simpleParallelLoopExample(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "loop-parallel-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.LoopWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.LoopWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -117,10 +118,10 @@ func sequentialLoopExample(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "loop-sequential-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.LoopWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.LoopWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -159,10 +160,10 @@ func parameterizedLoopExample(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "loop-parameterized-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.ParameterizedLoopWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.ParameterizedLoopWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -201,10 +202,10 @@ func loopBuilderExample(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "loop-builder-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.LoopWorkflow, *input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.LoopWorkflow, *input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -235,10 +236,10 @@ func loopPatternExample(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "loop-matrix-build-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.ParameterizedLoopWorkflow, *input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.ParameterizedLoopWorkflow, *input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -269,10 +270,10 @@ func batchProcessingExample(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "loop-batch-processing-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.LoopWorkflow, *input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.LoopWorkflow, *input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}

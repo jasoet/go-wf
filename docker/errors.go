@@ -6,16 +6,16 @@ import "fmt"
 type ErrorType string
 
 const (
-	// ErrorTypeValidation indicates validation errors
+	// ErrorTypeValidation indicates validation errors.
 	ErrorTypeValidation ErrorType = "validation"
 
-	// ErrorTypeExecution indicates execution errors
+	// ErrorTypeExecution indicates execution errors.
 	ErrorTypeExecution ErrorType = "execution"
 
-	// ErrorTypeTimeout indicates timeout errors
+	// ErrorTypeTimeout indicates timeout errors.
 	ErrorTypeTimeout ErrorType = "timeout"
 
-	// ErrorTypeConfiguration indicates configuration errors
+	// ErrorTypeConfiguration indicates configuration errors.
 	ErrorTypeConfiguration ErrorType = "configuration"
 )
 
@@ -50,25 +50,25 @@ func (e *WorkflowError) Wrap(msg string) *WorkflowError {
 
 // Predefined errors
 var (
-	// ErrInvalidInput indicates invalid input provided
+	// ErrInvalidInput indicates invalid input provided.
 	ErrInvalidInput = &WorkflowError{
 		Type:    ErrorTypeValidation,
 		Message: "invalid input",
 	}
 
-	// ErrExecutionFailed indicates workflow execution failed
+	// ErrExecutionFailed indicates workflow execution failed.
 	ErrExecutionFailed = &WorkflowError{
 		Type:    ErrorTypeExecution,
 		Message: "execution failed",
 	}
 
-	// ErrTimeout indicates operation timed out
+	// ErrTimeout indicates operation timed out.
 	ErrTimeout = &WorkflowError{
 		Type:    ErrorTypeTimeout,
 		Message: "operation timed out",
 	}
 
-	// ErrInvalidConfiguration indicates invalid configuration
+	// ErrInvalidConfiguration indicates invalid configuration.
 	ErrInvalidConfiguration = &WorkflowError{
 		Type:    ErrorTypeConfiguration,
 		Message: "invalid configuration",

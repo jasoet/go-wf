@@ -1,15 +1,13 @@
 //go:build integration
 // +build integration
 
-package integration
+package docker
 
 import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/activity"
-	"github.com/jasoet/go-wf/docker/register"
 	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +35,7 @@ func TestIntegrationContainerExecution(t *testing.T) {
 	// Register the activity
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := docker.ContainerExecutionInput{
+	input := ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"echo", "Hello, World!"},
 		AutoRemove: true,
@@ -48,7 +46,7 @@ func TestIntegrationContainerExecution(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result docker.ContainerExecutionOutput
+	var result ContainerExecutionOutput
 	err := env.GetWorkflowResult(&result)
 	require.NoError(t, err)
 	assert.NotEmpty(t, result.ContainerID)
@@ -61,8 +59,8 @@ func TestIntegrationPipelineWorkflow(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := docker.PipelineInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := PipelineInput{
+		Containers: []ContainerExecutionInput{
 			{
 				Image:      "alpine:latest",
 				Command:    []string{"echo", "Step 1"},
@@ -89,8 +87,8 @@ func TestIntegrationParallelWorkflow(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := docker.ParallelInput{
-		Containers: []docker.ContainerExecutionInput{
+	input := ParallelInput{
+		Containers: []ContainerExecutionInput{
 			{
 				Image:      "alpine:latest",
 				Name:       "task1",
@@ -119,10 +117,10 @@ func TestIntegrationContainerWithWaitStrategy(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := docker.ContainerExecutionInput{
+	input := ContainerExecutionInput{
 		Image: "nginx:alpine",
 		Ports: []string{"0:80"}, // Use random port
-		WaitStrategy: docker.WaitStrategyConfig{
+		WaitStrategy: WaitStrategyConfig{
 			Type:       "log",
 			LogMessage: "start worker processes",
 		},
@@ -142,7 +140,7 @@ func TestIntegrationContainerWithEnvironment(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := docker.ContainerExecutionInput{
+	input := ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"sh", "-c", "echo $TEST_VAR"},
 		Env: map[string]string{
@@ -156,7 +154,7 @@ func TestIntegrationContainerWithEnvironment(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result docker.ContainerExecutionOutput
+	var result ContainerExecutionOutput
 	err := env.GetWorkflowResult(&result)
 	require.NoError(t, err)
 	assert.Contains(t, result.Stdout, "test_value")
@@ -168,12 +166,12 @@ func TestIntegrationDAGWorkflow(t *testing.T) {
 
 	env.RegisterActivity(activity.StartContainerActivity)
 
-	input := docker.DAGWorkflowInput{
-		Nodes: []docker.DAGNode{
+	input := DAGWorkflowInput{
+		Nodes: []DAGNode{
 			{
 				Name: "first",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: ExtendedContainerInput{
+					ContainerExecutionInput: ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"echo", "First task"},
 						AutoRemove: true,
@@ -182,8 +180,8 @@ func TestIntegrationDAGWorkflow(t *testing.T) {
 			},
 			{
 				Name: "second",
-				Container: docker.ExtendedContainerInput{
-					ContainerExecutionInput: docker.ContainerExecutionInput{
+				Container: ExtendedContainerInput{
+					ContainerExecutionInput: ContainerExecutionInput{
 						Image:      "alpine:latest",
 						Command:    []string{"echo", "Second task"},
 						AutoRemove: true,
@@ -208,7 +206,7 @@ func TestIntegrationContainerWithVolumes(t *testing.T) {
 	env.RegisterActivity(activity.StartContainerActivity)
 
 	// Create a temporary file to mount
-	input := docker.ContainerExecutionInput{
+	input := ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"sh", "-c", "echo 'test content' > /data/test.txt && cat /data/test.txt"},
 		AutoRemove: true,
@@ -226,12 +224,12 @@ func TestIntegrationWorkflowRegistration(t *testing.T) {
 
 	// These should not panic
 	assert.NotPanics(t, func() {
-		register.RegisterWorkflows(w)
+		RegisterWorkflows(w)
 	})
 	assert.NotPanics(t, func() {
-		register.RegisterActivities(w)
+		RegisterActivities(w)
 	})
 	assert.NotPanics(t, func() {
-		register.RegisterAll(w)
+		RegisterAll(w)
 	})
 }

@@ -565,7 +565,7 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 	assert.Equal(t, 2, result.TotalSuccess)
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkSubstituteTemplate(b *testing.B) {
 	template := "process {{item}} at index {{index}} in env {{.env}}"
 	params := map[string]string{"env": "production"}

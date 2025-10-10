@@ -10,6 +10,11 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+const (
+	// FailureStrategyFailFast indicates that workflow should stop on first failure.
+	FailureStrategyFailFast = "fail_fast"
+)
+
 // LoopWorkflow executes containers in a loop over items (withItems pattern).
 func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOutput, error) {
 	logger := workflow.GetLogger(ctx)
@@ -73,7 +78,7 @@ func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOut
 					"item", input.Items[i],
 					"error", err)
 
-				if input.FailureStrategy == "fail_fast" {
+				if input.FailureStrategy == FailureStrategyFailFast {
 					output.TotalDuration = workflow.Now(ctx).Sub(startTime)
 					return output, fmt.Errorf("loop failed at iteration %d: %w", i, err)
 				}
@@ -105,7 +110,7 @@ func LoopWorkflow(ctx workflow.Context, input docker.LoopInput) (*docker.LoopOut
 					"item", item,
 					"error", err)
 
-				if input.FailureStrategy == "fail_fast" {
+				if input.FailureStrategy == FailureStrategyFailFast {
 					output.TotalDuration = workflow.Now(ctx).Sub(startTime)
 					return output, fmt.Errorf("loop failed at iteration %d: %w", i, err)
 				}
@@ -195,7 +200,7 @@ func ParameterizedLoopWorkflow(ctx workflow.Context, input docker.ParameterizedL
 					"params", combinations[i],
 					"error", err)
 
-				if input.FailureStrategy == "fail_fast" {
+				if input.FailureStrategy == FailureStrategyFailFast {
 					output.TotalDuration = workflow.Now(ctx).Sub(startTime)
 					return output, fmt.Errorf("parameterized loop failed at iteration %d: %w", i, err)
 				}
@@ -227,7 +232,7 @@ func ParameterizedLoopWorkflow(ctx workflow.Context, input docker.ParameterizedL
 					"params", params,
 					"error", err)
 
-				if input.FailureStrategy == "fail_fast" {
+				if input.FailureStrategy == FailureStrategyFailFast {
 					output.TotalDuration = workflow.Now(ctx).Sub(startTime)
 					return output, fmt.Errorf("parameterized loop failed at iteration %d: %w", i, err)
 				}

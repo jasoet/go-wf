@@ -460,7 +460,7 @@ func TestResolveInputMapping(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkExtractJSONPath(b *testing.B) {
 	jsonStr := `{"build": {"id": "12345", "version": "1.2.3", "tags": ["v1", "v2", "v3"]}}`
 	path := "$.build.id"

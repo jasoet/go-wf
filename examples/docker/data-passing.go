@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"go.temporal.io/sdk/client"
 )
 
@@ -134,10 +135,10 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "data-passing-pipeline",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -249,10 +250,10 @@ EOF
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "json-extraction-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -337,10 +338,10 @@ func regexExtraction(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "regex-extraction-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -445,10 +446,10 @@ func multipleOutputsInputs(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "multiple-outputs-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}

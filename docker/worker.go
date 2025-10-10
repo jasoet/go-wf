@@ -1,4 +1,4 @@
-package register
+package docker
 
 import (
 	"github.com/jasoet/go-wf/docker/activity"

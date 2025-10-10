@@ -44,7 +44,11 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("failed to close file: %w", closeErr)
+		}
+	}()
 
 	// Copy data
 	written, err := io.Copy(file, data)
@@ -154,12 +158,20 @@ func (s *LocalFileStore) Close() error {
 }
 
 // ArchiveDirectory creates a tar.gz archive of a directory.
-func ArchiveDirectory(sourceDir string, writer io.Writer) error {
+func ArchiveDirectory(sourceDir string, writer io.Writer) (err error) {
 	gzipWriter := gzip.NewWriter(writer)
-	defer gzipWriter.Close()
+	defer func() {
+		if closeErr := gzipWriter.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	tarWriter := tar.NewWriter(gzipWriter)
-	defer tarWriter.Close()
+	defer func() {
+		if closeErr := tarWriter.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	return filepath.Walk(sourceDir, func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
@@ -194,7 +206,7 @@ func ArchiveDirectory(sourceDir string, writer io.Writer) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		_, err = io.Copy(tarWriter, f)
 		return err
@@ -207,7 +219,7 @@ func ExtractArchive(reader io.Reader, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzipReader.Close()
+	defer func() { _ = gzipReader.Close() }()
 
 	tarReader := tar.NewReader(gzipReader)
 
@@ -241,10 +253,12 @@ func ExtractArchive(reader io.Reader, destDir string) error {
 
 			// Copy data
 			if _, err := io.Copy(f, tarReader); err != nil {
-				f.Close()
+				_ = f.Close()
 				return fmt.Errorf("failed to write file: %w", err)
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("failed to close file: %w", err)
+			}
 		}
 	}
 

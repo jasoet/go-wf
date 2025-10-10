@@ -104,7 +104,7 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "build-test-artifacts",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
 	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
@@ -248,7 +248,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "build-test-deploy-artifacts",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
 	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
@@ -346,7 +346,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "minio-artifacts-example",
-		TaskQueue: "docker-workflow",
+		TaskQueue: "docker-tasks",
 	}
 
 	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)

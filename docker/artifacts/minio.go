@@ -114,7 +114,7 @@ func (s *MinioStore) Download(ctx context.Context, metadata ArtifactMetadata) (i
 	// Verify object exists by checking stat
 	_, err = object.Stat()
 	if err != nil {
-		object.Close()
+		_ = object.Close()
 		return nil, fmt.Errorf("artifact not found: %s", metadata.Name)
 	}
 

@@ -11,7 +11,7 @@ import (
 
 // StartContainerActivity starts a container, waits for completion, and returns results.
 //
-//nolint:gocuclo,funlen // This function orchestrates container lifecycle which requires conditional logic and multiple steps
+//nolint:gocyclo,funlen // This function orchestrates container lifecycle which requires conditional logic and multiple steps
 func StartContainerActivity(ctx context.Context, input docker.ContainerExecutionInput) (*docker.ContainerExecutionOutput, error) {
 	logger := activity.GetLogger(ctx)
 	logger.Info("Starting container", "image", input.Image, "name", input.Name)

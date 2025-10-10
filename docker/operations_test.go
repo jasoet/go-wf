@@ -1,11 +1,10 @@
-package client
+package docker
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/mocks"
@@ -25,7 +24,7 @@ func TestSubmitWorkflow(t *testing.T) {
 		mock.Anything,
 	).Return(mockWorkflowRun, nil)
 
-	input := docker.ContainerExecutionInput{
+	input := ContainerExecutionInput{
 		Image: "alpine:latest",
 	}
 
@@ -61,7 +60,7 @@ func TestSubmitAndWait(t *testing.T) {
 		"run-456",
 	).Return(mockWorkflowRun)
 
-	input := docker.ContainerExecutionInput{
+	input := ContainerExecutionInput{
 		Image: "alpine:latest",
 	}
 
@@ -189,22 +188,22 @@ func TestSubmitWorkflowWithDifferentInputTypes(t *testing.T) {
 	}{
 		{
 			name: "ContainerExecutionInput",
-			input: docker.ContainerExecutionInput{
+			input: ContainerExecutionInput{
 				Image: "alpine:latest",
 			},
 		},
 		{
 			name: "PipelineInput",
-			input: docker.PipelineInput{
-				Containers: []docker.ContainerExecutionInput{
+			input: PipelineInput{
+				Containers: []ContainerExecutionInput{
 					{Image: "alpine:latest"},
 				},
 			},
 		},
 		{
 			name: "ParallelInput",
-			input: docker.ParallelInput{
-				Containers: []docker.ContainerExecutionInput{
+			input: ParallelInput{
+				Containers: []ContainerExecutionInput{
 					{Image: "alpine:latest"},
 				},
 			},

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -62,7 +63,7 @@ func main() {
 			ID:        "parallel-tests-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ParallelContainersWorkflow,
+		workflow.ParallelContainersWorkflow,
 		input,
 	)
 	if err != nil {

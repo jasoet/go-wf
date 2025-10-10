@@ -7,6 +7,13 @@ import (
 	"github.com/jasoet/go-wf/docker"
 )
 
+const (
+	// FailureStrategyContinue indicates that workflow should continue after failures.
+	FailureStrategyContinue = "continue"
+	// FailureStrategyFailFast indicates that workflow should stop on first failure.
+	FailureStrategyFailFast = "fail_fast"
+)
+
 // WorkflowBuilder provides a fluent API for constructing Docker workflow inputs.
 // It supports composing workflows from reusable sources and adding exit handlers.
 //
@@ -240,9 +247,9 @@ func (b *WorkflowBuilder) BuildParallel() (*docker.ParallelInput, error) {
 	}
 
 	// Determine failure strategy
-	failureStrategy := "continue"
+	failureStrategy := FailureStrategyContinue
 	if b.failFast {
-		failureStrategy = "fail_fast"
+		failureStrategy = FailureStrategyFailFast
 	}
 
 	// Create parallel input
@@ -489,9 +496,9 @@ func (lb *LoopBuilder) BuildLoop() (*docker.LoopInput, error) {
 	}
 
 	// Determine failure strategy
-	failureStrategy := "continue"
+	failureStrategy := FailureStrategyContinue
 	if lb.failFast {
-		failureStrategy = "fail_fast"
+		failureStrategy = FailureStrategyFailFast
 	}
 
 	// Create loop input
@@ -536,9 +543,9 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*docker.ParameterizedLoopInput,
 	}
 
 	// Determine failure strategy
-	failureStrategy := "continue"
+	failureStrategy := FailureStrategyContinue
 	if lb.failFast {
-		failureStrategy = "fail_fast"
+		failureStrategy = FailureStrategyFailFast
 	}
 
 	// Create parameterized loop input
