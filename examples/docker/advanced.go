@@ -9,6 +9,7 @@ import (
 
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/payload"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -90,7 +91,7 @@ func runParameterizedWorkflow(c client.Client) {
 			ID:        "parameterized-workflow",
 			TaskQueue: "docker-tasks",
 		},
-		docker.WorkflowWithParameters,
+		workflow.WorkflowWithParameters,
 		input,
 		params,
 	)
@@ -117,7 +118,7 @@ func runResourceLimitedWorkflow(c client.Client) {
 						Command:    []string{"sh", "-c", "echo 'Running small task' && sleep 1"},
 						AutoRemove: true,
 					},
-					Resources: &docker.ResourceLimits{
+					Resources: &payload.ResourceLimits{
 						CPURequest:    "100m",
 						CPULimit:      "200m",
 						MemoryRequest: "64Mi",
@@ -133,7 +134,7 @@ func runResourceLimitedWorkflow(c client.Client) {
 						Command:    []string{"sh", "-c", "echo 'Running large task' && sleep 2"},
 						AutoRemove: true,
 					},
-					Resources: &docker.ResourceLimits{
+					Resources: &payload.ResourceLimits{
 						CPURequest:    "1000m",
 						CPULimit:      "2000m",
 						MemoryRequest: "1Gi",
@@ -150,7 +151,7 @@ func runResourceLimitedWorkflow(c client.Client) {
 						Command:    []string{"sh", "-c", "echo 'Running ML training' && sleep 2"},
 						AutoRemove: true,
 					},
-					Resources: &docker.ResourceLimits{
+					Resources: &payload.ResourceLimits{
 						CPURequest:    "2000m",
 						CPULimit:      "4000m",
 						MemoryRequest: "4Gi",
@@ -169,7 +170,7 @@ func runResourceLimitedWorkflow(c client.Client) {
 			ID:        "resource-limited-workflow",
 			TaskQueue: "docker-tasks",
 		},
-		docker.DAGWorkflow,
+		workflow.DAGWorkflow,
 		input,
 	)
 
@@ -206,7 +207,7 @@ func runConditionalWorkflow(c client.Client) {
 						AutoRemove: true,
 					},
 					// Conditional: only deploy if tests passed
-					Conditional: &docker.ConditionalBehavior{
+					Conditional: &payload.ConditionalBehavior{
 						When:           "{{steps.test.exitCode}} == 0",
 						ContinueOnFail: false,
 					},
@@ -223,7 +224,7 @@ func runConditionalWorkflow(c client.Client) {
 						AutoRemove: true,
 					},
 					// Conditional: only deploy to prod if staging succeeded
-					Conditional: &docker.ConditionalBehavior{
+					Conditional: &payload.ConditionalBehavior{
 						When:           "{{steps.deploy-staging.exitCode}} == 0",
 						ContinueOnFail: false,
 					},
@@ -239,7 +240,7 @@ func runConditionalWorkflow(c client.Client) {
 						AutoRemove: true,
 					},
 					// Conditional: only rollback if production deploy failed
-					Conditional: &docker.ConditionalBehavior{
+					Conditional: &payload.ConditionalBehavior{
 						When:            "{{steps.deploy-production.exitCode}} != 0",
 						ContinueOnFail:  true,
 						ContinueOnError: true,
@@ -256,7 +257,7 @@ func runConditionalWorkflow(c client.Client) {
 			ID:        "conditional-workflow",
 			TaskQueue: "docker-tasks",
 		},
-		docker.DAGWorkflow,
+		workflow.DAGWorkflow,
 		input,
 	)
 
@@ -321,7 +322,7 @@ func runWaitStrategiesDemo(c client.Client) {
 			ID:        "wait-strategies-demo",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		input,
 	)
 

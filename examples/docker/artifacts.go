@@ -9,6 +9,7 @@ import (
 
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/artifacts"
+	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/client"
 )
@@ -60,45 +61,45 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "golang:1.25",
-						Command: []string{"sh", "-c", "go build -o /output/app . && echo 'Binary built successfully'"},
-						Volumes: []docker.VolumeMount{
-							{Source: "/path/to/source", Target: "/workspace", ReadOnly: true},
-							{Source: "/tmp/build-output", Target: "/output", ReadOnly: false},
-						},
-						WorkingDir: "/workspace",
-					},
+						Command: []string{"sh", "-c", "go build -o /output/app . && echo 'Binary built successfully'",
+						Volumes: map[string]string{
+							{"/path/to/source", : "/workspace", ReadOnly: true,
+							{"/tmp/build-output", : "/output", ReadOnly: false,
+						,
+						WorkDir: "/workspace",
+					,
 					// Define output artifacts to upload after build
 					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/build-output/app",
 							Type: "file",
-						},
-					},
-				},
-			},
+						,
+					,
+				,
+			,
 			{
 				Name: "test",
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
-						Command: []string{"sh", "-c", "/app/app --version && echo 'Binary test passed'"},
-						Volumes: []docker.VolumeMount{
-							{Source: "/tmp/test-workspace", Target: "/app", ReadOnly: false},
-						},
-					},
+						Command: []string{"sh", "-c", "/app/app --version && echo 'Binary test passed'",
+						Volumes: map[string]string{
+							{"/tmp/test-workspace", : "/app", ReadOnly: false,
+						,
+					,
 					// Define input artifacts to download before test
 					InputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/test-workspace/app",
 							Type: "file",
-						},
-					},
-				},
-				Dependencies: []string{"build"},
-			},
-		},
+						,
+					,
+				,
+				Dependencies: []string{"build",
+			,
+		,
 		ArtifactStore: store,
 		FailFast:      true,
 	}
@@ -108,7 +109,7 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -143,26 +144,26 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 						Command: []string{"sh", "-c", `
 							go build -o /output/app . &&
 							echo '{"version":"1.2.3","build":"456"}' > /output/metadata.json
-						`},
-						Volumes: []docker.VolumeMount{
-							{Source: "/path/to/source", Target: "/workspace", ReadOnly: true},
-							{Source: "/tmp/build-output", Target: "/output", ReadOnly: false},
-						},
-						WorkingDir: "/workspace",
-					},
+						`,
+						Volumes: map[string]string{
+							{"/path/to/source", : "/workspace", ReadOnly: true,
+							{"/tmp/build-output", : "/output", ReadOnly: false,
+						,
+						WorkDir: "/workspace",
+					,
 					// Multiple output artifacts
 					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/build-output/app",
 							Type: "file",
-						},
+						,
 						{
 							Name: "metadata",
 							Path: "/tmp/build-output/metadata.json",
 							Type: "file",
-						},
-					},
+						,
+					,
 					// Capture version from output
 					Outputs: []payload.OutputDefinition{
 						{
@@ -170,33 +171,33 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 							ValueFrom: "stdout",
 							Regex:     `version: (v[\d.]+)`,
 							Default:   "unknown",
-						},
-					},
-				},
-			},
+						,
+					,
+				,
+			,
 			{
 				Name: "test",
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "alpine:latest",
-						Command: []string{"sh", "-c", "/app/app --version && cat /app/metadata.json"},
-						Volumes: []docker.VolumeMount{
-							{Source: "/tmp/test-workspace", Target: "/app", ReadOnly: false},
-						},
-					},
+						Command: []string{"sh", "-c", "/app/app --version && cat /app/metadata.json",
+						Volumes: map[string]string{
+							{"/tmp/test-workspace", : "/app", ReadOnly: false,
+						,
+					,
 					// Download artifacts from build
 					InputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/test-workspace/app",
 							Type: "file",
-						},
+						,
 						{
 							Name: "metadata",
 							Path: "/tmp/test-workspace/metadata.json",
 							Type: "file",
-						},
-					},
+						,
+					,
 					// Upload test results
 					OutputArtifacts: []payload.Artifact{
 						{
@@ -204,32 +205,32 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 							Path:     "/tmp/test-results",
 							Type:     "directory",
 							Optional: true,
-						},
-					},
-				},
-				Dependencies: []string{"build"},
-			},
+						,
+					,
+				,
+				Dependencies: []string{"build",
+			,
 			{
 				Name: "deploy",
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "deployer:v1",
-						Command: []string{"sh", "-c", "deploy --binary=/deploy/app --env=$ENVIRONMENT"},
+						Command: []string{"sh", "-c", "deploy --binary=/deploy/app --env=$ENVIRONMENT",
 						Env: map[string]string{
 							"ENVIRONMENT": "staging",
-						},
-						Volumes: []docker.VolumeMount{
-							{Source: "/tmp/deploy-workspace", Target: "/deploy", ReadOnly: false},
-						},
-					},
+						,
+						Volumes: map[string]string{
+							{"/tmp/deploy-workspace", : "/deploy", ReadOnly: false,
+						,
+					,
 					// Download binary from build
 					InputArtifacts: []payload.Artifact{
 						{
 							Name: "binary",
 							Path: "/tmp/deploy-workspace/app",
 							Type: "file",
-						},
-					},
+						,
+					,
 					// Use version from build step
 					Inputs: []payload.InputMapping{
 						{
@@ -237,12 +238,12 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 							From:     "build.version",
 							Required: false,
 							Default:  "unknown",
-						},
-					},
-				},
-				Dependencies: []string{"test"},
-			},
-		},
+						,
+					,
+				,
+				Dependencies: []string{"test",
+			,
+		,
 		ArtifactStore: store,
 		FailFast:      true,
 	}
@@ -252,7 +253,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}
@@ -304,43 +305,43 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "data-processor:v1",
-						Command: []string{"sh", "-c", "process --input=/data/input.csv --output=/data/output.csv"},
-						Volumes: []docker.VolumeMount{
-							{Source: "/tmp/data", Target: "/data", ReadOnly: false},
-						},
-					},
+						Command: []string{"sh", "-c", "process --input=/data/input.csv --output=/data/output.csv",
+						Volumes: map[string]string{
+							{"/tmp/data", : "/data", ReadOnly: false,
+						,
+					,
 					// Upload processed data to Minio
 					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "processed-data",
 							Path: "/tmp/data/output.csv",
 							Type: "file",
-						},
-					},
-				},
-			},
+						,
+					,
+				,
+			,
 			{
 				Name: "analyze-results",
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image:   "data-analyzer:v1",
-						Command: []string{"sh", "-c", "analyze --input=/analysis/output.csv"},
-						Volumes: []docker.VolumeMount{
-							{Source: "/tmp/analysis", Target: "/analysis", ReadOnly: false},
-						},
-					},
+						Command: []string{"sh", "-c", "analyze --input=/analysis/output.csv",
+						Volumes: map[string]string{
+							{"/tmp/analysis", : "/analysis", ReadOnly: false,
+						,
+					,
 					// Download processed data from Minio
 					InputArtifacts: []payload.Artifact{
 						{
 							Name: "processed-data",
 							Path: "/tmp/analysis/output.csv",
 							Type: "file",
-						},
-					},
-				},
-				Dependencies: []string{"process-data"},
-			},
-		},
+						,
+					,
+				,
+				Dependencies: []string{"process-data",
+			,
+		,
 		ArtifactStore: store,
 		FailFast:      true,
 	}
@@ -350,7 +351,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 		TaskQueue: "docker-tasks",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx, workflowOptions, docker.DAGWorkflow, input)
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
 	if err != nil {
 		log.Fatalln("Unable to execute workflow", err)
 	}

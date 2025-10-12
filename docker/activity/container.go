@@ -19,9 +19,10 @@ func StartContainerActivity(ctx context.Context, input payload.ContainerExecutio
 	startTime := time.Now()
 
 	// Build docker executor options
+	// Note: We don't use AutoRemove here because we need to get logs after container exits.
+	// We'll manually remove the container if needed.
 	opts := []dockerpkg.Option{
 		dockerpkg.WithImage(input.Image),
-		dockerpkg.WithAutoRemove(input.AutoRemove),
 	}
 
 	if input.Name != "" {
@@ -93,10 +94,12 @@ func StartContainerActivity(ctx context.Context, input payload.ContainerExecutio
 		}, err
 	}
 
-	// Ensure cleanup
+	// Ensure cleanup if AutoRemove is enabled
 	defer func() {
-		if err := exec.Terminate(ctx); err != nil {
-			logger.Error("Failed to terminate container", "error", err)
+		if input.AutoRemove {
+			if err := exec.Terminate(ctx); err != nil {
+				logger.Error("Failed to terminate container", "error", err)
+			}
 		}
 	}()
 

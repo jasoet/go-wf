@@ -90,7 +90,7 @@ func main() {
 						Command:    []string{"sh", "-c", "echo 'Building application...' && sleep 3"},
 						AutoRemove: true,
 					},
-					Resources: &docker.ResourceLimits{
+					Resources: &payload.ResourceLimits{
 						CPURequest:    "500m",
 						CPULimit:      "1000m",
 						MemoryRequest: "512Mi",

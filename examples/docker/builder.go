@@ -8,6 +8,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
 	"github.com/jasoet/go-wf/docker/payload"
@@ -108,7 +109,7 @@ func runCICDPipeline(c client.Client) {
 			ID:        "cicd-pipeline-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		*input,
 	)
 
@@ -154,7 +155,7 @@ print("%s processed successfully")
 			ID:        "parallel-processing-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ParallelContainersWorkflow,
+		workflow.ParallelContainersWorkflow,
 		*input,
 	)
 
@@ -198,7 +199,7 @@ print(f"Platform: {platform.system()}")`)).
 			ID:        "scripts-demo-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		*input,
 	)
 
@@ -231,7 +232,7 @@ func runHTTPExamples(c client.Client) {
 			ID:        "http-demo-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		*input,
 	)
 
@@ -267,7 +268,7 @@ func runLoopPattern(c client.Client) {
 			ID:        "deploy-loop-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		*input,
 	)
 
@@ -308,7 +309,7 @@ func runExitHandlers(c client.Client) {
 			ID:        "exit-handler-example",
 			TaskQueue: "docker-tasks",
 		},
-		docker.ContainerPipelineWorkflow,
+		workflow.ContainerPipelineWorkflow,
 		*input,
 	)
 
