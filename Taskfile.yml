@@ -1,5 +1,33 @@
 version: '3'
 
+vars:
+  PODMAN_SOCKET:
+    sh: |
+      if command -v podman &> /dev/null; then
+        podman machine inspect --format '{{"{{"}}.ConnectionInfo.PodmanSocket.Path{{"}}"}}' 2>/dev/null || echo ""
+      fi
+  CONTAINER_HOST:
+    sh: |
+      # Use existing DOCKER_HOST if set
+      if [ -n "$DOCKER_HOST" ]; then
+        echo "$DOCKER_HOST"
+        exit 0
+      fi
+      # Try native Docker
+      if command -v docker &> /dev/null && docker ps &> /dev/null 2>&1; then
+        echo ""
+        exit 0
+      fi
+      # Try Podman socket
+      if command -v podman &> /dev/null; then
+        SOCKET=$(podman machine inspect --format '{{"{{"}}.ConnectionInfo.PodmanSocket.Path{{"}}"}}' 2>/dev/null || echo "")
+        if [ -n "$SOCKET" ] && [ -S "$SOCKET" ]; then
+          echo "unix://$SOCKET"
+          exit 0
+        fi
+      fi
+      echo ""
+
 tasks:
   default:
     desc: List all available tasks
@@ -8,8 +36,12 @@ tasks:
       - task --list
 
   test:
-    desc: Run all tests (unit + integration) with coverage - Docker required
+    desc: Run all tests (unit + integration) with coverage - container engine required
     silent: true
+    deps: [container:check]
+    env:
+      DOCKER_HOST: '{{.CONTAINER_HOST}}'
+      TESTCONTAINERS_RYUK_DISABLED: '{{if .CONTAINER_HOST}}true{{end}}'
     cmds:
       - mkdir -p output
       - go test -race -count=1 -coverprofile=output/coverage.out -covermode=atomic -tags=integration -timeout=15m ./...
@@ -18,13 +50,65 @@ tasks:
       - 'echo "✓ Coverage: output/coverage.html"'
 
   test:unit:
-    desc: Run unit tests only (fast, no Docker required)
+    desc: Run unit tests only (fast, no container engine required)
     silent: true
     cmds:
       - mkdir -p output
       - go test -race -count=1 -coverprofile=output/coverage-unit.out -covermode=atomic ./...
       - go tool cover -html=output/coverage-unit.out -o output/coverage-unit.html
       - 'echo "✓ Unit Coverage: output/coverage-unit.html"'
+
+  test:integration:
+    desc: Run integration tests only (container engine required)
+    silent: true
+    deps: [container:check]
+    env:
+      DOCKER_HOST: '{{.CONTAINER_HOST}}'
+      TESTCONTAINERS_RYUK_DISABLED: '{{if .CONTAINER_HOST}}true{{end}}'
+    cmds:
+      - mkdir -p output
+      - go test -race -count=1 -coverprofile=output/coverage-integration.out -covermode=atomic -tags=integration -timeout=15m ./...
+      - go tool cover -html=output/coverage-integration.out -o output/coverage-integration.html
+      - go tool cover -func=output/coverage-integration.out | grep total
+      - 'echo "✓ Integration Coverage: output/coverage-integration.html"'
+
+  container:check:
+    desc: Check Docker or Podman availability and daemon status
+    silent: true
+    cmds:
+      - |
+        # 1. If DOCKER_HOST is already set by user, trust it
+        if [ -n "$DOCKER_HOST" ]; then
+          echo "✅ DOCKER_HOST is set: $DOCKER_HOST"
+          exit 0
+        fi
+
+        # 2. Try native Docker
+        if command -v docker &> /dev/null && docker ps &> /dev/null 2>&1; then
+          echo "✅ Docker is available and running"
+          docker --version
+          exit 0
+        fi
+
+        # 3. Try Podman via detected socket
+        CONTAINER_HOST="{{.CONTAINER_HOST}}"
+        if [ -n "$CONTAINER_HOST" ]; then
+          echo "✅ Podman is available"
+          podman --version
+          echo "   Container host: $CONTAINER_HOST"
+          exit 0
+        fi
+
+        # 4. Podman is installed but socket not found
+        if command -v podman &> /dev/null; then
+          echo "❌ Podman is installed but no running machine detected"
+          echo "   Start with: podman machine start"
+          exit 1
+        fi
+
+        echo "❌ Neither Docker nor Podman found"
+        echo "   Install Docker or Podman and try again"
+        exit 1
 
   lint:
     desc: Run golangci-lint

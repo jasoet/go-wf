@@ -60,8 +60,10 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | Task | Description |
 |------|-------------|
 | `task` | List all available tasks |
-| `task test` | Run all tests (unit + integration) with coverage — Docker required |
-| `task test:unit` | Run unit tests only (fast, no Docker required) |
+| `task test` | Run all tests (unit + integration) with coverage — container engine required |
+| `task test:unit` | Run unit tests only (fast, no container engine required) |
+| `task test:integration` | Run integration tests only (container engine required) |
+| `task container:check` | Check Docker or Podman availability and daemon status |
 | `task lint` | Run golangci-lint |
 | `task check` | Run all checks (test + lint) |
 | `task tools` | Install development tools (golangci-lint, gofumpt, goimports) |
