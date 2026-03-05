@@ -3,9 +3,10 @@ package builder
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 func TestNewLoopBuilder(t *testing.T) {

@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"go.temporal.io/sdk/client"
+
 	"github.com/jasoet/go-wf/docker/payload"
 	wf "github.com/jasoet/go-wf/docker/workflow"
-	"go.temporal.io/sdk/client"
 )
+
+const statusCompleted = "Completed"
 
 // WorkflowStatus represents the status of a workflow execution.
 type WorkflowStatus struct {
@@ -94,7 +97,7 @@ func SubmitAndWait(ctx context.Context, c client.Client, input interface{}, task
 		return status, err
 	}
 
-	status.Status = "Completed"
+	status.Status = statusCompleted
 	return status, nil
 }
 
@@ -122,7 +125,7 @@ func GetWorkflowStatus(ctx context.Context, c client.Client, workflowID, runID s
 		status.Status = "Failed or Running"
 		status.Error = err
 	} else {
-		status.Status = "Completed"
+		status.Status = statusCompleted
 		status.Result = result
 		status.CloseTime = timePtr(time.Now())
 	}
@@ -184,7 +187,7 @@ func WatchWorkflow(ctx context.Context, c client.Client, workflowID, runID strin
 			updates <- status
 
 			// Stop watching if completed
-			if status.Status == "Completed" || status.Status == "Failed" {
+			if status.Status == statusCompleted || status.Status == "Failed" {
 				close(updates)
 				return nil
 			}
@@ -215,7 +218,7 @@ func QueryWorkflow(ctx context.Context, c client.Client, workflowID, runID, quer
 	return response.Get(result)
 }
 
-// Helper function to create time pointer
+// Helper function to create time pointer.
 func timePtr(t time.Time) *time.Time {
 	return &t
 }

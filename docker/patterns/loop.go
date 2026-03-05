@@ -7,16 +7,8 @@ import (
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
-// ParallelLoop creates a parallel loop workflow over items.
-// Each item is processed in parallel with the specified template.
-//
-// Example:
-//
-//	input, err := patterns.ParallelLoop(
-//	    []string{"file1.csv", "file2.csv", "file3.csv"},
-//	    "processor:v1",
-//	    "process.sh {{item}}")
-func ParallelLoop(items []string, image string, command string) (*payload.LoopInput, error) {
+// newLoopInput creates a LoopInput with a common container template.
+func newLoopInput(items []string, image, command string, parallel bool, failureStrategy string, maxConcurrency int) (*payload.LoopInput, error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("at least one item is required")
 	}
@@ -33,8 +25,9 @@ func ParallelLoop(items []string, image string, command string) (*payload.LoopIn
 	input := &payload.LoopInput{
 		Items:           items,
 		Template:        containerTemplate,
-		Parallel:        true,
-		FailureStrategy: "continue",
+		Parallel:        parallel,
+		MaxConcurrency:  maxConcurrency,
+		FailureStrategy: failureStrategy,
 	}
 
 	if err := input.Validate(); err != nil {
@@ -42,6 +35,19 @@ func ParallelLoop(items []string, image string, command string) (*payload.LoopIn
 	}
 
 	return input, nil
+}
+
+// ParallelLoop creates a parallel loop workflow over items.
+// Each item is processed in parallel with the specified template.
+//
+// Example:
+//
+//	input, err := patterns.ParallelLoop(
+//	    []string{"file1.csv", "file2.csv", "file3.csv"},
+//	    "processor:v1",
+//	    "process.sh {{item}}")
+func ParallelLoop(items []string, image, command string) (*payload.LoopInput, error) {
+	return newLoopInput(items, image, command, true, "continue", 0)
 }
 
 // SequentialLoop creates a sequential loop workflow over items.
@@ -53,32 +59,8 @@ func ParallelLoop(items []string, image string, command string) (*payload.LoopIn
 //	    []string{"step1", "step2", "step3"},
 //	    "deployer:v1",
 //	    "deploy.sh {{item}}")
-func SequentialLoop(items []string, image string, command string) (*payload.LoopInput, error) {
-	if len(items) == 0 {
-		return nil, fmt.Errorf("at least one item is required")
-	}
-
-	containerTemplate := payload.ContainerExecutionInput{
-		Image:   image,
-		Command: []string{"sh", "-c", command},
-		Env: map[string]string{
-			"ITEM":  "{{item}}",
-			"INDEX": "{{index}}",
-		},
-	}
-
-	input := &payload.LoopInput{
-		Items:           items,
-		Template:        containerTemplate,
-		Parallel:        false,
-		FailureStrategy: "fail_fast",
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, fmt.Errorf("loop validation failed: %w", err)
-	}
-
-	return input, nil
+func SequentialLoop(items []string, image, command string) (*payload.LoopInput, error) {
+	return newLoopInput(items, image, command, false, "fail_fast", 0)
 }
 
 // BatchProcessing creates a parallel loop workflow for batch data processing.

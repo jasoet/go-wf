@@ -87,8 +87,8 @@ func ExtractOutputs(definitions []payload.OutputDefinition, containerOutput *pay
 	return outputs, nil
 }
 
-// extractJSONPath extracts a value from JSON using a simple JSONPath expression.
-// Supports basic paths like "$.field", "$.field.nested", "$.array[0]"
+// extractJSONPath extracts a value from JSON using a simple JSONPath expression,
+// supporting basic paths like "$.field", "$.field.nested", "$.array[0]".
 func extractJSONPath(jsonStr, path string) (string, error) {
 	// Parse JSON
 	var data interface{}
@@ -119,7 +119,10 @@ func extractJSONPath(jsonStr, path string) (string, error) {
 			}
 
 			fieldName := matches[1]
-			index, _ := strconv.Atoi(matches[2])
+			index, err := strconv.Atoi(matches[2])
+			if err != nil {
+				return "", fmt.Errorf("invalid array index %s: %w", matches[2], err)
+			}
 
 			// Navigate to field
 			if m, ok := current.(map[string]interface{}); ok {
@@ -198,7 +201,7 @@ func extractRegex(text, pattern string) (string, error) {
 
 // readFile reads a file and returns its contents as a string.
 func readFile(path string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //#nosec G304 -- path comes from workflow output definition configured by the user
 	if err != nil {
 		return "", err
 	}
@@ -231,8 +234,8 @@ func SubstituteInputs(containerInput *payload.ContainerExecutionInput, inputs []
 	return nil
 }
 
-// resolveInputMapping resolves an input mapping from step outputs.
-// Format: "step-name.output-name"
+// resolveInputMapping resolves an input mapping from step outputs,
+// using the format: "step-name.output-name".
 func resolveInputMapping(mapping payload.InputMapping, stepOutputs map[string]map[string]string) (string, error) {
 	// Parse "step-name.output-name"
 	parts := strings.SplitN(mapping.From, ".", 2)

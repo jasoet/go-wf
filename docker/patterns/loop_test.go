@@ -3,9 +3,10 @@ package patterns
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker/template"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jasoet/go-wf/docker/template"
 )
 
 func TestParallelLoop(t *testing.T) {

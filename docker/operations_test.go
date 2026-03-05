@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/mocks"
+
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 func TestSubmitWorkflow(t *testing.T) {

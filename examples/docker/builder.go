@@ -8,14 +8,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/jasoet/go-wf/docker/workflow"
+	"github.com/jasoet/pkg/v2/temporal"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/builder"
 	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/template"
-	"github.com/jasoet/pkg/v2/temporal"
-	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/worker"
+	"github.com/jasoet/go-wf/docker/workflow"
 )
 
 func main() {

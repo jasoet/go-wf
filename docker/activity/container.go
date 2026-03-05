@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/jasoet/go-wf/docker/payload"
 	dockerpkg "github.com/jasoet/pkg/v2/docker"
 	"go.temporal.io/sdk/activity"
+
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // StartContainerActivity starts a container, waits for completion, and returns results.

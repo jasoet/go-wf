@@ -5,12 +5,29 @@ import (
 	"sync"
 	"time"
 
+	"go.temporal.io/sdk/temporal"
+	wf "go.temporal.io/sdk/workflow"
+
 	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/artifacts"
 	"github.com/jasoet/go-wf/docker/payload"
-	"go.temporal.io/sdk/temporal"
-	wf "go.temporal.io/sdk/workflow"
 )
+
+// dagState holds shared mutable state for DAG execution.
+type dagState struct {
+	mu          sync.Mutex
+	executed    map[string]bool
+	results     map[string]*payload.ContainerExecutionOutput
+	stepOutputs map[string]map[string]string
+}
+
+func newDAGState() *dagState {
+	return &dagState{
+		executed:    make(map[string]bool),
+		results:     make(map[string]*payload.ContainerExecutionOutput),
+		stepOutputs: make(map[string]map[string]string),
+	}
+}
 
 // DAGWorkflow executes containers in a DAG (Directed Acyclic Graph) pattern.
 // This allows for complex dependencies between containers where execution order
@@ -30,7 +47,6 @@ func DAGWorkflow(ctx wf.Context, input payload.DAGWorkflowInput) (*payload.DAGWo
 	logger := wf.GetLogger(ctx)
 	logger.Info("Starting DAG workflow", "nodes", len(input.Nodes))
 
-	// Validate input
 	if err := input.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid DAG input: %w", err)
 	}
@@ -41,203 +57,15 @@ func DAGWorkflow(ctx wf.Context, input payload.DAGWorkflowInput) (*payload.DAGWo
 		NodeResults: make([]payload.NodeResult, 0, len(input.Nodes)),
 	}
 
-	// Build dependency map
-	depMap := make(map[string][]string)
-	for _, node := range input.Nodes {
-		depMap[node.Name] = node.Dependencies
-	}
+	ctx = wf.WithActivityOptions(ctx, defaultActivityOptions())
+	state := newDAGState()
+	nodeMap := buildNodeMap(input.Nodes)
 
-	// Execute nodes based on dependencies
-	executed := make(map[string]bool)
-	results := make(map[string]*payload.ContainerExecutionOutput)
-	stepOutputs := make(map[string]map[string]string) // Store extracted outputs by step name
-	resultsMutex := sync.Mutex{}
-
-	// Activity options
-	ao := wf.ActivityOptions{
-		StartToCloseTimeout: 10 * time.Minute,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    time.Minute,
-			MaximumAttempts:    3,
-		},
-	}
-	ctx = wf.WithActivityOptions(ctx, ao)
-
-	// Execute nodes in topological order
-	var executeNode func(nodeName string) error
+	var executeNode func(string) error
 	executeNode = func(nodeName string) error {
-		// Check if already executed
-		resultsMutex.Lock()
-		if executed[nodeName] {
-			resultsMutex.Unlock()
-			return nil
-		}
-		resultsMutex.Unlock()
-
-		// Find node
-		var node *payload.DAGNode
-		for i := range input.Nodes {
-			if input.Nodes[i].Name == nodeName {
-				node = &input.Nodes[i]
-				break
-			}
-		}
-		if node == nil {
-			return fmt.Errorf("node not found: %s", nodeName)
-		}
-
-		// Execute dependencies first
-		for _, dep := range node.Dependencies {
-			if err := executeNode(dep); err != nil {
-				return err
-			}
-
-			// Check if dependency failed (if fail-fast enabled)
-			if input.FailFast {
-				resultsMutex.Lock()
-				depResult := results[dep]
-				resultsMutex.Unlock()
-
-				if depResult != nil && !depResult.Success {
-					return fmt.Errorf("dependency %s failed", dep)
-				}
-			}
-		}
-
-		logger.Info("Executing node", "name", nodeName)
-
-		// Prepare container input with input substitution
-		containerInput := node.Container.ContainerExecutionInput
-
-		// Apply input mappings if defined
-		if len(node.Container.Inputs) > 0 {
-			resultsMutex.Lock()
-			inputErr := SubstituteInputs(&containerInput, node.Container.Inputs, stepOutputs)
-			resultsMutex.Unlock()
-
-			if inputErr != nil {
-				return fmt.Errorf("failed to substitute inputs for node %s: %w", nodeName, inputErr)
-			}
-			logger.Info("Applied input mappings", "name", nodeName, "inputs", len(node.Container.Inputs))
-		}
-
-		// Download input artifacts if artifact store is configured
-		if input.ArtifactStore != nil && len(node.Container.InputArtifacts) > 0 {
-			store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
-			if !ok {
-				return fmt.Errorf("invalid artifact store type")
-			}
-
-			for _, artifact := range node.Container.InputArtifacts {
-				metadata := artifacts.ArtifactMetadata{
-					Name:       artifact.Name,
-					Path:       artifact.Path,
-					Type:       artifact.Type,
-					WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
-					RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
-					StepName:   nodeName,
-				}
-
-				downloadInput := artifacts.DownloadArtifactInput{
-					Metadata: metadata,
-					DestPath: artifact.Path,
-				}
-
-				err := wf.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, store, downloadInput).Get(ctx, nil)
-				if err != nil && !artifact.Optional {
-					return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
-				}
-				if err == nil {
-					logger.Info("Downloaded artifact", "name", artifact.Name, "path", artifact.Path)
-				}
-			}
-		}
-
-		// Execute this node
-		var result payload.ContainerExecutionOutput
-		err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
-
-		// Extract outputs if defined
-		if len(node.Container.Outputs) > 0 && result.Success {
-			outputs, extractErr := ExtractOutputs(node.Container.Outputs, &result)
-			if extractErr != nil {
-				logger.Error("Failed to extract outputs", "name", nodeName, "error", extractErr)
-				// Don't fail the workflow, just log the error
-			} else {
-				resultsMutex.Lock()
-				stepOutputs[nodeName] = outputs
-				resultsMutex.Unlock()
-				logger.Info("Extracted outputs", "name", nodeName, "outputs", outputs)
-			}
-		}
-
-		// Upload output artifacts if artifact store is configured
-		if input.ArtifactStore != nil && len(node.Container.OutputArtifacts) > 0 && result.Success {
-			store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
-			if !ok {
-				return fmt.Errorf("invalid artifact store type")
-			}
-
-			for _, artifact := range node.Container.OutputArtifacts {
-				metadata := artifacts.ArtifactMetadata{
-					Name:       artifact.Name,
-					Path:       artifact.Path,
-					Type:       artifact.Type,
-					WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
-					RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
-					StepName:   nodeName,
-				}
-
-				uploadInput := artifacts.UploadArtifactInput{
-					Metadata:   metadata,
-					SourcePath: artifact.Path,
-				}
-
-				err := wf.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, store, uploadInput).Get(ctx, nil)
-				if err != nil && !artifact.Optional {
-					logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
-					// Don't fail the workflow, just log the error
-				} else if err == nil {
-					logger.Info("Uploaded artifact", "name", artifact.Name, "path", artifact.Path)
-				}
-			}
-		}
-
-		resultsMutex.Lock()
-		results[nodeName] = &result
-		executed[nodeName] = true
-		resultsMutex.Unlock()
-
-		nodeResult := payload.NodeResult{
-			NodeName:  nodeName,
-			Result:    &result,
-			StartTime: wf.Now(ctx),
-		}
-
-		if err != nil || !result.Success {
-			nodeResult.Success = false
-			nodeResult.Error = err
-			output.TotalFailed++
-
-			logger.Error("Node failed", "name", nodeName, "error", err)
-
-			if input.FailFast {
-				return err
-			}
-		} else {
-			nodeResult.Success = true
-			output.TotalSuccess++
-			logger.Info("Node completed", "name", nodeName)
-		}
-
-		output.NodeResults = append(output.NodeResults, nodeResult)
-
-		return nil
+		return executeDAGNode(ctx, nodeName, nodeMap, &input, state, output, executeNode)
 	}
 
-	// Execute all nodes
 	for _, node := range input.Nodes {
 		if err := executeNode(node.Name); err != nil {
 			output.TotalDuration = wf.Now(ctx).Sub(startTime)
@@ -245,9 +73,8 @@ func DAGWorkflow(ctx wf.Context, input payload.DAGWorkflowInput) (*payload.DAGWo
 		}
 	}
 
-	// Copy results to output
-	output.Results = results
-	output.StepOutputs = stepOutputs
+	output.Results = state.results
+	output.StepOutputs = state.stepOutputs
 	output.TotalDuration = wf.Now(ctx).Sub(startTime)
 
 	logger.Info("DAG workflow completed",
@@ -256,6 +83,230 @@ func DAGWorkflow(ctx wf.Context, input payload.DAGWorkflowInput) (*payload.DAGWo
 		"duration", output.TotalDuration)
 
 	return output, nil
+}
+
+func buildNodeMap(nodes []payload.DAGNode) map[string]*payload.DAGNode {
+	nodeMap := make(map[string]*payload.DAGNode, len(nodes))
+	for i := range nodes {
+		nodeMap[nodes[i].Name] = &nodes[i]
+	}
+	return nodeMap
+}
+
+func executeDAGNode(ctx wf.Context, nodeName string, nodeMap map[string]*payload.DAGNode, input *payload.DAGWorkflowInput, state *dagState, output *payload.DAGWorkflowOutput, executeNode func(string) error) error {
+	logger := wf.GetLogger(ctx)
+
+	state.mu.Lock()
+	if state.executed[nodeName] {
+		state.mu.Unlock()
+		return nil
+	}
+	state.mu.Unlock()
+
+	node, ok := nodeMap[nodeName]
+	if !ok {
+		return fmt.Errorf("node not found: %s", nodeName)
+	}
+
+	if err := executeDependencies(executeNode, node, input, state); err != nil {
+		return err
+	}
+
+	logger.Info("Executing node", "name", nodeName)
+
+	containerInput := node.Container.ContainerExecutionInput
+	if err := applyInputMappings(logger, &containerInput, node, state); err != nil {
+		return err
+	}
+
+	if err := downloadInputArtifacts(ctx, logger, input, node); err != nil {
+		return err
+	}
+
+	var result payload.ContainerExecutionOutput
+	err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
+
+	extractAndStoreOutputs(logger, node, &result, state)
+	uploadOutputArtifacts(ctx, logger, input, node, &result)
+
+	state.mu.Lock()
+	state.results[nodeName] = &result
+	state.executed[nodeName] = true
+	state.mu.Unlock()
+
+	recordNodeResult(nodeName, &result, err, ctx, input.FailFast, output, logger)
+
+	if (err != nil || !result.Success) && input.FailFast {
+		return err
+	}
+	return nil
+}
+
+func recordNodeResult(nodeName string, result *payload.ContainerExecutionOutput, err error, ctx wf.Context, failFast bool, output *payload.DAGWorkflowOutput, logger interface {
+	Info(string, ...interface{})
+	Error(string, ...interface{})
+},
+) {
+	nodeResult := payload.NodeResult{
+		NodeName:  nodeName,
+		Result:    result,
+		StartTime: wf.Now(ctx),
+	}
+
+	if err != nil || !result.Success {
+		nodeResult.Success = false
+		nodeResult.Error = err
+		output.TotalFailed++
+		logger.Error("Node failed", "name", nodeName, "error", err)
+	} else {
+		nodeResult.Success = true
+		output.TotalSuccess++
+		logger.Info("Node completed", "name", nodeName)
+	}
+
+	output.NodeResults = append(output.NodeResults, nodeResult)
+}
+
+func defaultActivityOptions() wf.ActivityOptions {
+	return wf.ActivityOptions{
+		StartToCloseTimeout: 10 * time.Minute,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    time.Minute,
+			MaximumAttempts:    3,
+		},
+	}
+}
+
+func executeDependencies(executeNode func(string) error, node *payload.DAGNode, input *payload.DAGWorkflowInput, state *dagState) error {
+	for _, dep := range node.Dependencies {
+		if err := executeNode(dep); err != nil {
+			return err
+		}
+
+		if input.FailFast {
+			state.mu.Lock()
+			depResult := state.results[dep]
+			state.mu.Unlock()
+
+			if depResult != nil && !depResult.Success {
+				return fmt.Errorf("dependency %s failed", dep)
+			}
+		}
+	}
+	return nil
+}
+
+func applyInputMappings(logger interface{ Info(string, ...interface{}) }, containerInput *payload.ContainerExecutionInput, node *payload.DAGNode, state *dagState) error {
+	if len(node.Container.Inputs) == 0 {
+		return nil
+	}
+
+	state.mu.Lock()
+	inputErr := SubstituteInputs(containerInput, node.Container.Inputs, state.stepOutputs)
+	state.mu.Unlock()
+
+	if inputErr != nil {
+		return fmt.Errorf("failed to substitute inputs for node %s: %w", node.Name, inputErr)
+	}
+	logger.Info("Applied input mappings", "name", node.Name, "inputs", len(node.Container.Inputs))
+	return nil
+}
+
+func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...interface{}) }, input *payload.DAGWorkflowInput, node *payload.DAGNode) error {
+	if input.ArtifactStore == nil || len(node.Container.InputArtifacts) == 0 {
+		return nil
+	}
+
+	store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
+	if !ok {
+		return fmt.Errorf("invalid artifact store type")
+	}
+
+	for _, artifact := range node.Container.InputArtifacts {
+		metadata := artifacts.ArtifactMetadata{
+			Name:       artifact.Name,
+			Path:       artifact.Path,
+			Type:       artifact.Type,
+			WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
+			RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
+			StepName:   node.Name,
+		}
+
+		downloadInput := artifacts.DownloadArtifactInput{
+			Metadata: metadata,
+			DestPath: artifact.Path,
+		}
+
+		err := wf.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, store, downloadInput).Get(ctx, nil)
+		if err != nil && !artifact.Optional {
+			return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
+		}
+		if err == nil {
+			logger.Info("Downloaded artifact", "name", artifact.Name, "path", artifact.Path)
+		}
+	}
+	return nil
+}
+
+func extractAndStoreOutputs(logger interface {
+	Info(string, ...interface{})
+	Error(string, ...interface{})
+}, node *payload.DAGNode, result *payload.ContainerExecutionOutput, state *dagState,
+) {
+	if len(node.Container.Outputs) == 0 || !result.Success {
+		return
+	}
+
+	outputs, extractErr := ExtractOutputs(node.Container.Outputs, result)
+	if extractErr != nil {
+		logger.Error("Failed to extract outputs", "name", node.Name, "error", extractErr)
+		return
+	}
+
+	state.mu.Lock()
+	state.stepOutputs[node.Name] = outputs
+	state.mu.Unlock()
+	logger.Info("Extracted outputs", "name", node.Name, "outputs", outputs)
+}
+
+func uploadOutputArtifacts(ctx wf.Context, logger interface {
+	Info(string, ...interface{})
+	Error(string, ...interface{})
+}, input *payload.DAGWorkflowInput, node *payload.DAGNode, result *payload.ContainerExecutionOutput,
+) {
+	if input.ArtifactStore == nil || len(node.Container.OutputArtifacts) == 0 || !result.Success {
+		return
+	}
+
+	store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
+	if !ok {
+		return
+	}
+
+	for _, artifact := range node.Container.OutputArtifacts {
+		metadata := artifacts.ArtifactMetadata{
+			Name:       artifact.Name,
+			Path:       artifact.Path,
+			Type:       artifact.Type,
+			WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
+			RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
+			StepName:   node.Name,
+		}
+
+		uploadInput := artifacts.UploadArtifactInput{
+			Metadata:   metadata,
+			SourcePath: artifact.Path,
+		}
+
+		err := wf.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, store, uploadInput).Get(ctx, nil)
+		if err != nil && !artifact.Optional {
+			logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
+		} else if err == nil {
+			logger.Info("Uploaded artifact", "name", artifact.Name, "path", artifact.Path)
+		}
+	}
 }
 
 // WorkflowWithParameters executes a workflow with input parameters.

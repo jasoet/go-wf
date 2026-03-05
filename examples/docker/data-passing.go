@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"log"
 
+	"go.temporal.io/sdk/client"
+
 	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
-	"go.temporal.io/sdk/client"
 )
 
 // This example demonstrates explicit data passing between workflow steps.

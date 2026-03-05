@@ -62,12 +62,16 @@ func UploadArtifactActivity(ctx context.Context, store ArtifactStore, input Uplo
 }
 
 // uploadFile uploads a single file.
-func uploadFile(ctx context.Context, store ArtifactStore, input UploadArtifactInput) error {
+func uploadFile(ctx context.Context, store ArtifactStore, input UploadArtifactInput) (err error) {
 	file, err := os.Open(input.SourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer func() { _ = file.Close() }()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Get file info for size
 	fileInfo, err := file.Stat()
@@ -98,13 +102,17 @@ func uploadDirectory(ctx context.Context, store ArtifactStore, input UploadArtif
 }
 
 // DownloadArtifactActivity downloads an artifact from the artifact store to local filesystem.
-func DownloadArtifactActivity(ctx context.Context, store ArtifactStore, input DownloadArtifactInput) error {
+func DownloadArtifactActivity(ctx context.Context, store ArtifactStore, input DownloadArtifactInput) (err error) {
 	// Download artifact
 	reader, err := store.Download(ctx, input.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to download artifact: %w", err)
 	}
-	defer func() { _ = reader.Close() }()
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	// Handle different artifact types
 	switch input.Metadata.Type {
@@ -120,12 +128,12 @@ func DownloadArtifactActivity(ctx context.Context, store ArtifactStore, input Do
 // downloadFile downloads a single file.
 func downloadFile(reader io.Reader, destPath string) error {
 	// Create parent directories
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
 
 	// Create destination file
-	file, err := os.Create(destPath)
+	file, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //#nosec G304 -- destPath is from workflow config, not user input
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
@@ -147,7 +155,7 @@ func downloadFile(reader io.Reader, destPath string) error {
 // downloadDirectory extracts an archive to a directory.
 func downloadDirectory(reader io.Reader, destPath string) error {
 	// Create destination directory
-	if err := os.MkdirAll(destPath, 0o755); err != nil {
+	if err := os.MkdirAll(destPath, 0o750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 

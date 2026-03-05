@@ -471,6 +471,19 @@ func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
 	return lb
 }
 
+// checkAndStrategy validates the builder state and returns the resolved failure strategy.
+func (lb *LoopBuilder) checkAndStrategy() (string, error) {
+	if len(lb.errors) > 0 {
+		return "", lb.errors[0]
+	}
+
+	failureStrategy := FailureStrategyContinue
+	if lb.failFast {
+		failureStrategy = FailureStrategyFailFast
+	}
+	return failureStrategy, nil
+}
+
 // BuildLoop creates a loop workflow configuration for simple item iteration.
 //
 // Returns:
@@ -484,24 +497,18 @@ func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
 //	    return err
 //	}
 //	output, err := docker.LoopWorkflow(ctx, input)
+//
+//nolint:dupl // BuildLoop and BuildParameterizedLoop construct different types with the same pattern
 func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
-	// Check for errors
-	if len(lb.errors) > 0 {
-		return nil, lb.errors[0]
+	failureStrategy, err := lb.checkAndStrategy()
+	if err != nil {
+		return nil, err
 	}
 
-	// Validate items
 	if len(lb.items) == 0 {
 		return nil, fmt.Errorf("loop requires at least one item")
 	}
 
-	// Determine failure strategy
-	failureStrategy := FailureStrategyContinue
-	if lb.failFast {
-		failureStrategy = FailureStrategyFailFast
-	}
-
-	// Create loop input
 	input := &payload.LoopInput{
 		Items:           lb.items,
 		Template:        lb.template,
@@ -510,7 +517,6 @@ func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
 		FailureStrategy: failureStrategy,
 	}
 
-	// Validate input
 	if err := input.Validate(); err != nil {
 		return nil, fmt.Errorf("loop validation failed: %w", err)
 	}
@@ -531,24 +537,18 @@ func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
 //	    return err
 //	}
 //	output, err := docker.ParameterizedLoopWorkflow(ctx, input)
+//
+//nolint:dupl // BuildParameterizedLoop and BuildLoop construct different types with the same pattern
 func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput, error) {
-	// Check for errors
-	if len(lb.errors) > 0 {
-		return nil, lb.errors[0]
+	failureStrategy, err := lb.checkAndStrategy()
+	if err != nil {
+		return nil, err
 	}
 
-	// Validate parameters
 	if len(lb.parameters) == 0 {
 		return nil, fmt.Errorf("parameterized loop requires at least one parameter")
 	}
 
-	// Determine failure strategy
-	failureStrategy := FailureStrategyContinue
-	if lb.failFast {
-		failureStrategy = FailureStrategyFailFast
-	}
-
-	// Create parameterized loop input
 	input := &payload.ParameterizedLoopInput{
 		Parameters:      lb.parameters,
 		Template:        lb.template,
@@ -557,7 +557,6 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput
 		FailureStrategy: failureStrategy,
 	}
 
-	// Validate input
 	if err := input.Validate(); err != nil {
 		return nil, fmt.Errorf("parameterized loop validation failed: %w", err)
 	}

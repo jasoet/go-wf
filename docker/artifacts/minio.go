@@ -114,7 +114,9 @@ func (s *MinioStore) Download(ctx context.Context, metadata ArtifactMetadata) (i
 	// Verify object exists by checking stat
 	_, err = object.Stat()
 	if err != nil {
-		_ = object.Close()
+		if closeErr := object.Close(); closeErr != nil {
+			return nil, fmt.Errorf("artifact not found: %s (close error: %w)", metadata.Name, closeErr)
+		}
 		return nil, fmt.Errorf("artifact not found: %s", metadata.Name)
 	}
 
@@ -157,7 +159,7 @@ func (s *MinioStore) List(ctx context.Context, prefix string) ([]ArtifactMetadat
 		objectPrefix = s.prefix + prefix
 	}
 
-	var artifacts []ArtifactMetadata
+	artifacts := make([]ArtifactMetadata, 0)
 
 	// List objects with prefix
 	objectCh := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{

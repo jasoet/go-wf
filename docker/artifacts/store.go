@@ -58,8 +58,8 @@ type ArtifactMetadata struct {
 	Size int64 `json:"size,omitempty"`
 }
 
-// StorageKey generates a storage key for an artifact.
-// Format: workflow_id/run_id/step_name/artifact_name
+// StorageKey generates a storage key for an artifact,
+// using the format: workflow_id/run_id/step_name/artifact_name.
 func (m ArtifactMetadata) StorageKey() string {
 	return m.WorkflowID + "/" + m.RunID + "/" + m.StepName + "/" + m.Name
 }

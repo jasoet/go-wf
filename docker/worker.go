@@ -1,9 +1,10 @@
 package docker
 
 import (
+	"go.temporal.io/sdk/worker"
+
 	"github.com/jasoet/go-wf/docker/activity"
 	wf "github.com/jasoet/go-wf/docker/workflow"
-	"go.temporal.io/sdk/worker"
 )
 
 // RegisterWorkflows registers all docker workflows with a worker.

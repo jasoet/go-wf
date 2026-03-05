@@ -3,10 +3,11 @@ package workflow
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker/activity"
-	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/testsuite"
+
+	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // TestParallelContainersWorkflow_Success tests parallel execution.

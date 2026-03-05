@@ -48,7 +48,7 @@ func (e *WorkflowError) Wrap(msg string) *WorkflowError {
 	}
 }
 
-// Predefined errors
+// Predefined errors.
 var (
 	// ErrInvalidInput indicates invalid input provided.
 	ErrInvalidInput = &WorkflowError{

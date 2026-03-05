@@ -9,13 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker"
-	"github.com/jasoet/go-wf/docker/payload"
-	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
+
+	"github.com/jasoet/go-wf/docker"
+	"github.com/jasoet/go-wf/docker/payload"
+	"github.com/jasoet/go-wf/docker/workflow"
 )
 
 // TemporalContainer represents a Temporal server test container.

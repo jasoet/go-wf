@@ -5,9 +5,10 @@ package main
 import (
 	"log"
 
-	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
+
+	"github.com/jasoet/go-wf/docker"
 )
 
 func main() {

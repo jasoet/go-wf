@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 func TestNewWorkflowBuilder(t *testing.T) {

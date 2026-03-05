@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/docker/activity"
-	"github.com/jasoet/go-wf/docker/payload"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+
+	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // ContainerPipelineWorkflow executes containers sequentially.

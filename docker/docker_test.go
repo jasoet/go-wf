@@ -1,31 +1,35 @@
 package docker
 
 import (
+	"testing"
+	"time"
+
 	"github.com/nexus-rpc/sdk-go/nexus"
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdkworkflow "go.temporal.io/sdk/workflow"
-	"testing"
-	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.temporal.io/sdk/testsuite"
 )
 
-// integrationMockWorker implements the Worker interface for testing
+// integrationMockWorker implements the Worker interface for testing.
 type integrationMockWorker struct{}
 
 func (m *integrationMockWorker) RegisterWorkflow(interface{}) {}
 func (m *integrationMockWorker) RegisterWorkflowWithOptions(interface{}, sdkworkflow.RegisterOptions) {
 }
+
 func (m *integrationMockWorker) RegisterDynamicWorkflow(interface{}, sdkworkflow.DynamicRegisterOptions) {
 }
 func (m *integrationMockWorker) RegisterActivity(interface{}) {}
 func (m *integrationMockWorker) RegisterActivityWithOptions(interface{}, sdkactivity.RegisterOptions) {
 }
+
 func (m *integrationMockWorker) RegisterDynamicActivity(interface{}, sdkactivity.DynamicRegisterOptions) {
 }
 func (m *integrationMockWorker) RegisterNexusService(*nexus.Service) {}

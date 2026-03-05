@@ -9,7 +9,7 @@ import (
 
 // substituteTemplate replaces template variables in a string.
 // Supports: {{item}}, {{index}}, and {{.paramName}} syntax.
-func substituteTemplate(template string, item string, index int, params map[string]string) string {
+func substituteTemplate(template, item string, index int, params map[string]string) string {
 	result := template
 
 	// Replace {{item}}

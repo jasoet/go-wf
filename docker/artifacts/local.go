@@ -20,7 +20,7 @@ type LocalFileStore struct {
 // NewLocalFileStore creates a new local file store.
 func NewLocalFileStore(basePath string) (*LocalFileStore, error) {
 	// Create base directory if it doesn't exist
-	if err := os.MkdirAll(basePath, 0o755); err != nil {
+	if err := os.MkdirAll(basePath, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create base directory: %w", err)
 	}
 
@@ -35,12 +35,12 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
 	// Create parent directories
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Create file
-	file, err := os.Create(fullPath)
+	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //#nosec G304 -- path is built from validated metadata
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -66,7 +66,7 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 func (s *LocalFileStore) Download(ctx context.Context, metadata ArtifactMetadata) (io.ReadCloser, error) {
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
-	file, err := os.Open(fullPath)
+	file, err := os.Open(fullPath) //#nosec G304 -- path is built from validated metadata
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("artifact not found: %s", metadata.Name)
@@ -202,11 +202,15 @@ func ArchiveDirectory(sourceDir string, writer io.Writer) (err error) {
 		}
 
 		// Write file data
-		f, err := os.Open(file)
+		f, err := os.Open(file) //#nosec G304 -- path from filepath.Walk within controlled sourceDir
 		if err != nil {
 			return err
 		}
-		defer func() { _ = f.Close() }()
+		defer func() {
+			if closeErr := f.Close(); closeErr != nil && err == nil {
+				err = closeErr
+			}
+		}()
 
 		_, err = io.Copy(tarWriter, f)
 		return err
@@ -219,9 +223,17 @@ func ExtractArchive(reader io.Reader, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer func() { _ = gzipReader.Close() }()
+	defer func() {
+		if closeErr := gzipReader.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	tarReader := tar.NewReader(gzipReader)
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve destination directory: %w", err)
+	}
 
 	for {
 		header, err := tarReader.Next()
@@ -232,35 +244,49 @@ func ExtractArchive(reader io.Reader, destDir string) error {
 			return fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		target := filepath.Join(destDir, header.Name)
+		// Sanitize path to prevent directory traversal.
+		target := filepath.Join(absDestDir, filepath.Clean(header.Name))
+		if !strings.HasPrefix(target, absDestDir+string(filepath.Separator)) && target != absDestDir {
+			return fmt.Errorf("illegal file path in archive: %s", header.Name)
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := os.MkdirAll(target, 0o750); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
 			// Create parent directories
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			// Create file
-			f, err := os.Create(target)
-			if err != nil {
-				return fmt.Errorf("failed to create file: %w", err)
-			}
-
-			// Copy data
-			if _, err := io.Copy(f, tarReader); err != nil {
-				_ = f.Close()
-				return fmt.Errorf("failed to write file: %w", err)
-			}
-			if err := f.Close(); err != nil {
-				return fmt.Errorf("failed to close file: %w", err)
+			if err := extractFileFromArchive(tarReader, target); err != nil {
+				return err
 			}
 		}
 	}
 
+	return nil
+}
+
+// extractFileFromArchive writes a single file from the tar reader with size-limited copy.
+func extractFileFromArchive(tarReader *tar.Reader, target string) error {
+	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //#nosec G304 -- target is sanitized against path traversal
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+
+	// Limit extraction to 1GB to prevent decompression bomb.
+	const maxFileSize = 1 << 30
+	if _, err := io.Copy(f, io.LimitReader(tarReader, maxFileSize)); err != nil {
+		if closeErr := f.Close(); closeErr != nil {
+			return fmt.Errorf("failed to write file: %w (close error: %v)", err, closeErr)
+		}
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to close file: %w", err)
+	}
 	return nil
 }

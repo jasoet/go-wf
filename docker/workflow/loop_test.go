@@ -3,12 +3,13 @@ package workflow
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker/activity"
-	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
+
+	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
 )
 
 // TestLoopInput_Validate tests loop input validation.

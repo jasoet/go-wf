@@ -3,14 +3,15 @@ package docker
 import (
 	"testing"
 
-	"github.com/jasoet/go-wf/docker/activity"
-	"github.com/jasoet/go-wf/docker/payload"
-	"github.com/jasoet/go-wf/docker/workflow"
 	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/stretchr/testify/mock"
 	sdkactivity "go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 	sdkworkflow "go.temporal.io/sdk/workflow"
+
+	"github.com/jasoet/go-wf/docker/activity"
+	"github.com/jasoet/go-wf/docker/payload"
+	"github.com/jasoet/go-wf/docker/workflow"
 )
 
 // mockWorker is a mock implementation of worker.Worker for testing registration.
