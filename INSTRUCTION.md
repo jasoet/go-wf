@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-go-wf — a Go library providing reusable, production-ready Temporal workflows for common orchestration patterns. Primary focus is Docker container workflows with Argo Workflow-like capabilities. Built with Go 1.25+, uses `github.com/jasoet/pkg/v2` as the base library. Provides single container, pipeline, parallel, DAG, and loop workflows with a fluent builder API, container/script/HTTP templates, and lifecycle management.
+go-wf — a Go library providing reusable, production-ready Temporal workflows for common orchestration patterns. Primary focus is Docker container workflows with Argo Workflow-like capabilities. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Provides single container, pipeline, parallel, DAG, and loop workflows with a fluent builder API, container/script/HTTP templates, and lifecycle management.
 
 **Repository Type:** Library (Go module)
 **Module:** `github.com/jasoet/go-wf`
@@ -64,8 +64,8 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task test:unit` | Run unit tests only (fast, no Docker required) |
 | `task lint` | Run golangci-lint |
 | `task check` | Run all checks (test + lint) |
-| `task tools` | Install development tools (golangci-lint, gofumpt) |
-| `task fmt` | Format all Go files with gofumpt |
+| `task tools` | Install development tools (golangci-lint, gofumpt, goimports) |
+| `task fmt` | Format all Go files (goimports with local prefix + gofumpt) |
 | `task clean` | Clean build artifacts |
 
 ## Architecture
@@ -94,10 +94,14 @@ Go module-based library organized as package-per-feature:
 
 - Zero golangci-lint errors
 - gofumpt formatting enforced
+- goimports with local prefix `github.com/jasoet/go-wf` (3-group imports: stdlib, third-party, local)
 - Cyclomatic complexity < 20
+- Function length < 100 lines / 50 statements (`funlen`)
+- Code duplication threshold: 100 tokens (`dupl`)
 - Line length < 190 characters
 - All exported functions documented
-- Security: gosec scanning, no hardcoded secrets
+- Comments on declarations must end in a period (`godot`)
+- Security: gosec scanning, no hardcoded secrets, directory permissions ≤ 0o750, file permissions ≤ 0o600
 
 ## Go: Base Library (pkg/v2)
 

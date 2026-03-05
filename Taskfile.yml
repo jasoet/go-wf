@@ -45,11 +45,13 @@ tasks:
     cmds:
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - go install mvdan.cc/gofumpt@latest
+      - go install golang.org/x/tools/cmd/goimports@latest
       - echo "✓ Tools installed"
 
   fmt:
-    desc: Format all Go files
+    desc: Format all Go files (goimports + gofumpt)
     cmds:
+      - goimports -local "github.com/jasoet/go-wf" -w .
       - gofumpt -l -w .
 
   clean:
