@@ -217,3 +217,12 @@ temporal.db
 .temporal/
 
 .claude/data-passing
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Node/Bun
+node_modules/
