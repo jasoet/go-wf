@@ -18,11 +18,14 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, err := temporal.NewClient(temporal.DefaultConfig())
+	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
+	if closer != nil {
+		defer closer.Close()
+	}
 
 	// Create and start worker
 	w := worker.New(c, "docker-tasks", worker.Options{})
@@ -60,6 +63,12 @@ func main() {
 	// Example 4: Wait Strategies
 	log.Println("\nExample 4: Wait Strategies")
 	runWaitStrategiesDemo(c)
+
+	time.Sleep(2 * time.Second)
+
+	// Example 5: Retry, Secrets, DependsOn, File Outputs
+	log.Println("\nExample 5: Retry & Secrets")
+	runRetryAndSecretsDemo(c)
 }
 
 // Example 1: Workflow Parameters (Similar to Argo parameters)
@@ -334,4 +343,94 @@ func runWaitStrategiesDemo(c client.Client) {
 	}
 
 	log.Printf("Wait strategies demo completed: Success=%d", result.TotalSuccess)
+}
+
+// Example 5: Retry Configuration, Secrets, DependsOn, File-based Outputs
+func runRetryAndSecretsDemo(c client.Client) {
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
+			{
+				Name: "setup",
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
+						Image:      "alpine:latest",
+						Command:    []string{"sh", "-c", "echo 'v2.0.0' > /tmp/version.txt && echo 'Setup done'"},
+						AutoRemove: true,
+					},
+					// Retry configuration
+					RetryAttempts: 3,
+					RetryDelay:    5 * time.Second,
+					// File-based output extraction
+					Outputs: []payload.OutputDefinition{
+						{
+							Name:      "version",
+							ValueFrom: "file",
+							Path:      "/tmp/version.txt",
+							Default:   "unknown",
+						},
+						{
+							Name:      "status",
+							ValueFrom: "stdout",
+							Regex:     `(\w+) done`,
+						},
+					},
+				},
+			},
+			{
+				Name: "deploy",
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
+						Image:      "alpine:latest",
+						Command:    []string{"sh", "-c", "echo \"Deploying version $APP_VERSION with secret $DB_PASSWORD\""},
+						AutoRemove: true,
+					},
+					// Secret references (struct showcase)
+					Secrets: []payload.SecretReference{
+						{
+							Name:   "db-credentials",
+							Key:    "password",
+							EnvVar: "DB_PASSWORD",
+						},
+						{
+							Name:   "api-keys",
+							Key:    "primary",
+							EnvVar: "API_KEY",
+						},
+					},
+					// DependsOn for container-level dependencies
+					DependsOn: []string{"setup"},
+					// Input from previous step
+					Inputs: []payload.InputMapping{
+						{
+							Name:     "APP_VERSION",
+							From:     "setup.version",
+							Required: true,
+						},
+					},
+				},
+				Dependencies: []string{"setup"},
+			},
+		},
+		FailFast: true,
+	}
+
+	we, _ := c.ExecuteWorkflow(context.Background(),
+		client.StartWorkflowOptions{
+			ID:        "retry-secrets-demo",
+			TaskQueue: "docker-tasks",
+		},
+		workflow.DAGWorkflow,
+		input,
+	)
+
+	var result payload.DAGWorkflowOutput
+	if err := we.Get(context.Background(), &result); err != nil {
+		log.Printf("Retry & secrets demo failed: %v", err)
+		return
+	}
+
+	log.Printf("Retry & secrets demo completed: Success=%d", result.TotalSuccess)
+	for _, nodeResult := range result.NodeResults {
+		log.Printf("  Node %s: Success=%v", nodeResult.NodeName, nodeResult.Success)
+	}
 }
