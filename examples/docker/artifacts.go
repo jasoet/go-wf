@@ -399,11 +399,13 @@ func artifactCleanupExample(ctx context.Context, c client.Client) {
 				Container: payload.ExtendedContainerInput{
 					ContainerExecutionInput: payload.ContainerExecutionInput{
 						Image: "alpine:latest",
-						Command: []string{"sh", "-c",
+						Command: []string{
+							"sh", "-c",
 							"mkdir -p /tmp/build-output && " +
 								"echo 'binary content' > /tmp/build-output/app && " +
 								"echo 'config content' > /tmp/build-output/config.yaml && " +
-								"echo 'Archive created'"},
+								"echo 'Archive created'",
+						},
 						AutoRemove: true,
 					},
 					// Archive artifact type — tars entire directory

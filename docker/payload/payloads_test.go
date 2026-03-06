@@ -325,3 +325,156 @@ func TestContainerExecutionOutput_GetError(t *testing.T) {
 	assert.Equal(t, "fail", (&ContainerExecutionOutput{Error: "fail"}).GetError())
 	assert.Equal(t, "", (&ContainerExecutionOutput{}).GetError())
 }
+
+func TestLoopInput_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   LoopInput
+		wantErr bool
+	}{
+		{
+			name: "valid loop input",
+			input: LoopInput{
+				Items:    []string{"a", "b", "c"},
+				Template: ContainerExecutionInput{Image: "alpine:latest"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid with parallel and fail_fast",
+			input: LoopInput{
+				Items:           []string{"a"},
+				Template:        ContainerExecutionInput{Image: "alpine:latest"},
+				Parallel:        true,
+				MaxConcurrency:  2,
+				FailureStrategy: "fail_fast",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid - empty items",
+			input: LoopInput{
+				Items:    []string{},
+				Template: ContainerExecutionInput{Image: "alpine:latest"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - nil items",
+			input: LoopInput{
+				Template: ContainerExecutionInput{Image: "alpine:latest"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - missing template image",
+			input: LoopInput{
+				Items:    []string{"a"},
+				Template: ContainerExecutionInput{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - bad failure strategy",
+			input: LoopInput{
+				Items:           []string{"a"},
+				Template:        ContainerExecutionInput{Image: "alpine:latest"},
+				FailureStrategy: "invalid",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoopInput.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestParameterizedLoopInput_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   ParameterizedLoopInput
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid parameterized loop",
+			input: ParameterizedLoopInput{
+				Parameters: map[string][]string{
+					"os":   {"linux", "darwin"},
+					"arch": {"amd64", "arm64"},
+				},
+				Template: ContainerExecutionInput{Image: "alpine:latest"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid with single parameter",
+			input: ParameterizedLoopInput{
+				Parameters: map[string][]string{
+					"version": {"1.0", "2.0"},
+				},
+				Template:        ContainerExecutionInput{Image: "alpine:latest"},
+				Parallel:        true,
+				FailureStrategy: "continue",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid - nil parameters",
+			input: ParameterizedLoopInput{
+				Template: ContainerExecutionInput{Image: "alpine:latest"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - empty parameter array",
+			input: ParameterizedLoopInput{
+				Parameters: map[string][]string{
+					"os": {},
+				},
+				Template: ContainerExecutionInput{Image: "alpine:latest"},
+			},
+			wantErr: true,
+			errMsg:  "cannot be empty",
+		},
+		{
+			name: "invalid - missing template image",
+			input: ParameterizedLoopInput{
+				Parameters: map[string][]string{
+					"os": {"linux"},
+				},
+				Template: ContainerExecutionInput{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - bad failure strategy",
+			input: ParameterizedLoopInput{
+				Parameters: map[string][]string{
+					"os": {"linux"},
+				},
+				Template:        ContainerExecutionInput{Image: "alpine:latest"},
+				FailureStrategy: "invalid",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParameterizedLoopInput.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.errMsg != "" && err != nil {
+				assert.Contains(t, err.Error(), tt.errMsg)
+			}
+		})
+	}
+}

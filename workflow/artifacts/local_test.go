@@ -1,7 +1,9 @@
 package artifacts
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"os"
 	"path/filepath"
@@ -622,4 +624,209 @@ func TestDownloadArtifactActivity_ErrorCases(t *testing.T) {
 		err = DownloadArtifactActivity(ctx, store, downloadInput)
 		assert.NoError(t, err)
 	})
+}
+
+func TestExtractArchive_InvalidGzip(t *testing.T) {
+	destDir := t.TempDir()
+	err := ExtractArchive(bytes.NewReader([]byte("not gzip data")), destDir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create gzip reader")
+}
+
+func TestExtractArchive_DirectoryTraversal(t *testing.T) {
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+	tarWriter := tar.NewWriter(gzWriter)
+
+	header := &tar.Header{
+		Name: "../../etc/passwd",
+		Mode: 0o600,
+		Size: 4,
+	}
+	err := tarWriter.WriteHeader(header)
+	require.NoError(t, err)
+	_, err = tarWriter.Write([]byte("evil"))
+	require.NoError(t, err)
+
+	require.NoError(t, tarWriter.Close())
+	require.NoError(t, gzWriter.Close())
+
+	destDir := t.TempDir()
+	err = ExtractArchive(&buf, destDir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "illegal file path")
+}
+
+func TestArchiveDirectory_NonExistentSource(t *testing.T) {
+	var buf bytes.Buffer
+	err := ArchiveDirectory("/non/existent/directory", &buf)
+	assert.Error(t, err)
+}
+
+func TestLocalFileStore_DownloadPermissionError(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	metadata := ArtifactMetadata{
+		Name:       "test",
+		WorkflowID: "wf-1",
+		RunID:      "run-1",
+		StepName:   "step-1",
+	}
+	err = store.Upload(ctx, metadata, bytes.NewReader([]byte("test")))
+	require.NoError(t, err)
+
+	fullPath := filepath.Join(tmpDir, metadata.StorageKey())
+	err = os.Chmod(fullPath, 0o000)
+	require.NoError(t, err)
+	defer os.Chmod(fullPath, 0o644) //nolint:errcheck // cleanup
+
+	reader, err := store.Download(ctx, metadata)
+	assert.Error(t, err)
+	assert.Nil(t, reader)
+	assert.Contains(t, err.Error(), "failed to open file")
+}
+
+func TestUploadArtifactActivity_SourceStatError(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	input := UploadArtifactInput{
+		Metadata: ArtifactMetadata{
+			Name:       "test",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+		},
+		SourcePath: "/non/existent/path",
+	}
+
+	err = UploadArtifactActivity(ctx, store, input)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to stat source path")
+}
+
+func TestUploadFile_OpenError(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	input := UploadArtifactInput{
+		Metadata: ArtifactMetadata{
+			Name:       "test",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+			Type:       "file",
+		},
+		SourcePath: "/non/existent/file.txt",
+	}
+
+	err = UploadArtifactActivity(ctx, store, input)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to open source file")
+}
+
+func TestUploadDirectory_ArchiveError(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	input := UploadArtifactInput{
+		Metadata: ArtifactMetadata{
+			Name:       "test",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+			Type:       "directory",
+		},
+		SourcePath: "/non/existent/directory",
+	}
+
+	err = UploadArtifactActivity(ctx, store, input)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to archive directory")
+}
+
+func TestDownloadArtifactActivity_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	input := DownloadArtifactInput{
+		Metadata: ArtifactMetadata{
+			Name:       "non-existent",
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+			StepName:   "step-1",
+			Type:       "file",
+		},
+		DestPath: filepath.Join(t.TempDir(), "dest.txt"),
+	}
+
+	err = DownloadArtifactActivity(ctx, store, input)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to download artifact")
+}
+
+func TestCleanupWorkflowArtifacts_EmptyWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	err = CleanupWorkflowArtifacts(ctx, store, "non-existent-wf", "non-existent-run")
+	assert.NoError(t, err)
+}
+
+func TestLocalFileStore_ExistsNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	exists, err := store.Exists(ctx, ArtifactMetadata{
+		Name:       "nothing",
+		WorkflowID: "wf",
+		RunID:      "run",
+		StepName:   "step",
+	})
+	assert.NoError(t, err)
+	assert.False(t, exists)
+}
+
+func TestLocalFileStore_ListSkipsShallowPaths(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	shallowDir := filepath.Join(tmpDir, "wf-1", "run-1")
+	require.NoError(t, os.MkdirAll(shallowDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(shallowDir, "shallow-file"), []byte("data"), 0o600))
+
+	properDir := filepath.Join(tmpDir, "wf-1", "run-1", "step-1")
+	require.NoError(t, os.MkdirAll(properDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(properDir, "proper-file"), []byte("data"), 0o600))
+
+	listed, err := store.List(ctx, "wf-1/")
+	require.NoError(t, err)
+
+	assert.Len(t, listed, 1)
+	assert.Equal(t, "proper-file", listed[0].Name)
 }
