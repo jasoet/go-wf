@@ -5,7 +5,16 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/jasoet/go-wf/workflow"
 )
+
+// Compile-time interface checks.
+var (
+	_ workflow.TaskInput  = (*ContainerExecutionInput)(nil)
+	_ workflow.TaskOutput = (*ContainerExecutionOutput)(nil)
+)
+
+const containerActivityName = "StartContainerActivity"
 
 // ContainerExecutionInput defines input for single container execution.
 type ContainerExecutionInput struct {
@@ -185,4 +194,19 @@ func (i *ParameterizedLoopInput) Validate() error {
 	}
 
 	return i.Template.Validate()
+}
+
+// ActivityName returns the Temporal activity name for container execution.
+func (i *ContainerExecutionInput) ActivityName() string {
+	return containerActivityName
+}
+
+// IsSuccess returns whether the container executed successfully.
+func (o *ContainerExecutionOutput) IsSuccess() bool {
+	return o.Success
+}
+
+// GetError returns the error message from container execution.
+func (o *ContainerExecutionOutput) GetError() string {
+	return o.Error
 }
