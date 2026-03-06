@@ -66,9 +66,11 @@ func TestExecuteContainerWorkflowExecution(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	// Mock the activity to avoid actual container execution
-	// Use mock.Anything for context parameter
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
+	// Register and mock the activity by name to match string-based dispatch
+	env.RegisterActivityWithOptions(activity.StartContainerActivity, sdkactivity.RegisterOptions{
+		Name: "StartContainerActivity",
+	})
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		ContainerID: "test-container-id",
 		Success:     true,
 		ExitCode:    0,
@@ -106,8 +108,10 @@ func TestRegisterWorkflows(t *testing.T) {
 func TestRegisterActivities(t *testing.T) {
 	mw := new(mockWorker)
 
-	// Expect RegisterActivity to be called once (for StartContainerActivity)
-	mw.On("RegisterActivity", mock.Anything).Return().Once()
+	// Expect RegisterActivityWithOptions to be called once (for StartContainerActivity)
+	mw.On("RegisterActivityWithOptions", mock.Anything, sdkactivity.RegisterOptions{
+		Name: "StartContainerActivity",
+	}).Return().Once()
 
 	RegisterActivities(mw)
 
@@ -120,7 +124,9 @@ func TestRegisterAll(t *testing.T) {
 
 	// Expect 7 workflows + 1 activity = 8 total registrations
 	mw.On("RegisterWorkflow", mock.Anything).Return().Times(7)
-	mw.On("RegisterActivity", mock.Anything).Return().Once()
+	mw.On("RegisterActivityWithOptions", mock.Anything, sdkactivity.RegisterOptions{
+		Name: "StartContainerActivity",
+	}).Return().Once()
 
 	RegisterAll(mw)
 
