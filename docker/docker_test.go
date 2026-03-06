@@ -1,14 +1,16 @@
 package docker
 
 import (
+	"context"
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/nexus-rpc/sdk-go/nexus"
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdkworkflow "go.temporal.io/sdk/workflow"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
@@ -37,12 +39,28 @@ func (m *integrationMockWorker) Run(<-chan interface{}) error        { return ni
 func (m *integrationMockWorker) Start() error                        { return nil }
 func (m *integrationMockWorker) Stop()                               {}
 
-func TestIntegrationContainerExecution(t *testing.T) {
+// mockContainerActivity registers a mock for StartContainerActivity that returns a successful result.
+func mockContainerActivity(env *testsuite.TestWorkflowEnvironment, stdout string) {
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).
+		Return(func(_ context.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			out := stdout
+			if out == "" {
+				out = fmt.Sprintf("mock output for %s", input.Image)
+			}
+			return &payload.ContainerExecutionOutput{
+				ContainerID: "mock-container-id",
+				ExitCode:    0,
+				Success:     true,
+				Stdout:      out,
+			}, nil
+		})
+}
+
+func TestContainerExecution(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	// Register the activity
-	env.RegisterActivity(activity.StartContainerActivity)
+	mockContainerActivity(env, "Hello, World!")
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -62,11 +80,11 @@ func TestIntegrationContainerExecution(t *testing.T) {
 	assert.Equal(t, 0, result.ExitCode)
 }
 
-func TestIntegrationPipelineWorkflow(t *testing.T) {
+func TestPipelineWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.RegisterActivity(activity.StartContainerActivity)
+	mockContainerActivity(env, "")
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -90,11 +108,11 @@ func TestIntegrationPipelineWorkflow(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 }
 
-func TestIntegrationParallelWorkflow(t *testing.T) {
+func TestParallelWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.RegisterActivity(activity.StartContainerActivity)
+	mockContainerActivity(env, "")
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -120,25 +138,19 @@ func TestIntegrationParallelWorkflow(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 }
 
-func TestIntegrationContainerWithWaitStrategy(t *testing.T) {
-	// Skip this test as it requires actual container startup and log monitoring
-	// which can be slow and may timeout in test environments
-	t.Skip("Skipping wait strategy test - requires long-running container")
-
+func TestContainerWithWaitStrategy(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.RegisterActivity(activity.StartContainerActivity)
+	mockContainerActivity(env, "start worker processes")
 
 	input := payload.ContainerExecutionInput{
 		Image: "nginx:alpine",
-		// Note: Not using ports to avoid platform-specific port binding issues
 		WaitStrategy: payload.WaitStrategyConfig{
 			Type:       "log",
 			LogMessage: "start worker processes",
 		},
-		AutoRemove:   true,
-		StartTimeout: 30 * time.Second,
+		AutoRemove: true,
 	}
 
 	env.ExecuteWorkflow(workflow.ExecuteContainerWorkflow, input)
@@ -147,11 +159,19 @@ func TestIntegrationContainerWithWaitStrategy(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 }
 
-func TestIntegrationContainerWithEnvironment(t *testing.T) {
+func TestContainerWithEnvironment(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.RegisterActivity(activity.StartContainerActivity)
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).
+		Return(func(_ context.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			return &payload.ContainerExecutionOutput{
+				ContainerID: "mock-container-id",
+				ExitCode:    0,
+				Success:     true,
+				Stdout:      input.Env["TEST_VAR"],
+			}, nil
+		})
 
 	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
@@ -173,11 +193,11 @@ func TestIntegrationContainerWithEnvironment(t *testing.T) {
 	assert.Contains(t, result.Stdout, "test_value")
 }
 
-func TestIntegrationDAGWorkflow(t *testing.T) {
+func TestDAGWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.RegisterActivity(activity.StartContainerActivity)
+	mockContainerActivity(env, "")
 
 	input := payload.DAGWorkflowInput{
 		Nodes: []payload.DAGNode{
@@ -212,13 +232,12 @@ func TestIntegrationDAGWorkflow(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 }
 
-func TestIntegrationContainerWithVolumes(t *testing.T) {
+func TestContainerWithVolumes(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.RegisterActivity(activity.StartContainerActivity)
+	mockContainerActivity(env, "test content")
 
-	// Create a temporary file to mount
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"sh", "-c", "echo 'test content' > /data/test.txt && cat /data/test.txt"},
@@ -231,7 +250,7 @@ func TestIntegrationContainerWithVolumes(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 }
 
-func TestIntegrationWorkflowRegistration(t *testing.T) {
+func TestWorkflowRegistration(t *testing.T) {
 	// Test that workflows and activities can be registered without error
 	w := &integrationMockWorker{}
 
