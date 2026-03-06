@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"context"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -564,6 +566,315 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.ItemCount)
 	assert.Equal(t, 2, result.TotalSuccess)
+}
+
+// TestLoopWorkflow_SequentialFailFast tests sequential loop with fail_fast strategy.
+func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	callCount := 0
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			callCount++
+			if callCount == 2 {
+				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
+			}
+			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
+		})
+
+	input := payload.LoopInput{
+		Items: []string{"a", "b", "c"},
+		Template: payload.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	assert.Equal(t, 2, callCount, "third item should not execute")
+}
+
+// TestLoopWorkflow_SequentialContinueOnFailure tests sequential loop with continue strategy.
+func TestLoopWorkflow_SequentialContinueOnFailure(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	callCount := 0
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			callCount++
+			if callCount == 2 {
+				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
+			}
+			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
+		})
+
+	input := payload.LoopInput{
+		Items: []string{"a", "b", "c"},
+		Template: payload.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.TotalSuccess)
+	assert.Equal(t, 1, result.TotalFailed)
+	assert.Len(t, result.Results, 3)
+}
+
+// TestLoopWorkflow_ParallelFailFast tests parallel loop with fail_fast strategy.
+func TestLoopWorkflow_ParallelFailFast(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	var callCount atomic.Int32
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			c := callCount.Add(1)
+			if c == 2 {
+				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
+			}
+			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
+		})
+
+	input := payload.LoopInput{
+		Items: []string{"a", "b", "c"},
+		Template: payload.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+}
+
+// TestLoopWorkflow_ParallelContinueMultipleFailures tests parallel loop with continue and multiple failures.
+func TestLoopWorkflow_ParallelContinueMultipleFailures(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	var callCount atomic.Int32
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			c := callCount.Add(1)
+			if c == 2 || c == 4 {
+				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
+			}
+			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
+		})
+
+	input := payload.LoopInput{
+		Items: []string{"a", "b", "c", "d"},
+		Template: payload.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.TotalSuccess)
+	assert.Equal(t, 2, result.TotalFailed)
+	assert.Len(t, result.Results, 4)
+}
+
+// TestLoopWorkflow_AllFailContinue tests loop where all items fail with continue strategy.
+func TestLoopWorkflow_AllFailContinue(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil,
+	)
+
+	input := payload.LoopInput{
+		Items: []string{"a", "b", "c"},
+		Template: payload.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 3, result.TotalFailed)
+	assert.Equal(t, 0, result.TotalSuccess)
+}
+
+// TestLoopWorkflow_SingleItem tests loop with a single item.
+func TestLoopWorkflow_SingleItem(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil,
+	)
+
+	input := payload.LoopInput{
+		Items: []string{"only"},
+		Template: payload.ContainerExecutionInput{
+			Image:   "alpine:latest",
+			Command: []string{"echo", "{{item}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 1, result.ItemCount)
+	assert.Equal(t, 1, result.TotalSuccess)
+}
+
+// TestParameterizedLoopWorkflow_FailFast tests parameterized loop with fail_fast strategy.
+func TestParameterizedLoopWorkflow_FailFast(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	callCount := 0
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			callCount++
+			if callCount == 2 {
+				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
+			}
+			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
+		})
+
+	input := payload.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env": {"dev", "prod"},
+		},
+		Template: payload.ContainerExecutionInput{
+			Image:   "deployer:v1",
+			Command: []string{"deploy", "--env={{.env}}"},
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+}
+
+// TestParameterizedLoopWorkflow_ContinueWithFailures tests parameterized loop with continue and failures.
+func TestParameterizedLoopWorkflow_ContinueWithFailures(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	var callCount atomic.Int32
+	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			c := callCount.Add(1)
+			if c%2 == 0 {
+				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
+			}
+			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
+		})
+
+	input := payload.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env":    {"dev", "prod"},
+			"region": {"us", "eu"},
+		},
+		Template: payload.ContainerExecutionInput{
+			Image:   "deployer:v1",
+			Command: []string{"deploy", "--env={{.env}}", "--region={{.region}}"},
+		},
+		Parallel:        true,
+		FailureStrategy: "continue",
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.LoopOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 4, result.ItemCount)
+	assert.Equal(t, 2, result.TotalSuccess)
+	assert.Equal(t, 2, result.TotalFailed)
+}
+
+// TestSubstituteContainerInput_Entrypoint tests entrypoint template substitution.
+func TestSubstituteContainerInput_Entrypoint(t *testing.T) {
+	template := payload.ContainerExecutionInput{
+		Image:      "alpine:latest",
+		Entrypoint: []string{"sh", "-c", "echo {{item}}"},
+	}
+
+	result := substituteContainerInput(template, "hello", 0, nil)
+
+	assert.Len(t, result.Entrypoint, 3)
+	assert.Equal(t, "echo hello", result.Entrypoint[2])
+}
+
+// TestSubstituteContainerInput_Volumes tests volumes template substitution.
+func TestSubstituteContainerInput_Volumes(t *testing.T) {
+	template := payload.ContainerExecutionInput{
+		Image: "alpine:latest",
+		Volumes: map[string]string{
+			"/data/{{item}}": "/mnt/{{index}}",
+		},
+	}
+
+	result := substituteContainerInput(template, "mydata", 5, nil)
+
+	assert.Equal(t, "/mnt/5", result.Volumes["/data/mydata"])
+}
+
+// TestSubstituteContainerInput_WorkDir tests work directory template substitution.
+func TestSubstituteContainerInput_WorkDir(t *testing.T) {
+	template := payload.ContainerExecutionInput{
+		Image:   "alpine:latest",
+		WorkDir: "/app/{{item}}",
+	}
+
+	result := substituteContainerInput(template, "myproject", 0, nil)
+
+	assert.Equal(t, "/app/myproject", result.WorkDir)
 }
 
 // Benchmark tests.
