@@ -226,3 +226,18 @@ __pycache__/
 
 # Node/Bun
 node_modules/
+
+# Compiled example binaries
+advanced
+artifacts
+basic
+builder
+builder-advanced
+dag
+data-passing
+loop
+main
+operations
+parallel
+patterns-demo
+pipeline

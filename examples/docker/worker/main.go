@@ -13,11 +13,14 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, err := temporal.NewClient(temporal.DefaultConfig())
+	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
+	if closer != nil {
+		defer closer.Close()
+	}
 
 	log.Println("Starting Docker Temporal Worker...")
 
