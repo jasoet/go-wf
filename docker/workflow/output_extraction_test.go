@@ -1,7 +1,12 @@
 package workflow
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/jasoet/go-wf/docker/payload"
 )
@@ -55,13 +60,12 @@ func TestExtractOutput_Stdout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ExtractOutput(tt.def, output)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ExtractOutput() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
-			if got != tt.want {
-				t.Errorf("ExtractOutput() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -80,13 +84,8 @@ func TestExtractOutput_ExitCode(t *testing.T) {
 	}
 
 	got, err := ExtractOutput(def, output)
-	if err != nil {
-		t.Errorf("ExtractOutput() error = %v", err)
-		return
-	}
-	if got != "42" {
-		t.Errorf("ExtractOutput() = %v, want 42", got)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "42", got)
 }
 
 func TestExtractOutput_Stderr(t *testing.T) {
@@ -103,13 +102,149 @@ func TestExtractOutput_Stderr(t *testing.T) {
 	}
 
 	got, err := ExtractOutput(def, output)
-	if err != nil {
-		t.Errorf("ExtractOutput() error = %v", err)
-		return
+	require.NoError(t, err)
+	assert.Equal(t, "Error: something went wrong", got)
+}
+
+func TestExtractOutput_FileSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "output.txt")
+	err := os.WriteFile(filePath, []byte("file-content-123"), 0o644)
+	require.NoError(t, err)
+
+	def := payload.OutputDefinition{
+		Name:      "file_output",
+		ValueFrom: "file",
+		Path:      filePath,
 	}
-	if got != "Error: something went wrong" {
-		t.Errorf("ExtractOutput() = %v, want error message", got)
+
+	output := &payload.ContainerExecutionOutput{}
+
+	got, err := ExtractOutput(def, output)
+	require.NoError(t, err)
+	assert.Equal(t, "file-content-123", got)
+}
+
+func TestExtractOutput_FileErrorWithDefault(t *testing.T) {
+	def := payload.OutputDefinition{
+		Name:      "file_output",
+		ValueFrom: "file",
+		Path:      "/nonexistent/path/file.txt",
+		Default:   "fallback-value",
 	}
+
+	output := &payload.ContainerExecutionOutput{}
+
+	got, err := ExtractOutput(def, output)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback-value", got)
+}
+
+func TestExtractOutput_FileErrorNoDefault(t *testing.T) {
+	def := payload.OutputDefinition{
+		Name:      "file_output",
+		ValueFrom: "file",
+		Path:      "/nonexistent/path/file.txt",
+	}
+
+	output := &payload.ContainerExecutionOutput{}
+
+	_, err := ExtractOutput(def, output)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read file")
+}
+
+func TestExtractOutput_FileMissingPath(t *testing.T) {
+	def := payload.OutputDefinition{
+		Name:      "file_output",
+		ValueFrom: "file",
+		Path:      "",
+	}
+
+	output := &payload.ContainerExecutionOutput{}
+
+	_, err := ExtractOutput(def, output)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path is required")
+}
+
+func TestExtractOutput_UnknownValueFrom(t *testing.T) {
+	def := payload.OutputDefinition{
+		Name:      "unknown_output",
+		ValueFrom: "unknown_source",
+		Default:   "default-val",
+	}
+
+	output := &payload.ContainerExecutionOutput{}
+
+	got, err := ExtractOutput(def, output)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown value_from")
+	assert.Equal(t, "default-val", got)
+}
+
+func TestExtractOutput_EmptyStdoutWithDefault(t *testing.T) {
+	output := &payload.ContainerExecutionOutput{
+		Stdout: "",
+	}
+
+	def := payload.OutputDefinition{
+		Name:      "empty_stdout",
+		ValueFrom: "stdout",
+		Default:   "fallback",
+	}
+
+	got, err := ExtractOutput(def, output)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback", got)
+}
+
+func TestExtractOutput_WhitespaceTrimming(t *testing.T) {
+	output := &payload.ContainerExecutionOutput{
+		Stdout: "  hello world  \n",
+	}
+
+	def := payload.OutputDefinition{
+		Name:      "trimmed",
+		ValueFrom: "stdout",
+	}
+
+	got, err := ExtractOutput(def, output)
+	require.NoError(t, err)
+	assert.Equal(t, "hello world", got)
+}
+
+func TestExtractOutput_JSONPathNull(t *testing.T) {
+	output := &payload.ContainerExecutionOutput{
+		Stdout: `{"field": null}`,
+	}
+
+	def := payload.OutputDefinition{
+		Name:      "null_field",
+		ValueFrom: "stdout",
+		JSONPath:  "$.field",
+	}
+
+	got, err := ExtractOutput(def, output)
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
+}
+
+func TestExtractOutput_JSONPathFailureWithDefault(t *testing.T) {
+	output := &payload.ContainerExecutionOutput{
+		Stdout: `{"version": "1.2.3"}`,
+	}
+
+	def := payload.OutputDefinition{
+		Name:      "missing_field",
+		ValueFrom: "stdout",
+		JSONPath:  "$.missing_field",
+		Default:   "default-version",
+	}
+
+	got, err := ExtractOutput(def, output)
+	require.NoError(t, err)
+	assert.Equal(t, "default-version", got)
 }
 
 func TestExtractJSONPath(t *testing.T) {
@@ -188,13 +323,12 @@ func TestExtractJSONPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := extractJSONPath(tt.jsonStr, tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("extractJSONPath() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
-			if got != tt.want {
-				t.Errorf("extractJSONPath() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -247,13 +381,12 @@ func TestExtractRegex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := extractRegex(tt.text, tt.pattern)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("extractRegex() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
-			if got != tt.want {
-				t.Errorf("extractRegex() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -284,26 +417,11 @@ func TestExtractOutputs(t *testing.T) {
 	}
 
 	got, err := ExtractOutputs(definitions, output)
-	if err != nil {
-		t.Errorf("ExtractOutputs() error = %v", err)
-		return
-	}
-
-	if len(got) != 3 {
-		t.Errorf("ExtractOutputs() returned %d outputs, want 3", len(got))
-	}
-
-	if got["build_id"] != "12345" {
-		t.Errorf("build_id = %v, want 12345", got["build_id"])
-	}
-
-	if got["version"] != "1.2.3" {
-		t.Errorf("version = %v, want 1.2.3", got["version"])
-	}
-
-	if got["exit_code"] != "0" {
-		t.Errorf("exit_code = %v, want 0", got["exit_code"])
-	}
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+	assert.Equal(t, "12345", got["build_id"])
+	assert.Equal(t, "1.2.3", got["version"])
+	assert.Equal(t, "0", got["exit_code"])
 }
 
 func TestSubstituteInputs(t *testing.T) {
@@ -346,26 +464,11 @@ func TestSubstituteInputs(t *testing.T) {
 	}
 
 	err := SubstituteInputs(containerInput, inputs, stepOutputs)
-	if err != nil {
-		t.Errorf("SubstituteInputs() error = %v", err)
-		return
-	}
-
-	if containerInput.Env["BUILD_VERSION"] != "1.2.3" {
-		t.Errorf("BUILD_VERSION = %v, want 1.2.3", containerInput.Env["BUILD_VERSION"])
-	}
-
-	if containerInput.Env["BUILD_ID"] != "12345" {
-		t.Errorf("BUILD_ID = %v, want 12345", containerInput.Env["BUILD_ID"])
-	}
-
-	if containerInput.Env["TEST_RESULT"] != "passed" {
-		t.Errorf("TEST_RESULT = %v, want passed", containerInput.Env["TEST_RESULT"])
-	}
-
-	if containerInput.Env["DEPLOY_ENV"] != "staging" {
-		t.Errorf("DEPLOY_ENV = %v, want staging", containerInput.Env["DEPLOY_ENV"])
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "1.2.3", containerInput.Env["BUILD_VERSION"])
+	assert.Equal(t, "12345", containerInput.Env["BUILD_ID"])
+	assert.Equal(t, "passed", containerInput.Env["TEST_RESULT"])
+	assert.Equal(t, "staging", containerInput.Env["DEPLOY_ENV"])
 }
 
 func TestSubstituteInputs_RequiredMissing(t *testing.T) {
@@ -388,9 +491,7 @@ func TestSubstituteInputs_RequiredMissing(t *testing.T) {
 	}
 
 	err := SubstituteInputs(containerInput, inputs, stepOutputs)
-	if err == nil {
-		t.Error("SubstituteInputs() should return error for missing required input")
-	}
+	require.Error(t, err)
 }
 
 func TestResolveInputMapping(t *testing.T) {
@@ -451,13 +552,12 @@ func TestResolveInputMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := resolveInputMapping(tt.mapping, stepOutputs)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("resolveInputMapping() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
-			if got != tt.want {
-				t.Errorf("resolveInputMapping() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
