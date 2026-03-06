@@ -34,7 +34,7 @@ func main() {
 
 	// Example 1: Build -> Test -> Deploy pipeline with data passing
 	fmt.Println("\n=== Example 1: Build -> Test -> Deploy Pipeline ===")
-	buildTestDeployPipeline(ctx, c)
+	dataPassingPipeline(ctx, c)
 
 	// Example 2: Extract JSON outputs
 	fmt.Println("\n=== Example 2: Extract JSON Outputs ===")
@@ -49,7 +49,7 @@ func main() {
 	multipleOutputsInputs(ctx, c)
 }
 
-func buildTestDeployPipeline(ctx context.Context, c client.Client) {
+func dataPassingPipeline(ctx context.Context, c client.Client) {
 	input := payload.DAGWorkflowInput{
 		Nodes: []payload.DAGNode{
 			{
