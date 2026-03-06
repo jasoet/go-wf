@@ -5,6 +5,7 @@ package artifacts
 import (
 	"bytes"
 	"context"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -15,8 +16,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// setupMinioContainer starts a Minio container using testcontainers.
-func setupMinioContainer(ctx context.Context, t *testing.T) (testcontainers.Container, MinioConfig) {
+var testMinioConfig MinioConfig
+
+func TestMain(m *testing.M) {
+	ctx := context.Background()
+
 	req := testcontainers.ContainerRequest{
 		Image:        "minio/minio:latest",
 		ExposedPorts: []string{"9000/tcp"},
@@ -32,15 +36,21 @@ func setupMinioContainer(ctx context.Context, t *testing.T) (testcontainers.Cont
 		ContainerRequest: req,
 		Started:          true,
 	})
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatalf("failed to start minio container: %v", err)
+	}
 
 	host, err := container.Host(ctx)
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatalf("failed to get container host: %v", err)
+	}
 
 	port, err := container.MappedPort(ctx, "9000")
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatalf("failed to get mapped port: %v", err)
+	}
 
-	config := MinioConfig{
+	testMinioConfig = MinioConfig{
 		Endpoint:  host + ":" + port.Port(),
 		AccessKey: "minioadmin",
 		SecretKey: "minioadmin",
@@ -50,22 +60,20 @@ func setupMinioContainer(ctx context.Context, t *testing.T) (testcontainers.Cont
 		Region:    "us-east-1",
 	}
 
-	return container, config
+	code := m.Run()
+
+	if err := container.Terminate(ctx); err != nil {
+		log.Printf("failed to terminate container: %v", err)
+	}
+
+	os.Exit(code)
 }
 
 func TestMinioStore_UploadDownload(t *testing.T) {
 	ctx := context.Background()
 
-	// Start Minio container
-	container, config := setupMinioContainer(ctx, t)
-	defer func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	}()
-
 	// Create Minio store
-	store, err := NewMinioStore(ctx, config)
+	store, err := NewMinioStore(ctx, testMinioConfig)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -103,16 +111,8 @@ func TestMinioStore_UploadDownload(t *testing.T) {
 func TestMinioStore_Delete(t *testing.T) {
 	ctx := context.Background()
 
-	// Start Minio container
-	container, config := setupMinioContainer(ctx, t)
-	defer func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	}()
-
 	// Create Minio store
-	store, err := NewMinioStore(ctx, config)
+	store, err := NewMinioStore(ctx, testMinioConfig)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -142,16 +142,8 @@ func TestMinioStore_Delete(t *testing.T) {
 func TestMinioStore_List(t *testing.T) {
 	ctx := context.Background()
 
-	// Start Minio container
-	container, config := setupMinioContainer(ctx, t)
-	defer func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	}()
-
 	// Create Minio store
-	store, err := NewMinioStore(ctx, config)
+	store, err := NewMinioStore(ctx, testMinioConfig)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -199,23 +191,15 @@ func TestMinioStore_List(t *testing.T) {
 func TestMinioStore_UploadDownloadActivities(t *testing.T) {
 	ctx := context.Background()
 
-	// Start Minio container
-	container, config := setupMinioContainer(ctx, t)
-	defer func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	}()
-
 	// Create Minio store
-	store, err := NewMinioStore(ctx, config)
+	store, err := NewMinioStore(ctx, testMinioConfig)
 	require.NoError(t, err)
 	defer store.Close()
 
 	// Create a temporary file
 	content := []byte("test file content for activities")
 	tmpFile := t.TempDir() + "/test-file.txt"
-	err = writeFile(tmpFile, content)
+	err = os.WriteFile(tmpFile, content, 0o600)
 	require.NoError(t, err)
 
 	// Upload using activity
@@ -247,7 +231,7 @@ func TestMinioStore_UploadDownloadActivities(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify content
-	downloaded, err := readFile(destFile)
+	downloaded, err := os.ReadFile(destFile)
 	require.NoError(t, err)
 	assert.Equal(t, content, downloaded)
 }
@@ -255,16 +239,8 @@ func TestMinioStore_UploadDownloadActivities(t *testing.T) {
 func TestMinioStore_CleanupWorkflow(t *testing.T) {
 	ctx := context.Background()
 
-	// Start Minio container
-	container, config := setupMinioContainer(ctx, t)
-	defer func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate container: %v", err)
-		}
-	}()
-
 	// Create Minio store
-	store, err := NewMinioStore(ctx, config)
+	store, err := NewMinioStore(ctx, testMinioConfig)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -300,13 +276,4 @@ func TestMinioStore_CleanupWorkflow(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, exists)
 	}
-}
-
-// Helper functions for file operations
-func writeFile(path string, content []byte) error {
-	return os.WriteFile(path, content, 0o644)
-}
-
-func readFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
 }

@@ -1,28 +1,25 @@
-//go:build integration
-// +build integration
+# Integration Test Improvements Implementation Plan
 
-package docker_test
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-	"testing"
-	"time"
+**Goal:** Consolidate integration test containers via TestMain, fix missing assertions, and add failure/DAG/Loop test coverage.
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
-	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/worker"
+**Architecture:** Each test package gets a single `TestMain` managing one shared container. Existing tests are refactored to use shared state. New tests are added for failure scenarios, DAG, and Loop workflows.
 
-	"github.com/jasoet/go-wf/docker"
-	"github.com/jasoet/go-wf/docker/payload"
-	"github.com/jasoet/go-wf/docker/workflow"
-)
+**Tech Stack:** Go, testcontainers-go, Temporal SDK, testify (assert/require)
 
+---
+
+### Task 1: Add TestMain to docker/integration_test.go
+
+**Files:**
+- Modify: `docker/integration_test.go`
+
+**Step 1: Add package-level vars and TestMain**
+
+Replace the per-test container setup with a shared `TestMain`. Add these package-level vars and the `TestMain` function at the top of the file (after imports):
+
+```go
 var (
 	testClient    client.Client
 	testTaskQueue = "integration-test-queue"
@@ -44,27 +41,23 @@ func TestMain(m *testing.M) {
 		Started:          true,
 	})
 	if err != nil {
-		log.Fatalf("Failed to start temporal container: %v", err)
+		log.Fatalf("Failed to start Temporal container: %v", err)
 	}
 
-	// Get the mapped port
 	mappedPort, err := container.MappedPort(ctx, "7233")
 	if err != nil {
-		_ = container.Terminate(ctx)
 		log.Fatalf("Failed to get mapped port: %v", err)
 	}
 
-	// Get the host
 	host, err := container.Host(ctx)
 	if err != nil {
-		_ = container.Terminate(ctx)
 		log.Fatalf("Failed to get host: %v", err)
 	}
 
 	hostPort := fmt.Sprintf("%s:%s", host, mappedPort.Port())
 	log.Printf("Temporal container started at %s", hostPort)
 
-	// Wait a bit more for Temporal to fully initialize
+	// Wait for Temporal to fully initialize
 	time.Sleep(3 * time.Second)
 
 	// Create Temporal client
@@ -72,7 +65,6 @@ func TestMain(m *testing.M) {
 		HostPort: hostPort,
 	})
 	if err != nil {
-		_ = container.Terminate(ctx)
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 
@@ -81,8 +73,6 @@ func TestMain(m *testing.M) {
 	docker.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
-		testClient.Close()
-		_ = container.Terminate(ctx)
 		log.Fatalf("Failed to start worker: %v", err)
 	}
 
@@ -92,16 +82,56 @@ func TestMain(m *testing.M) {
 	// Cleanup
 	w.Stop()
 	testClient.Close()
-	_ = container.Terminate(ctx)
+	if err := container.Terminate(ctx); err != nil {
+		log.Printf("Failed to terminate container: %v", err)
+	}
 
 	os.Exit(code)
 }
+```
 
-// TestIntegration_ExecuteContainerWorkflow tests single container execution with real Temporal server.
+Add `"log"` and `"os"` to the import block. Remove the `TemporalContainer` struct and `StartTemporalContainer` function entirely.
+
+**Step 2: Refactor all existing tests to use shared state**
+
+Each test loses its container setup boilerplate. Replace the pattern:
+
+```go
+// OLD pattern (remove all of this from each test):
+temporal, err := StartTemporalContainer(ctx, t)
+// ... defer terminate ...
+c, err := client.Dial(...)
+// ... defer close ...
+taskQueue := "integration-test-xxx-queue"
+w := worker.New(c, taskQueue, worker.Options{})
+docker.RegisterAll(w)
+w.Start()
+// ... defer stop ...
+```
+
+With just:
+
+```go
+ctx := context.Background()
+```
+
+Then replace all references:
+- `c.ExecuteWorkflow(...)` -> `testClient.ExecuteWorkflow(...)`
+- Each test's custom `taskQueue` -> `testTaskQueue`
+- Each test's custom workflow ID -> keep unique per test (already unique)
+
+Also migrate from raw `t.Errorf`/`t.Fatalf` to `testify/assert` + `require`. Add imports:
+```go
+"github.com/stretchr/testify/assert"
+"github.com/stretchr/testify/require"
+```
+
+Example — `TestIntegration_ExecuteContainerWorkflow` becomes:
+
+```go
 func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 	ctx := context.Background()
 
-	// Execute workflow
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		Command:    []string{"echo", "integration test"},
@@ -118,225 +148,179 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Wait for result
 	var result payload.ContainerExecutionOutput
 	require.NoError(t, we.Get(ctx, &result))
 
-	// Verify result
-	assert.True(t, result.Success, "Expected successful execution, got: %+v", result)
-	assert.Equal(t, 0, result.ExitCode, "Expected exit code 0")
-	assert.NotEmpty(t, result.ContainerID, "Expected non-empty container ID")
+	assert.True(t, result.Success)
+	assert.Equal(t, 0, result.ExitCode)
+	assert.NotEmpty(t, result.ContainerID)
 	assert.Contains(t, result.Stdout, "integration test")
 }
+```
 
-// TestIntegration_ContainerPipelineWorkflow tests pipeline execution with real Temporal server.
-func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
+Apply this same pattern to all 7 existing tests: remove container/client/worker setup, use `testClient`/`testTaskQueue`, use `require`/`assert`.
+
+**Step 3: Run tests to verify refactor**
+
+Run: `task test:integration`
+Expected: All 7 existing tests pass using the single shared Temporal container.
+
+**Step 4: Commit**
+
+```
+git add docker/integration_test.go
+git commit -m "refactor(tests): consolidate Temporal container via TestMain"
+```
+
+---
+
+### Task 2: Add TestMain to docker/artifacts/minio_integration_test.go
+
+**Files:**
+- Modify: `docker/artifacts/minio_integration_test.go`
+
+**Step 1: Add package-level var and TestMain**
+
+Add package-level var and `TestMain`:
+
+```go
+var testMinioConfig MinioConfig
+
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	// Execute pipeline workflow
-	input := payload.PipelineInput{
-		Containers: []payload.ContainerExecutionInput{
-			{
-				Image:      "alpine:latest",
-				Command:    []string{"echo", "step 1"},
-				AutoRemove: true,
-				Name:       "step1",
-			},
-			{
-				Image:      "alpine:latest",
-				Command:    []string{"echo", "step 2"},
-				AutoRemove: true,
-				Name:       "step2",
-			},
+	req := testcontainers.ContainerRequest{
+		Image:        "minio/minio:latest",
+		ExposedPorts: []string{"9000/tcp"},
+		Env: map[string]string{
+			"MINIO_ROOT_USER":     "minioadmin",
+			"MINIO_ROOT_PASSWORD": "minioadmin",
 		},
-		StopOnError: true,
+		Cmd:        []string{"server", "/data"},
+		WaitingFor: wait.ForHTTP("/minio/health/live").WithPort("9000").WithStartupTimeout(60 * time.Second),
 	}
 
-	we, err := testClient.ExecuteWorkflow(ctx,
-		client.StartWorkflowOptions{
-			ID:        "integration-test-pipeline",
-			TaskQueue: testTaskQueue,
-		},
-		workflow.ContainerPipelineWorkflow,
-		input,
-	)
-	require.NoError(t, err)
-
-	// Wait for result
-	var result payload.PipelineOutput
-	require.NoError(t, we.Get(ctx, &result))
-
-	// Verify result
-	assert.Equal(t, 2, result.TotalSuccess, "Expected 2 successful containers")
-	assert.Equal(t, 0, result.TotalFailed, "Expected 0 failed containers")
-	assert.Len(t, result.Results, 2, "Expected 2 results")
-}
-
-// TestIntegration_ParallelContainersWorkflow tests parallel execution with real Temporal server.
-func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
-	ctx := context.Background()
-
-	// Execute parallel workflow
-	input := payload.ParallelInput{
-		Containers: []payload.ContainerExecutionInput{
-			{
-				Image:      "alpine:latest",
-				Command:    []string{"echo", "task 1"},
-				AutoRemove: true,
-				Name:       "task1",
-			},
-			{
-				Image:      "alpine:latest",
-				Command:    []string{"echo", "task 2"},
-				AutoRemove: true,
-				Name:       "task2",
-			},
-			{
-				Image:      "alpine:latest",
-				Command:    []string{"echo", "task 3"},
-				AutoRemove: true,
-				Name:       "task3",
-			},
-		},
-		FailureStrategy: "continue",
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		log.Fatalf("Failed to start MinIO container: %v", err)
 	}
 
-	we, err := testClient.ExecuteWorkflow(ctx,
-		client.StartWorkflowOptions{
-			ID:        "integration-test-parallel",
-			TaskQueue: testTaskQueue,
-		},
-		workflow.ParallelContainersWorkflow,
-		input,
-	)
-	require.NoError(t, err)
-
-	// Wait for result
-	var result payload.ParallelOutput
-	require.NoError(t, we.Get(ctx, &result))
-
-	// Verify result
-	assert.Equal(t, 3, result.TotalSuccess, "Expected 3 successful containers")
-	assert.Equal(t, 0, result.TotalFailed, "Expected 0 failed containers")
-	assert.Len(t, result.Results, 3, "Expected 3 results")
-}
-
-// TestIntegration_ContainerWithEnvironment tests container with environment variables.
-func TestIntegration_ContainerWithEnvironment(t *testing.T) {
-	ctx := context.Background()
-
-	input := payload.ContainerExecutionInput{
-		Image:      "alpine:latest",
-		Command:    []string{"sh", "-c", "echo $TEST_VAR"},
-		Env:        map[string]string{"TEST_VAR": "test_value"},
-		AutoRemove: true,
-		Name:       "env-test",
-		Labels:     map[string]string{"test": "integration"},
+	host, err := container.Host(ctx)
+	if err != nil {
+		log.Fatalf("Failed to get host: %v", err)
 	}
 
-	we, err := testClient.ExecuteWorkflow(ctx,
-		client.StartWorkflowOptions{
-			ID:        "integration-test-env",
-			TaskQueue: testTaskQueue,
-		},
-		workflow.ExecuteContainerWorkflow,
-		input,
-	)
-	require.NoError(t, err)
-
-	var result payload.ContainerExecutionOutput
-	require.NoError(t, we.Get(ctx, &result))
-
-	assert.True(t, result.Success, "Expected successful execution")
-	assert.Equal(t, 0, result.ExitCode, "Expected exit code 0")
-	assert.Contains(t, result.Stdout, "test_value")
-}
-
-// TestIntegration_ContainerWithWorkDir tests container with custom working directory.
-func TestIntegration_ContainerWithWorkDir(t *testing.T) {
-	ctx := context.Background()
-
-	input := payload.ContainerExecutionInput{
-		Image:      "alpine:latest",
-		Command:    []string{"pwd"},
-		WorkDir:    "/tmp",
-		AutoRemove: true,
+	port, err := container.MappedPort(ctx, "9000")
+	if err != nil {
+		log.Fatalf("Failed to get mapped port: %v", err)
 	}
 
-	we, err := testClient.ExecuteWorkflow(ctx,
-		client.StartWorkflowOptions{
-			ID:        "integration-test-workdir",
-			TaskQueue: testTaskQueue,
-		},
-		workflow.ExecuteContainerWorkflow,
-		input,
-	)
-	require.NoError(t, err)
-
-	var result payload.ContainerExecutionOutput
-	require.NoError(t, we.Get(ctx, &result))
-
-	assert.True(t, result.Success, "Expected successful execution")
-	assert.Contains(t, result.Stdout, "/tmp")
-}
-
-// TestIntegration_ContainerWithEntrypoint tests container with custom entrypoint.
-func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
-	ctx := context.Background()
-
-	input := payload.ContainerExecutionInput{
-		Image:      "alpine:latest",
-		Entrypoint: []string{"/bin/sh", "-c"},
-		Command:    []string{"echo test"},
-		AutoRemove: true,
+	testMinioConfig = MinioConfig{
+		Endpoint:  host + ":" + port.Port(),
+		AccessKey: "minioadmin",
+		SecretKey: "minioadmin",
+		Bucket:    "test-artifacts",
+		Prefix:    "workflows/",
+		UseSSL:    false,
+		Region:    "us-east-1",
 	}
 
-	we, err := testClient.ExecuteWorkflow(ctx,
-		client.StartWorkflowOptions{
-			ID:        "integration-test-entrypoint",
-			TaskQueue: testTaskQueue,
-		},
-		workflow.ExecuteContainerWorkflow,
-		input,
-	)
-	require.NoError(t, err)
+	code := m.Run()
 
-	var result payload.ContainerExecutionOutput
-	require.NoError(t, we.Get(ctx, &result))
-
-	assert.True(t, result.Success, "Expected successful execution")
-	assert.Contains(t, result.Stdout, "test")
-}
-
-// TestIntegration_ContainerWithUser tests container with custom user.
-func TestIntegration_ContainerWithUser(t *testing.T) {
-	ctx := context.Background()
-
-	input := payload.ContainerExecutionInput{
-		Image:      "alpine:latest",
-		Command:    []string{"id"},
-		User:       "nobody",
-		AutoRemove: true,
+	if err := container.Terminate(ctx); err != nil {
+		log.Printf("Failed to terminate MinIO container: %v", err)
 	}
 
-	we, err := testClient.ExecuteWorkflow(ctx,
-		client.StartWorkflowOptions{
-			ID:        "integration-test-user",
-			TaskQueue: testTaskQueue,
-		},
-		workflow.ExecuteContainerWorkflow,
-		input,
-	)
-	require.NoError(t, err)
-
-	var result payload.ContainerExecutionOutput
-	require.NoError(t, we.Get(ctx, &result))
-
-	assert.True(t, result.Success, "Expected successful execution")
-	assert.Contains(t, result.Stdout, "nobody")
+	os.Exit(code)
 }
+```
 
-// TestIntegration_ContainerFailure tests container with non-zero exit code.
+Add `"log"` and `"os"` to imports. Remove `setupMinioContainer` function.
+
+**Step 2: Refactor all 5 tests to use testMinioConfig**
+
+Each test replaces:
+```go
+container, config := setupMinioContainer(ctx, t)
+defer func() { ... container.Terminate ... }()
+store, err := NewMinioStore(ctx, config)
+```
+
+With:
+```go
+store, err := NewMinioStore(ctx, testMinioConfig)
+require.NoError(t, err)
+defer store.Close()
+```
+
+Use unique bucket prefixes or artifact names per test to avoid collision (already the case — each test uses different WorkflowID/RunID).
+
+**Step 3: Run tests**
+
+Run: `task test:integration`
+Expected: All 5 MinIO tests pass using single shared container.
+
+**Step 4: Commit**
+
+```
+git add docker/artifacts/minio_integration_test.go
+git commit -m "refactor(tests): consolidate MinIO container via TestMain"
+```
+
+---
+
+### Task 3: Fix missing output assertions
+
+**Files:**
+- Modify: `docker/integration_test.go`
+
+**Step 1: Add Stdout assertions to four tests**
+
+In `TestIntegration_ContainerWithEnvironment`, add after the success check:
+```go
+assert.Contains(t, result.Stdout, "test_value")
+```
+
+In `TestIntegration_ContainerWithWorkDir`, add:
+```go
+assert.Contains(t, result.Stdout, "/tmp")
+```
+
+In `TestIntegration_ContainerWithEntrypoint`, add:
+```go
+assert.Contains(t, result.Stdout, "test")
+```
+
+In `TestIntegration_ContainerWithUser`, add:
+```go
+assert.Contains(t, result.Stdout, "nobody")
+```
+
+**Step 2: Run tests**
+
+Run: `task test:integration`
+Expected: All tests pass with the new assertions.
+
+**Step 3: Commit**
+
+```
+git add docker/integration_test.go
+git commit -m "test(docker): add output content assertions to integration tests"
+```
+
+---
+
+### Task 4: Add failure scenario tests
+
+**Files:**
+- Modify: `docker/integration_test.go`
+
+**Step 1: Add container failure test**
+
+```go
 func TestIntegration_ContainerFailure(t *testing.T) {
 	ctx := context.Background()
 
@@ -357,13 +341,17 @@ func TestIntegration_ContainerFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.ContainerExecutionOutput
+	// The workflow may return an error for non-zero exit codes
 	_ = we.Get(ctx, &result)
 
 	assert.False(t, result.Success)
 	assert.Equal(t, 1, result.ExitCode)
 }
+```
 
-// TestIntegration_PipelineStopOnError tests pipeline stops on first failure.
+**Step 2: Add pipeline StopOnError test**
+
+```go
 func TestIntegration_PipelineStopOnError(t *testing.T) {
 	ctx := context.Background()
 
@@ -396,13 +384,18 @@ func TestIntegration_PipelineStopOnError(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.PipelineOutput
-	err = we.Get(ctx, &result)
+	_ = we.Get(ctx, &result)
 
-	// Pipeline returns an error when StopOnError=true and a step fails
-	assert.Error(t, err)
+	assert.GreaterOrEqual(t, result.TotalFailed, 1)
+	assert.Equal(t, 0, result.TotalSuccess)
+	// Only the first step should have run
+	assert.Equal(t, 1, len(result.Results))
 }
+```
 
-// TestIntegration_PipelineContinueOnError tests pipeline continues after failure.
+**Step 3: Add pipeline ContinueOnError test**
+
+```go
 func TestIntegration_PipelineContinueOnError(t *testing.T) {
 	ctx := context.Background()
 
@@ -441,8 +434,11 @@ func TestIntegration_PipelineContinueOnError(t *testing.T) {
 	assert.Equal(t, 1, result.TotalSuccess)
 	assert.Equal(t, 2, len(result.Results))
 }
+```
 
-// TestIntegration_ParallelFailFast tests parallel stops on first failure.
+**Step 4: Add parallel FailFast test**
+
+```go
 func TestIntegration_ParallelFailFast(t *testing.T) {
 	ctx := context.Background()
 
@@ -481,13 +477,15 @@ func TestIntegration_ParallelFailFast(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.ParallelOutput
-	err = we.Get(ctx, &result)
+	_ = we.Get(ctx, &result)
 
-	// Parallel returns an error when FailureStrategy=fail_fast and a container fails
-	assert.Error(t, err)
+	assert.GreaterOrEqual(t, result.TotalFailed, 1)
 }
+```
 
-// TestIntegration_ParallelContinue tests parallel continues after failure.
+**Step 5: Add parallel Continue test**
+
+```go
 func TestIntegration_ParallelContinue(t *testing.T) {
 	ctx := context.Background()
 
@@ -532,8 +530,30 @@ func TestIntegration_ParallelContinue(t *testing.T) {
 	assert.Equal(t, 2, result.TotalSuccess)
 	assert.Equal(t, 3, len(result.Results))
 }
+```
 
-// TestIntegration_DAGWorkflow tests DAG workflow with diamond dependency pattern.
+**Step 6: Run tests**
+
+Run: `task test:integration`
+Expected: All failure scenario tests pass.
+
+**Step 7: Commit**
+
+```
+git add docker/integration_test.go
+git commit -m "test(docker): add failure scenario integration tests"
+```
+
+---
+
+### Task 5: Add DAG workflow integration tests
+
+**Files:**
+- Modify: `docker/integration_test.go`
+
+**Step 1: Add DAG happy-path test**
+
+```go
 func TestIntegration_DAGWorkflow(t *testing.T) {
 	ctx := context.Background()
 
@@ -595,8 +615,11 @@ func TestIntegration_DAGWorkflow(t *testing.T) {
 	assert.NotNil(t, result.Results["branch-a"])
 	assert.NotNil(t, result.Results["branch-b"])
 }
+```
 
-// TestIntegration_DAGWorkflowFailFast tests DAG workflow stops when dependency fails.
+**Step 2: Add DAG fail-fast test**
+
+```go
 func TestIntegration_DAGWorkflowFailFast(t *testing.T) {
 	ctx := context.Background()
 
@@ -638,14 +661,36 @@ func TestIntegration_DAGWorkflowFailFast(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.DAGWorkflowOutput
-	err = we.Get(ctx, &result)
+	_ = we.Get(ctx, &result)
 
-	// The workflow returns an error when a dependency fails with FailFast=true
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "dependency root failed")
+	assert.GreaterOrEqual(t, result.TotalFailed, 1)
+	// Dependent node should not have executed
+	assert.Nil(t, result.Results["dependent"])
 }
+```
 
-// TestIntegration_LoopSequential tests sequential loop workflow.
+**Step 3: Run tests**
+
+Run: `task test:integration`
+Expected: DAG tests pass.
+
+**Step 4: Commit**
+
+```
+git add docker/integration_test.go
+git commit -m "test(docker): add DAG workflow integration tests"
+```
+
+---
+
+### Task 6: Add Loop workflow integration tests
+
+**Files:**
+- Modify: `docker/integration_test.go`
+
+**Step 1: Add sequential loop test**
+
+```go
 func TestIntegration_LoopSequential(t *testing.T) {
 	ctx := context.Background()
 
@@ -678,8 +723,11 @@ func TestIntegration_LoopSequential(t *testing.T) {
 	assert.Equal(t, 3, result.ItemCount)
 	assert.Len(t, result.Results, 3)
 }
+```
 
-// TestIntegration_LoopParallel tests parallel loop workflow.
+**Step 2: Add parallel loop test**
+
+```go
 func TestIntegration_LoopParallel(t *testing.T) {
 	ctx := context.Background()
 
@@ -712,3 +760,42 @@ func TestIntegration_LoopParallel(t *testing.T) {
 	assert.Equal(t, 3, result.ItemCount)
 	assert.Len(t, result.Results, 3)
 }
+```
+
+**Step 3: Run tests**
+
+Run: `task test:integration`
+Expected: All tests pass including the new loop tests.
+
+**Step 4: Commit**
+
+```
+git add docker/integration_test.go
+git commit -m "test(docker): add Loop workflow integration tests"
+```
+
+---
+
+### Task 7: Final verification and lint
+
+**Step 1: Run full integration test suite**
+
+Run: `task test:integration`
+Expected: All 18 tests pass (7 original + 2 DAG + 2 Loop + 5 failure + 2 assertion-only changes).
+
+**Step 2: Run lint**
+
+Run: `task lint`
+Expected: Zero lint errors.
+
+**Step 3: Run format**
+
+Run: `task fmt`
+Expected: No formatting changes needed.
+
+**Step 4: Final commit (if any fmt changes)**
+
+```
+git add -A
+git commit -m "style(tests): format integration tests"
+```
