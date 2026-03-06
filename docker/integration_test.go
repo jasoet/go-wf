@@ -6,9 +6,13 @@ package docker_test
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
@@ -19,16 +23,15 @@ import (
 	"github.com/jasoet/go-wf/docker/workflow"
 )
 
-// TemporalContainer represents a Temporal server test container.
-type TemporalContainer struct {
-	testcontainers.Container
-	HostPort string
-}
+var (
+	testClient    client.Client
+	testTaskQueue = "integration-test-queue"
+)
 
-// StartTemporalContainer starts a Temporal server container for testing.
-func StartTemporalContainer(ctx context.Context, t *testing.T) (*TemporalContainer, error) {
-	t.Helper()
+func TestMain(m *testing.M) {
+	ctx := context.Background()
 
+	// Start Temporal container
 	req := testcontainers.ContainerRequest{
 		Image:        "temporalio/temporal:latest",
 		ExposedPorts: []string{"7233/tcp", "8233/tcp"},
@@ -41,73 +44,62 @@ func StartTemporalContainer(ctx context.Context, t *testing.T) (*TemporalContain
 		Started:          true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to start temporal container: %w", err)
+		log.Fatalf("Failed to start temporal container: %v", err)
 	}
 
 	// Get the mapped port
 	mappedPort, err := container.MappedPort(ctx, "7233")
 	if err != nil {
-		if termErr := container.Terminate(ctx); termErr != nil {
-			t.Logf("Failed to terminate container: %v", termErr)
-		}
-		return nil, fmt.Errorf("failed to get mapped port: %w", err)
+		_ = container.Terminate(ctx)
+		log.Fatalf("Failed to get mapped port: %v", err)
 	}
 
 	// Get the host
 	host, err := container.Host(ctx)
 	if err != nil {
-		if termErr := container.Terminate(ctx); termErr != nil {
-			t.Logf("Failed to terminate container: %v", termErr)
-		}
-		return nil, fmt.Errorf("failed to get host: %w", err)
+		_ = container.Terminate(ctx)
+		log.Fatalf("Failed to get host: %v", err)
 	}
 
 	hostPort := fmt.Sprintf("%s:%s", host, mappedPort.Port())
-
-	t.Logf("Temporal container started at %s", hostPort)
+	log.Printf("Temporal container started at %s", hostPort)
 
 	// Wait a bit more for Temporal to fully initialize
 	time.Sleep(3 * time.Second)
 
-	return &TemporalContainer{
-		Container: container,
-		HostPort:  hostPort,
-	}, nil
+	// Create Temporal client
+	testClient, err = client.Dial(client.Options{
+		HostPort: hostPort,
+	})
+	if err != nil {
+		_ = container.Terminate(ctx)
+		log.Fatalf("Failed to create Temporal client: %v", err)
+	}
+
+	// Create and start worker
+	w := worker.New(testClient, testTaskQueue, worker.Options{})
+	docker.RegisterAll(w)
+
+	if err := w.Start(); err != nil {
+		testClient.Close()
+		_ = container.Terminate(ctx)
+		log.Fatalf("Failed to start worker: %v", err)
+	}
+
+	// Run tests
+	code := m.Run()
+
+	// Cleanup
+	w.Stop()
+	testClient.Close()
+	_ = container.Terminate(ctx)
+
+	os.Exit(code)
 }
 
 // TestIntegration_ExecuteContainerWorkflow tests single container execution with real Temporal server.
 func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 	ctx := context.Background()
-
-	// Start Temporal container
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	// Create Temporal client
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	// Create and start worker
-	taskQueue := "integration-test-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	// Execute workflow
 	input := payload.ContainerExecutionInput{
@@ -116,69 +108,30 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 		AutoRemove: true,
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-execute-container",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Wait for result
 	var result payload.ContainerExecutionOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
 	// Verify result
-	if !result.Success {
-		t.Errorf("Expected successful execution, got: %+v", result)
-	}
-	if result.ExitCode != 0 {
-		t.Errorf("Expected exit code 0, got %d", result.ExitCode)
-	}
-	if result.ContainerID == "" {
-		t.Error("Expected non-empty container ID")
-	}
+	assert.True(t, result.Success, "Expected successful execution, got: %+v", result)
+	assert.Equal(t, 0, result.ExitCode, "Expected exit code 0")
+	assert.NotEmpty(t, result.ContainerID, "Expected non-empty container ID")
+	assert.Contains(t, result.Stdout, "integration test")
 }
 
 // TestIntegration_ContainerPipelineWorkflow tests pipeline execution with real Temporal server.
 func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 	ctx := context.Background()
-
-	// Start Temporal container
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	// Create Temporal client
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	// Create and start worker
-	taskQueue := "integration-test-pipeline-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	// Execute pipeline workflow
 	input := payload.PipelineInput{
@@ -199,69 +152,29 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 		StopOnError: true,
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-pipeline",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ContainerPipelineWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Wait for result
 	var result payload.PipelineOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
 	// Verify result
-	if result.TotalSuccess != 2 {
-		t.Errorf("Expected 2 successful containers, got %d", result.TotalSuccess)
-	}
-	if result.TotalFailed != 0 {
-		t.Errorf("Expected 0 failed containers, got %d", result.TotalFailed)
-	}
-	if len(result.Results) != 2 {
-		t.Errorf("Expected 2 results, got %d", len(result.Results))
-	}
+	assert.Equal(t, 2, result.TotalSuccess, "Expected 2 successful containers")
+	assert.Equal(t, 0, result.TotalFailed, "Expected 0 failed containers")
+	assert.Len(t, result.Results, 2, "Expected 2 results")
 }
 
 // TestIntegration_ParallelContainersWorkflow tests parallel execution with real Temporal server.
 func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 	ctx := context.Background()
-
-	// Start Temporal container
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	// Create Temporal client
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	// Create and start worker
-	taskQueue := "integration-test-parallel-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	// Execute parallel workflow
 	input := payload.ParallelInput{
@@ -288,66 +201,29 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 		FailureStrategy: "continue",
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-parallel",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ParallelContainersWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Wait for result
 	var result payload.ParallelOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
 	// Verify result
-	if result.TotalSuccess != 3 {
-		t.Errorf("Expected 3 successful containers, got %d", result.TotalSuccess)
-	}
-	if result.TotalFailed != 0 {
-		t.Errorf("Expected 0 failed containers, got %d", result.TotalFailed)
-	}
-	if len(result.Results) != 3 {
-		t.Errorf("Expected 3 results, got %d", len(result.Results))
-	}
+	assert.Equal(t, 3, result.TotalSuccess, "Expected 3 successful containers")
+	assert.Equal(t, 0, result.TotalFailed, "Expected 0 failed containers")
+	assert.Len(t, result.Results, 3, "Expected 3 results")
 }
 
 // TestIntegration_ContainerWithEnvironment tests container with environment variables.
 func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 	ctx := context.Background()
-
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	taskQueue := "integration-test-env-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -358,61 +234,26 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 		Labels:     map[string]string{"test": "integration"},
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-env",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result payload.ContainerExecutionOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
-	if !result.Success {
-		t.Errorf("Expected successful execution")
-	}
-	if result.ExitCode != 0 {
-		t.Errorf("Expected exit code 0, got %d", result.ExitCode)
-	}
+	assert.True(t, result.Success, "Expected successful execution")
+	assert.Equal(t, 0, result.ExitCode, "Expected exit code 0")
 }
 
 // TestIntegration_ContainerWithWorkDir tests container with custom working directory.
 func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 	ctx := context.Background()
-
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	taskQueue := "integration-test-workdir-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -421,58 +262,25 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 		AutoRemove: true,
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-workdir",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result payload.ContainerExecutionOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
-	if !result.Success {
-		t.Errorf("Expected successful execution")
-	}
+	assert.True(t, result.Success, "Expected successful execution")
 }
 
 // TestIntegration_ContainerWithEntrypoint tests container with custom entrypoint.
 func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 	ctx := context.Background()
-
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	taskQueue := "integration-test-entrypoint-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -481,58 +289,25 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 		AutoRemove: true,
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-entrypoint",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result payload.ContainerExecutionOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
-	if !result.Success {
-		t.Errorf("Expected successful execution")
-	}
+	assert.True(t, result.Success, "Expected successful execution")
 }
 
 // TestIntegration_ContainerWithUser tests container with custom user.
 func TestIntegration_ContainerWithUser(t *testing.T) {
 	ctx := context.Background()
-
-	temporal, err := StartTemporalContainer(ctx, t)
-	if err != nil {
-		t.Fatalf("Failed to start Temporal container: %v", err)
-	}
-	defer func() {
-		if err := temporal.Terminate(ctx); err != nil {
-			t.Logf("Failed to terminate Temporal container: %v", err)
-		}
-	}()
-
-	c, err := client.Dial(client.Options{
-		HostPort: temporal.HostPort,
-	})
-	if err != nil {
-		t.Fatalf("Failed to create Temporal client: %v", err)
-	}
-	defer c.Close()
-
-	taskQueue := "integration-test-user-queue"
-	w := worker.New(c, taskQueue, worker.Options{})
-	docker.RegisterAll(w)
-
-	if err := w.Start(); err != nil {
-		t.Fatalf("Failed to start worker: %v", err)
-	}
-	defer w.Stop()
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -541,24 +316,18 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 		AutoRemove: true,
 	}
 
-	we, err := c.ExecuteWorkflow(ctx,
+	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "integration-test-user",
-			TaskQueue: taskQueue,
+			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
 		input,
 	)
-	if err != nil {
-		t.Fatalf("Failed to start workflow: %v", err)
-	}
+	require.NoError(t, err)
 
 	var result payload.ContainerExecutionOutput
-	if err := we.Get(ctx, &result); err != nil {
-		t.Fatalf("Workflow failed: %v", err)
-	}
+	require.NoError(t, we.Get(ctx, &result))
 
-	if !result.Success {
-		t.Errorf("Expected successful execution")
-	}
+	assert.True(t, result.Success, "Expected successful execution")
 }
