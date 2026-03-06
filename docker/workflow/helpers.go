@@ -5,6 +5,35 @@ import (
 	generic "github.com/jasoet/go-wf/workflow"
 )
 
+// toTaskPtrs converts a slice of ContainerExecutionInput values to a slice of pointers.
+func toTaskPtrs(containers []payload.ContainerExecutionInput) []*payload.ContainerExecutionInput {
+	ptrs := make([]*payload.ContainerExecutionInput, len(containers))
+	for i := range containers {
+		ptrs[i] = &containers[i]
+	}
+	return ptrs
+}
+
+// toPipelineOutput converts a generic pipeline output to a docker-specific output.
+func toPipelineOutput(g *generic.PipelineOutput[payload.ContainerExecutionOutput], err error) (*payload.PipelineOutput, error) {
+	if g == nil {
+		return nil, err
+	}
+	return &payload.PipelineOutput{
+		Results: g.Results, TotalSuccess: g.TotalSuccess, TotalFailed: g.TotalFailed, TotalDuration: g.TotalDuration,
+	}, err
+}
+
+// toParallelOutput converts a generic parallel output to a docker-specific output.
+func toParallelOutput(g *generic.ParallelOutput[payload.ContainerExecutionOutput], err error) (*payload.ParallelOutput, error) {
+	if g == nil {
+		return nil, err
+	}
+	return &payload.ParallelOutput{
+		Results: g.Results, TotalSuccess: g.TotalSuccess, TotalFailed: g.TotalFailed, TotalDuration: g.TotalDuration,
+	}, err
+}
+
 // substituteContainerInput creates a new container input with substituted values.
 func substituteContainerInput(template payload.ContainerExecutionInput, item string, index int, params map[string]string) payload.ContainerExecutionInput {
 	result := template

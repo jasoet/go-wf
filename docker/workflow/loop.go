@@ -7,9 +7,30 @@ import (
 	generic "github.com/jasoet/go-wf/workflow"
 )
 
+// containerSubstitutor returns a substitutor function for container inputs.
+func containerSubstitutor() func(*payload.ContainerExecutionInput, string, int, map[string]string) *payload.ContainerExecutionInput {
+	return func(tmpl *payload.ContainerExecutionInput, item string, index int, params map[string]string) *payload.ContainerExecutionInput {
+		result := substituteContainerInput(*tmpl, item, index, params)
+		return &result
+	}
+}
+
+// toLoopOutput converts a generic loop output to a docker-specific loop output.
+func toLoopOutput(g *generic.LoopOutput[payload.ContainerExecutionOutput], err error) (*payload.LoopOutput, error) {
+	if g == nil {
+		return nil, err
+	}
+	return &payload.LoopOutput{
+		Results:       g.Results,
+		TotalSuccess:  g.TotalSuccess,
+		TotalFailed:   g.TotalFailed,
+		TotalDuration: g.TotalDuration,
+		ItemCount:     g.ItemCount,
+	}, err
+}
+
 // LoopWorkflow executes containers in a loop over items (withItems pattern).
 func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput, error) {
-	// Convert to generic input
 	genericInput := generic.LoopInput[*payload.ContainerExecutionInput]{
 		Items:           input.Items,
 		Template:        &input.Template,
@@ -18,30 +39,13 @@ func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput,
 		FailureStrategy: input.FailureStrategy,
 	}
 
-	substitutor := func(tmpl *payload.ContainerExecutionInput, item string, index int, params map[string]string) *payload.ContainerExecutionInput {
-		result := substituteContainerInput(*tmpl, item, index, params)
-		return &result
-	}
-
-	genericOutput, err := generic.LoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, substitutor)
-
-	// Convert generic output back to docker output
-	if genericOutput != nil {
-		output := &payload.LoopOutput{
-			Results:       genericOutput.Results,
-			TotalSuccess:  genericOutput.TotalSuccess,
-			TotalFailed:   genericOutput.TotalFailed,
-			TotalDuration: genericOutput.TotalDuration,
-			ItemCount:     genericOutput.ItemCount,
-		}
-		return output, err
-	}
-	return nil, err
+	return toLoopOutput(
+		generic.LoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, containerSubstitutor()),
+	)
 }
 
 // ParameterizedLoopWorkflow executes containers with parameterized loops (withParam pattern).
 func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopInput) (*payload.LoopOutput, error) {
-	// Convert to generic input
 	genericInput := generic.ParameterizedLoopInput[*payload.ContainerExecutionInput]{
 		Parameters:      input.Parameters,
 		Template:        &input.Template,
@@ -50,25 +54,9 @@ func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopIn
 		FailureStrategy: input.FailureStrategy,
 	}
 
-	substitutor := func(tmpl *payload.ContainerExecutionInput, item string, index int, params map[string]string) *payload.ContainerExecutionInput {
-		result := substituteContainerInput(*tmpl, item, index, params)
-		return &result
-	}
-
-	genericOutput, err := generic.ParameterizedLoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, substitutor)
-
-	// Convert generic output back to docker output
-	if genericOutput != nil {
-		output := &payload.LoopOutput{
-			Results:       genericOutput.Results,
-			TotalSuccess:  genericOutput.TotalSuccess,
-			TotalFailed:   genericOutput.TotalFailed,
-			TotalDuration: genericOutput.TotalDuration,
-			ItemCount:     genericOutput.ItemCount,
-		}
-		return output, err
-	}
-	return nil, err
+	return toLoopOutput(
+		generic.ParameterizedLoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, containerSubstitutor()),
+	)
 }
 
 // FailureStrategyFailFast indicates that workflow should stop on first failure.

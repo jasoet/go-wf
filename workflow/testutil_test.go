@@ -10,9 +10,9 @@ import (
 
 // testInput is a mock TaskInput for testing generic workflows.
 type testInput struct {
-	Name         string `json:"name"`
-	Value        string `json:"value"`
-	Activity     string `json:"activity"`
+	Name     string `json:"name"`
+	Value    string `json:"value"`
+	Activity string `json:"activity"`
 }
 
 // Validate validates the test input.
