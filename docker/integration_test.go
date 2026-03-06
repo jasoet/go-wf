@@ -396,11 +396,10 @@ func TestIntegration_PipelineStopOnError(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.PipelineOutput
-	_ = we.Get(ctx, &result)
+	err = we.Get(ctx, &result)
 
-	assert.GreaterOrEqual(t, result.TotalFailed, 1)
-	assert.Equal(t, 0, result.TotalSuccess)
-	assert.Equal(t, 1, len(result.Results))
+	// Pipeline returns an error when StopOnError=true and a step fails
+	assert.Error(t, err)
 }
 
 // TestIntegration_PipelineContinueOnError tests pipeline continues after failure.
@@ -482,9 +481,10 @@ func TestIntegration_ParallelFailFast(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.ParallelOutput
-	_ = we.Get(ctx, &result)
+	err = we.Get(ctx, &result)
 
-	assert.GreaterOrEqual(t, result.TotalFailed, 1)
+	// Parallel returns an error when FailureStrategy=fail_fast and a container fails
+	assert.Error(t, err)
 }
 
 // TestIntegration_ParallelContinue tests parallel continues after failure.
@@ -638,10 +638,11 @@ func TestIntegration_DAGWorkflowFailFast(t *testing.T) {
 	require.NoError(t, err)
 
 	var result payload.DAGWorkflowOutput
-	_ = we.Get(ctx, &result)
+	err = we.Get(ctx, &result)
 
-	assert.GreaterOrEqual(t, result.TotalFailed, 1)
-	assert.Nil(t, result.Results["dependent"])
+	// The workflow returns an error when a dependency fails with FailFast=true
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dependency root failed")
 }
 
 // TestIntegration_LoopSequential tests sequential loop workflow.
