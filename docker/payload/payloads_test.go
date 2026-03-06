@@ -3,6 +3,8 @@ package payload
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestContainerExecutionInput_Validate(t *testing.T) {
@@ -307,4 +309,19 @@ func TestWaitStrategyConfig_Validation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestContainerExecutionInput_ActivityName(t *testing.T) {
+	input := &ContainerExecutionInput{Image: "alpine"}
+	assert.Equal(t, "StartContainerActivity", input.ActivityName())
+}
+
+func TestContainerExecutionOutput_IsSuccess(t *testing.T) {
+	assert.True(t, (&ContainerExecutionOutput{Success: true}).IsSuccess())
+	assert.False(t, (&ContainerExecutionOutput{Success: false}).IsSuccess())
+}
+
+func TestContainerExecutionOutput_GetError(t *testing.T) {
+	assert.Equal(t, "fail", (&ContainerExecutionOutput{Error: "fail"}).GetError())
+	assert.Equal(t, "", (&ContainerExecutionOutput{}).GetError())
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
@@ -18,6 +17,7 @@ import (
 func TestContainerPipelineWorkflow_Success(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -27,7 +27,7 @@ func TestContainerPipelineWorkflow_Success(t *testing.T) {
 		StopOnError: true,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -44,6 +44,7 @@ func TestContainerPipelineWorkflow_Success(t *testing.T) {
 func TestContainerPipelineWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{},
@@ -59,6 +60,7 @@ func TestContainerPipelineWorkflow_InvalidInput(t *testing.T) {
 func TestContainerPipelineWorkflow_WithNamedSteps(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -69,7 +71,7 @@ func TestContainerPipelineWorkflow_WithNamedSteps(t *testing.T) {
 		StopOnError: false,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -85,6 +87,7 @@ func TestContainerPipelineWorkflow_WithNamedSteps(t *testing.T) {
 func TestContainerPipelineWorkflow_StopOnError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -95,11 +98,11 @@ func TestContainerPipelineWorkflow_StopOnError(t *testing.T) {
 	}
 
 	// First call succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	// Second call fails
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, fmt.Errorf("container failed")).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -112,6 +115,7 @@ func TestContainerPipelineWorkflow_StopOnError(t *testing.T) {
 func TestContainerPipelineWorkflow_ContinueOnError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -123,15 +127,15 @@ func TestContainerPipelineWorkflow_ContinueOnError(t *testing.T) {
 	}
 
 	// First succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	// Second fails
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
 
 	// Third succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[2]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[2]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -149,6 +153,7 @@ func TestContainerPipelineWorkflow_ContinueOnError(t *testing.T) {
 func TestContainerPipelineWorkflow_NoNamedSteps(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -158,7 +163,7 @@ func TestContainerPipelineWorkflow_NoNamedSteps(t *testing.T) {
 		StopOnError: true,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -174,6 +179,7 @@ func TestContainerPipelineWorkflow_NoNamedSteps(t *testing.T) {
 func TestContainerPipelineWorkflow_AllFail(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -184,7 +190,7 @@ func TestContainerPipelineWorkflow_AllFail(t *testing.T) {
 		StopOnError: false,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -203,6 +209,7 @@ func TestContainerPipelineWorkflow_AllFail(t *testing.T) {
 func TestContainerPipelineWorkflow_StopOnErrorFirstStep(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -214,7 +221,7 @@ func TestContainerPipelineWorkflow_StopOnErrorFirstStep(t *testing.T) {
 	}
 
 	// First call fails with activity error
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		nil, fmt.Errorf("container crashed")).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -227,6 +234,7 @@ func TestContainerPipelineWorkflow_StopOnErrorFirstStep(t *testing.T) {
 func TestContainerPipelineWorkflow_ResultTracking(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -237,13 +245,13 @@ func TestContainerPipelineWorkflow_ResultTracking(t *testing.T) {
 		StopOnError: false,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "build-1", Duration: 1 * time.Second}, nil).Once()
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "test-1", Duration: 2 * time.Second}, nil).Once()
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[2]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[2]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "deploy-1", Duration: 3 * time.Second}, nil).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -264,6 +272,7 @@ func TestContainerPipelineWorkflow_ResultTracking(t *testing.T) {
 func TestContainerPipelineWorkflow_SingleContainer(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -272,7 +281,7 @@ func TestContainerPipelineWorkflow_SingleContainer(t *testing.T) {
 		StopOnError: true,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "single-1"}, nil)
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)
@@ -290,6 +299,7 @@ func TestContainerPipelineWorkflow_SingleContainer(t *testing.T) {
 func TestContainerPipelineWorkflow_ActivityErrorContinue(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.PipelineInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -300,11 +310,11 @@ func TestContainerPipelineWorkflow_ActivityErrorContinue(t *testing.T) {
 	}
 
 	// First step returns activity error
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		nil, fmt.Errorf("docker daemon error")).Once()
 
 	// Second step succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ContainerPipelineWorkflow, input)

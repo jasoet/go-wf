@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
@@ -18,13 +17,14 @@ import (
 func TestExecuteContainerWorkflow_Success(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"echo", "hello"},
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		ContainerID: "container-123",
 		Success:     true,
 		ExitCode:    0,
@@ -60,13 +60,14 @@ func TestExecuteContainerWorkflow_InvalidInput(t *testing.T) {
 func TestExecuteContainerWorkflow_WithTimeout(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
 		RunTimeout: 5 * time.Minute,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ExecuteContainerWorkflow, input)
@@ -78,12 +79,13 @@ func TestExecuteContainerWorkflow_WithTimeout(t *testing.T) {
 func TestExecuteContainerWorkflow_ActivityError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ContainerExecutionInput{
 		Image: "alpine:latest",
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		nil, fmt.Errorf("activity execution failed"))
 
 	env.ExecuteWorkflow(ExecuteContainerWorkflow, input)
@@ -96,13 +98,14 @@ func TestExecuteContainerWorkflow_ActivityError(t *testing.T) {
 func TestExecuteContainerWorkflow_ContainerFailure(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
 		Command: []string{"false"},
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		Success:  false,
 		ExitCode: 1,
 		Stderr:   "command failed",
@@ -125,6 +128,7 @@ func TestExecuteContainerWorkflow_ContainerFailure(t *testing.T) {
 func TestExecuteContainerWorkflow_DefaultTimeout(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -132,7 +136,7 @@ func TestExecuteContainerWorkflow_DefaultTimeout(t *testing.T) {
 		RunTimeout: 0,
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		Success:  true,
 		ExitCode: 0,
 	}, nil)
@@ -153,6 +157,7 @@ func TestExecuteContainerWorkflow_DefaultTimeout(t *testing.T) {
 func TestExecuteContainerWorkflow_FullResultFields(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ContainerExecutionInput{
 		Image:   "ubuntu:22.04",
@@ -162,7 +167,7 @@ func TestExecuteContainerWorkflow_FullResultFields(t *testing.T) {
 	startedAt := time.Date(2026, 3, 6, 10, 0, 0, 0, time.UTC)
 	finishedAt := time.Date(2026, 3, 6, 10, 0, 5, 0, time.UTC)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(&payload.ContainerExecutionOutput{
 		ContainerID: "abc-def-123",
 		Success:     true,
 		ExitCode:    0,

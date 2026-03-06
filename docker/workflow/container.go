@@ -1,58 +1,13 @@
 package workflow
 
 import (
-	"fmt"
-	"time"
+	wf "go.temporal.io/sdk/workflow"
 
-	"go.temporal.io/sdk/temporal"
-	"go.temporal.io/sdk/workflow"
-
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // ExecuteContainerWorkflow runs a single container and returns results.
-func ExecuteContainerWorkflow(ctx workflow.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
-	logger := workflow.GetLogger(ctx)
-	logger.Info("Starting container execution workflow",
-		"image", input.Image,
-		"name", input.Name)
-
-	// Validate input
-	if err := input.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid input: %w", err)
-	}
-
-	// Set default timeout if not specified
-	timeout := input.RunTimeout
-	if timeout == 0 {
-		timeout = 10 * time.Minute
-	}
-
-	// Activity options with retry policy
-	ao := workflow.ActivityOptions{
-		StartToCloseTimeout: timeout,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    time.Minute,
-			MaximumAttempts:    3,
-		},
-	}
-	ctx = workflow.WithActivityOptions(ctx, ao)
-
-	// Execute container activity
-	var output payload.ContainerExecutionOutput
-	err := workflow.ExecuteActivity(ctx, activity.StartContainerActivity, input).Get(ctx, &output)
-	if err != nil {
-		logger.Error("Container execution failed", "error", err)
-		return nil, err
-	}
-
-	logger.Info("Container execution completed",
-		"success", output.Success,
-		"exitCode", output.ExitCode,
-		"duration", output.Duration)
-
-	return &output, nil
+func ExecuteContainerWorkflow(ctx wf.Context, input payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+	return generic.ExecuteTaskWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, &input)
 }

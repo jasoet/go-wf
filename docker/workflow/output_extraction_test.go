@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jasoet/go-wf/docker/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 func TestExtractOutput_Stdout(t *testing.T) {
@@ -322,7 +323,7 @@ func TestExtractJSONPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := extractJSONPath(tt.jsonStr, tt.path)
+			got, err := generic.ExtractJSONPath(tt.jsonStr, tt.path)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -380,7 +381,7 @@ func TestExtractRegex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := extractRegex(tt.text, tt.pattern)
+			got, err := generic.ExtractRegex(tt.text, tt.pattern)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -569,7 +570,7 @@ func BenchmarkExtractJSONPath(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = extractJSONPath(jsonStr, path)
+		_, _ = generic.ExtractJSONPath(jsonStr, path)
 	}
 }
 
@@ -579,7 +580,7 @@ func BenchmarkExtractRegex(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = extractRegex(text, pattern)
+		_, _ = generic.ExtractRegex(text, pattern)
 	}
 }
 

@@ -19,7 +19,7 @@ const (
 	ErrorTypeConfiguration ErrorType = "configuration"
 )
 
-// WorkflowError represents a Docker workflow error.
+// WorkflowError represents a workflow error.
 type WorkflowError struct {
 	Type    ErrorType
 	Message string

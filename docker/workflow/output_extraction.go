@@ -1,14 +1,12 @@
 package workflow
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/jasoet/go-wf/docker/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // ExtractOutput extracts a value from container output based on the definition.
@@ -28,7 +26,7 @@ func ExtractOutput(def payload.OutputDefinition, containerOutput *payload.Contai
 		if def.Path == "" {
 			return def.Default, fmt.Errorf("path is required when value_from is 'file'")
 		}
-		rawValue, err = readFile(def.Path)
+		rawValue, err = generic.ReadFile(def.Path)
 		if err != nil {
 			if def.Default != "" {
 				return def.Default, nil
@@ -41,7 +39,7 @@ func ExtractOutput(def payload.OutputDefinition, containerOutput *payload.Contai
 
 	// Apply JSONPath extraction if specified
 	if def.JSONPath != "" {
-		rawValue, err = extractJSONPath(rawValue, def.JSONPath)
+		rawValue, err = generic.ExtractJSONPath(rawValue, def.JSONPath)
 		if err != nil {
 			if def.Default != "" {
 				return def.Default, nil
@@ -52,7 +50,7 @@ func ExtractOutput(def payload.OutputDefinition, containerOutput *payload.Contai
 
 	// Apply regex extraction if specified
 	if def.Regex != "" {
-		rawValue, err = extractRegex(rawValue, def.Regex)
+		rawValue, err = generic.ExtractRegex(rawValue, def.Regex)
 		if err != nil {
 			if def.Default != "" {
 				return def.Default, nil
@@ -85,127 +83,6 @@ func ExtractOutputs(definitions []payload.OutputDefinition, containerOutput *pay
 	}
 
 	return outputs, nil
-}
-
-// extractJSONPath extracts a value from JSON using a simple JSONPath expression,
-// supporting basic paths like "$.field", "$.field.nested", "$.array[0]".
-func extractJSONPath(jsonStr, path string) (string, error) {
-	// Parse JSON
-	var data interface{}
-	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
-		return "", fmt.Errorf("invalid JSON: %w", err)
-	}
-
-	// Remove leading $. if present
-	path = strings.TrimPrefix(path, "$.")
-	path = strings.TrimPrefix(path, "$")
-
-	// Split path by dots
-	parts := strings.Split(path, ".")
-	current := data
-
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-
-		// Handle array indexing
-		if strings.Contains(part, "[") {
-			// Extract field name and index
-			re := regexp.MustCompile(`^(\w+)\[(\d+)\]$`)
-			matches := re.FindStringSubmatch(part)
-			if len(matches) != 3 {
-				return "", fmt.Errorf("invalid array syntax: %s", part)
-			}
-
-			fieldName := matches[1]
-			index, err := strconv.Atoi(matches[2])
-			if err != nil {
-				return "", fmt.Errorf("invalid array index %s: %w", matches[2], err)
-			}
-
-			// Navigate to field
-			if m, ok := current.(map[string]interface{}); ok {
-				current = m[fieldName]
-			} else {
-				return "", fmt.Errorf("expected object at %s", fieldName)
-			}
-
-			// Access array index
-			if arr, ok := current.([]interface{}); ok {
-				if index < 0 || index >= len(arr) {
-					return "", fmt.Errorf("array index out of bounds: %d", index)
-				}
-				current = arr[index]
-			} else {
-				return "", fmt.Errorf("expected array at %s", fieldName)
-			}
-		} else {
-			// Simple field access
-			if m, ok := current.(map[string]interface{}); ok {
-				var exists bool
-				current, exists = m[part]
-				if !exists {
-					return "", fmt.Errorf("field %s not found", part)
-				}
-			} else {
-				return "", fmt.Errorf("cannot navigate to %s", part)
-			}
-		}
-	}
-
-	// Convert result to string
-	switch v := current.(type) {
-	case string:
-		return v, nil
-	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64), nil
-	case int:
-		return strconv.Itoa(v), nil
-	case bool:
-		return strconv.FormatBool(v), nil
-	case nil:
-		return "", nil
-	default:
-		// For complex types, return JSON representation
-		b, err := json.Marshal(v)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal result: %w", err)
-		}
-		return string(b), nil
-	}
-}
-
-// extractRegex extracts a value from text using a regular expression.
-// If the regex has a capturing group, returns the first group.
-// Otherwise, returns the entire match.
-func extractRegex(text, pattern string) (string, error) {
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return "", fmt.Errorf("invalid regex pattern: %w", err)
-	}
-
-	matches := re.FindStringSubmatch(text)
-	if len(matches) == 0 {
-		return "", fmt.Errorf("no match found for pattern: %s", pattern)
-	}
-
-	// If there are capturing groups, return the first one
-	if len(matches) > 1 {
-		return matches[1], nil
-	}
-
-	// Otherwise return the full match
-	return matches[0], nil
-}
-
-// readFile reads a file and returns its contents as a string.
-func readFile(path string) (string, error) {
-	data, err := os.ReadFile(path) //#nosec G304 -- path comes from workflow output definition configured by the user
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 // SubstituteInputs applies input mappings to container environment variables.

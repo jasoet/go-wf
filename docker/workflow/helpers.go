@@ -1,30 +1,37 @@
 package workflow
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/jasoet/go-wf/docker/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
-// substituteTemplate replaces template variables in a string.
-// Supports: {{item}}, {{index}}, and {{.paramName}} syntax.
-func substituteTemplate(template, item string, index int, params map[string]string) string {
-	result := template
-
-	// Replace {{item}}
-	result = strings.ReplaceAll(result, "{{item}}", item)
-
-	// Replace {{index}}
-	result = strings.ReplaceAll(result, "{{index}}", fmt.Sprintf("%d", index))
-
-	// Replace {{.paramName}} with parameter values
-	for key, value := range params {
-		result = strings.ReplaceAll(result, fmt.Sprintf("{{.%s}}", key), value)
-		result = strings.ReplaceAll(result, fmt.Sprintf("{{%s}}", key), value)
+// toTaskPtrs converts a slice of ContainerExecutionInput values to a slice of pointers.
+func toTaskPtrs(containers []payload.ContainerExecutionInput) []*payload.ContainerExecutionInput {
+	ptrs := make([]*payload.ContainerExecutionInput, len(containers))
+	for i := range containers {
+		ptrs[i] = &containers[i]
 	}
+	return ptrs
+}
 
-	return result
+// toPipelineOutput converts a generic pipeline output to a docker-specific output.
+func toPipelineOutput(g *generic.PipelineOutput[payload.ContainerExecutionOutput], err error) (*payload.PipelineOutput, error) {
+	if g == nil {
+		return nil, err
+	}
+	return &payload.PipelineOutput{
+		Results: g.Results, TotalSuccess: g.TotalSuccess, TotalFailed: g.TotalFailed, TotalDuration: g.TotalDuration,
+	}, err
+}
+
+// toParallelOutput converts a generic parallel output to a docker-specific output.
+func toParallelOutput(g *generic.ParallelOutput[payload.ContainerExecutionOutput], err error) (*payload.ParallelOutput, error) {
+	if g == nil {
+		return nil, err
+	}
+	return &payload.ParallelOutput{
+		Results: g.Results, TotalSuccess: g.TotalSuccess, TotalFailed: g.TotalFailed, TotalDuration: g.TotalDuration,
+	}, err
 }
 
 // substituteContainerInput creates a new container input with substituted values.
@@ -32,13 +39,13 @@ func substituteContainerInput(template payload.ContainerExecutionInput, item str
 	result := template
 
 	// Substitute in image
-	result.Image = substituteTemplate(template.Image, item, index, params)
+	result.Image = generic.SubstituteTemplate(template.Image, item, index, params)
 
 	// Substitute in command
 	if len(template.Command) > 0 {
 		result.Command = make([]string, len(template.Command))
 		for i, cmd := range template.Command {
-			result.Command[i] = substituteTemplate(cmd, item, index, params)
+			result.Command[i] = generic.SubstituteTemplate(cmd, item, index, params)
 		}
 	}
 
@@ -46,7 +53,7 @@ func substituteContainerInput(template payload.ContainerExecutionInput, item str
 	if len(template.Entrypoint) > 0 {
 		result.Entrypoint = make([]string, len(template.Entrypoint))
 		for i, entry := range template.Entrypoint {
-			result.Entrypoint[i] = substituteTemplate(entry, item, index, params)
+			result.Entrypoint[i] = generic.SubstituteTemplate(entry, item, index, params)
 		}
 	}
 
@@ -54,28 +61,28 @@ func substituteContainerInput(template payload.ContainerExecutionInput, item str
 	if len(template.Env) > 0 {
 		result.Env = make(map[string]string, len(template.Env))
 		for key, value := range template.Env {
-			newKey := substituteTemplate(key, item, index, params)
-			newValue := substituteTemplate(value, item, index, params)
+			newKey := generic.SubstituteTemplate(key, item, index, params)
+			newValue := generic.SubstituteTemplate(value, item, index, params)
 			result.Env[newKey] = newValue
 		}
 	}
 
 	// Substitute in name
 	if template.Name != "" {
-		result.Name = substituteTemplate(template.Name, item, index, params)
+		result.Name = generic.SubstituteTemplate(template.Name, item, index, params)
 	}
 
 	// Substitute in work directory
 	if template.WorkDir != "" {
-		result.WorkDir = substituteTemplate(template.WorkDir, item, index, params)
+		result.WorkDir = generic.SubstituteTemplate(template.WorkDir, item, index, params)
 	}
 
 	// Substitute in volumes
 	if len(template.Volumes) > 0 {
 		result.Volumes = make(map[string]string, len(template.Volumes))
 		for key, value := range template.Volumes {
-			newKey := substituteTemplate(key, item, index, params)
-			newValue := substituteTemplate(value, item, index, params)
+			newKey := generic.SubstituteTemplate(key, item, index, params)
+			newValue := generic.SubstituteTemplate(value, item, index, params)
 			result.Volumes[newKey] = newValue
 		}
 	}
@@ -83,43 +90,12 @@ func substituteContainerInput(template payload.ContainerExecutionInput, item str
 	return result
 }
 
-// generateParameterCombinations generates all combinations of parameter values (cartesian product).
+// generateParameterCombinations delegates to the generic implementation.
 func generateParameterCombinations(params map[string][]string) []map[string]string {
-	if len(params) == 0 {
-		return nil
-	}
+	return generic.GenerateParameterCombinations(params)
+}
 
-	// Convert map to ordered slices for consistent iteration
-	keys := make([]string, 0, len(params))
-	values := make([][]string, 0, len(params))
-
-	for key, vals := range params {
-		keys = append(keys, key)
-		values = append(values, vals)
-	}
-
-	// Generate cartesian product
-	var result []map[string]string
-	var generate func(int, map[string]string)
-
-	generate = func(depth int, current map[string]string) {
-		if depth == len(keys) {
-			// Make a copy of current combination
-			combo := make(map[string]string, len(current))
-			for k, v := range current {
-				combo[k] = v
-			}
-			result = append(result, combo)
-			return
-		}
-
-		key := keys[depth]
-		for _, value := range values[depth] {
-			current[key] = value
-			generate(depth+1, current)
-		}
-	}
-
-	generate(0, make(map[string]string))
-	return result
+// substituteTemplate delegates to the generic implementation.
+func substituteTemplate(tmpl, item string, index int, params map[string]string) string {
+	return generic.SubstituteTemplate(tmpl, item, index, params)
 }

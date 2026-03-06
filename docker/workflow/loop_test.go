@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
@@ -425,9 +424,10 @@ func TestGenerateParameterCombinations_Values(t *testing.T) {
 func TestLoopWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock the container execution activity
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
@@ -461,9 +461,10 @@ func TestLoopWorkflow(t *testing.T) {
 func TestLoopWorkflow_Sequential(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock the container execution activity
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
@@ -496,9 +497,10 @@ func TestLoopWorkflow_Sequential(t *testing.T) {
 func TestParameterizedLoopWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock the container execution activity
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
@@ -535,9 +537,10 @@ func TestParameterizedLoopWorkflow(t *testing.T) {
 func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock the container execution activity
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "test-container",
 			ExitCode:    0,
@@ -572,9 +575,10 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	callCount := 0
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			callCount++
 			if callCount == 2 {
@@ -604,9 +608,10 @@ func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
 func TestLoopWorkflow_SequentialContinueOnFailure(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	callCount := 0
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			callCount++
 			if callCount == 2 {
@@ -641,9 +646,10 @@ func TestLoopWorkflow_SequentialContinueOnFailure(t *testing.T) {
 func TestLoopWorkflow_ParallelFailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	var callCount atomic.Int32
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			c := callCount.Add(1)
 			if c == 2 {
@@ -672,9 +678,10 @@ func TestLoopWorkflow_ParallelFailFast(t *testing.T) {
 func TestLoopWorkflow_ParallelContinueMultipleFailures(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	var callCount atomic.Int32
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			c := callCount.Add(1)
 			if c == 2 || c == 4 {
@@ -709,8 +716,9 @@ func TestLoopWorkflow_ParallelContinueMultipleFailures(t *testing.T) {
 func TestLoopWorkflow_AllFailContinue(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil,
 	)
 
@@ -739,8 +747,9 @@ func TestLoopWorkflow_AllFailContinue(t *testing.T) {
 func TestLoopWorkflow_SingleItem(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil,
 	)
 
@@ -769,9 +778,10 @@ func TestLoopWorkflow_SingleItem(t *testing.T) {
 func TestParameterizedLoopWorkflow_FailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	callCount := 0
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			callCount++
 			if callCount == 2 {
@@ -802,9 +812,10 @@ func TestParameterizedLoopWorkflow_FailFast(t *testing.T) {
 func TestParameterizedLoopWorkflow_ContinueWithFailures(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	var callCount atomic.Int32
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			c := callCount.Add(1)
 			if c%2 == 0 {

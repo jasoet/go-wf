@@ -1,9 +1,10 @@
 package docker
 
 import (
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/docker/activity"
+	containerActivity "github.com/jasoet/go-wf/docker/activity"
 	wf "github.com/jasoet/go-wf/docker/workflow"
 )
 
@@ -20,7 +21,9 @@ func RegisterWorkflows(w worker.Worker) {
 
 // RegisterActivities registers all docker activities with a worker.
 func RegisterActivities(w worker.Worker) {
-	w.RegisterActivity(activity.StartContainerActivity)
+	w.RegisterActivityWithOptions(containerActivity.StartContainerActivity, activity.RegisterOptions{
+		Name: "StartContainerActivity",
+	})
 }
 
 // RegisterAll registers both workflows and activities.

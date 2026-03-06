@@ -1,6 +1,6 @@
 # go-wf
 
-[![Go Version](https://img.shields.io/badge/Go-1.23+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://github.com/jasoet/go-wf/actions/workflows/release.yml/badge.svg)](https://github.com/jasoet/go-wf/actions)
 
@@ -16,6 +16,16 @@ Temporal workflow library providing reusable, production-ready workflows for com
 - **Full CI/CD** - Automated releases and quality checks
 
 ## Packages
+
+### [workflow](./workflow/)
+
+Generic workflow orchestration core using Go generics:
+- **Type-Safe Interfaces** — `TaskInput`/`TaskOutput` constraints for compile-time safety
+- **Pipeline** — Sequential task execution with stop-on-error
+- **Parallel** — Concurrent task execution with fail-fast/continue
+- **Loop** — Iterate over items or parameter combinations
+- **Artifacts** — Pluggable artifact storage (local filesystem, MinIO/S3)
+- **Extensible** — Implement `TaskInput`/`TaskOutput` to add new activity types
 
 ### [docker](./docker/)
 
@@ -108,8 +118,18 @@ func main() {
 
 ```
 go-wf/
-├── docker/           # Docker container workflows
-├── docs/             # Project templates and documentation
+├── workflow/         # Generic workflow core (interfaces, orchestration)
+│   ├── errors/       # Error types and handling
+│   └── artifacts/    # Artifact store (local + MinIO)
+├── docker/           # Docker container workflows (concrete implementation)
+│   ├── activity/     # Temporal activities for container execution
+│   ├── builder/      # Fluent builder API
+│   ├── patterns/     # Pre-built patterns (CI/CD, loop, parallel)
+│   ├── payload/      # Type-safe payload structs
+│   ├── template/     # Container, script, HTTP templates
+│   └── workflow/     # Workflow implementations
+├── examples/docker/  # Example code (build tag: example)
+├── docs/plans/       # Implementation plans
 ├── .github/          # GitHub Actions workflows
 ├── Taskfile.yml      # Task automation
 └── README.md         # This file
@@ -120,8 +140,8 @@ go-wf/
 **Repository Type:** Library
 
 **Critical Setup:**
-- Go 1.23+
-- Docker for integration tests
+- Go 1.26+
+- Docker or Podman for integration tests
 - Task CLI for automation
 
 **Architecture:**
@@ -140,10 +160,10 @@ go-wf/
 
 **Testing Strategy:**
 - Coverage target: 85%
-- Unit tests: `task test`
-- Integration tests: `task test:integration` (requires Docker)
-- All tests: `task test:all`
-- Test files: `*_test.go` (unit), `integration_test.go` (integration)
+- Unit tests: `task test:unit` (fast, no container engine)
+- Integration tests: `task test:integration` (requires Docker/Podman)
+- All tests: `task test` (unit + integration, requires Docker/Podman)
+- Test files: `*_test.go` (unit), `*_integration_test.go` with `//go:build integration` tag
 
 **Quality Standards:**
 - Zero golangci-lint errors
@@ -155,12 +175,12 @@ go-wf/
 **Development Commands:**
 ```bash
 task                   # List all available tasks
-task test              # Run unit tests with coverage
-task test:integration  # Run integration tests (Docker required)
-task test:all          # Run all tests with combined coverage
+task test:unit         # Run unit tests only (fast, no container engine)
+task test              # Run all tests with coverage (container engine required)
+task test:integration  # Run integration tests only (container engine required)
 task lint              # Run golangci-lint
-task fmt               # Format code with gofumpt
-task check             # Run tests + lint
+task fmt               # Format code (goimports + gofumpt)
+task check             # Run all checks (test + lint)
 task tools             # Install development tools
 task clean             # Clean build artifacts
 ```
@@ -212,18 +232,12 @@ packagename/
 5. Push and create PR
 6. Wait for CI/CD to pass
 
-**Template Documentation:**
-See [docs/](./docs/) for project setup templates and guides:
-- [PROJECT_TEMPLATE.md](./docs/PROJECT_TEMPLATE.md) - Complete project structure guide
-- [AI_PROJECT_SETUP.md](./docs/AI_PROJECT_SETUP.md) - AI agent setup instructions
-- [REUSABLE_INFRASTRUCTURE.md](./docs/REUSABLE_INFRASTRUCTURE.md) - CI/CD and tooling guide
-
 ## Development
 
 ### Prerequisites
 
-- Go 1.23 or higher
-- Docker (for integration tests)
+- Go 1.26 or higher
+- Docker or Podman (for integration tests)
 - Task CLI
 
 ### Setup
@@ -245,15 +259,15 @@ task fmt
 ### Testing
 
 ```bash
-# Unit tests only
-task test
+# Unit tests only (fast, no container engine)
+task test:unit
 
-# Integration tests (requires Docker)
+# Integration tests only (requires Docker/Podman)
 task test:integration
 
-# All tests with coverage report
-task test:all
-# Open output/coverage-all.html to view coverage
+# All tests with coverage report (requires Docker/Podman)
+task test
+# Open output/coverage.html to view coverage
 ```
 
 ### Code Quality
