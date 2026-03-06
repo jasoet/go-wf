@@ -249,6 +249,7 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 
 	assert.True(t, result.Success, "Expected successful execution")
 	assert.Equal(t, 0, result.ExitCode, "Expected exit code 0")
+	assert.Contains(t, result.Stdout, "test_value")
 }
 
 // TestIntegration_ContainerWithWorkDir tests container with custom working directory.
@@ -276,6 +277,7 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.True(t, result.Success, "Expected successful execution")
+	assert.Contains(t, result.Stdout, "/tmp")
 }
 
 // TestIntegration_ContainerWithEntrypoint tests container with custom entrypoint.
@@ -303,6 +305,7 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.True(t, result.Success, "Expected successful execution")
+	assert.Contains(t, result.Stdout, "test")
 }
 
 // TestIntegration_ContainerWithUser tests container with custom user.
@@ -330,4 +333,5 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.True(t, result.Success, "Expected successful execution")
+	assert.Contains(t, result.Stdout, "nobody")
 }
