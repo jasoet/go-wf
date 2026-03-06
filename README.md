@@ -17,6 +17,16 @@ Temporal workflow library providing reusable, production-ready workflows for com
 
 ## Packages
 
+### [workflow](./workflow/)
+
+Generic workflow orchestration core using Go generics:
+- **Type-Safe Interfaces** — `TaskInput`/`TaskOutput` constraints for compile-time safety
+- **Pipeline** — Sequential task execution with stop-on-error
+- **Parallel** — Concurrent task execution with fail-fast/continue
+- **Loop** — Iterate over items or parameter combinations
+- **Artifacts** — Pluggable artifact storage (local filesystem, MinIO/S3)
+- **Extensible** — Implement `TaskInput`/`TaskOutput` to add new activity types
+
 ### [docker](./docker/)
 
 Temporal workflows for executing Docker containers with Argo Workflow-like capabilities:
@@ -108,11 +118,12 @@ func main() {
 
 ```
 go-wf/
-├── docker/           # Docker container workflows (main package)
+├── workflow/         # Generic workflow core (interfaces, orchestration)
+│   ├── errors/       # Error types and handling
+│   └── artifacts/    # Artifact store (local + MinIO)
+├── docker/           # Docker container workflows (concrete implementation)
 │   ├── activity/     # Temporal activities for container execution
-│   ├── artifacts/    # Artifact store (local + MinIO)
 │   ├── builder/      # Fluent builder API
-│   ├── errors/       # Error types
 │   ├── patterns/     # Pre-built patterns (CI/CD, loop, parallel)
 │   ├── payload/      # Type-safe payload structs
 │   ├── template/     # Container, script, HTTP templates

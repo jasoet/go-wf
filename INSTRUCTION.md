@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-go-wf — a Go library providing reusable, production-ready Temporal workflows for common orchestration patterns. Primary focus is Docker container workflows with Argo Workflow-like capabilities. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Provides single container, pipeline, parallel, DAG, and loop workflows with a fluent builder API, container/script/HTTP templates, and lifecycle management.
+go-wf — a Go library providing a generic workflow orchestration core with Docker container support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `docker/` package is a concrete implementation that wires Docker container activities into the generic core. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
 
 **Repository Type:** Library (Go module)
 **Module:** `github.com/jasoet/go-wf`
@@ -39,11 +39,12 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 
 | Path | Purpose |
 |------|---------|
-| `docker/` | Docker container workflows (main package) |
+| `workflow/` | Generic workflow core (interfaces, orchestration logic) |
+| `workflow/errors/` | Error types and handling |
+| `workflow/artifacts/` | Artifact store (local + MinIO) |
+| `docker/` | Docker container workflows (concrete implementation) |
 | `docker/activity/` | Temporal activities for container execution |
-| `docker/artifacts/` | Artifact store (local + MinIO) |
 | `docker/builder/` | Fluent builder API for workflows |
-| `docker/errors/` | Error types and handling |
 | `docker/patterns/` | Pre-built patterns (CI/CD, loop, parallel) |
 | `docker/payload/` | Type-safe payload structs |
 | `docker/template/` | Container, script, and HTTP templates |
@@ -78,11 +79,19 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 
 ## Architecture
 
-Go module-based library organized as package-per-feature:
+Two-layer architecture organized as package-per-feature:
 
-- **Workflows** register with Temporal workers via `docker.RegisterAll(w)`
+**Generic Workflow Core (`workflow/`)**
+- Defines `TaskInput` and `TaskOutput` interface constraints using Go generics
+- Provides generic orchestration: pipeline, parallel, loop, and single-task execution
+- Activity dispatch via `ActivityName()` (string-based, not function reference) for Temporal compatibility
+- Artifact storage abstraction (local filesystem, MinIO/S3)
+- Error types shared across all implementations
+
+**Docker Module (`docker/`)** — concrete implementation
 - **Activities** wrap `github.com/jasoet/pkg/v2/docker` for container execution
-- **Payloads** are validated structs (`go-playground/validator`) for workflow I/O
+- **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs (`go-playground/validator`)
+- **Workflows** register with Temporal workers via `docker.RegisterAll(w)`, using generic core for orchestration
 - **Builder** provides a fluent API to compose container → pipeline → parallel → DAG
 - **Templates** (container, script, HTTP) generate payload structs from higher-level config
 - **Patterns** are pre-built workflow compositions (CI/CD pipelines, fan-out/fan-in, etc.)
