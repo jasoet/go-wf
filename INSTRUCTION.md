@@ -68,6 +68,11 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task check` | Run all checks (test + lint) |
 | `task tools` | Install development tools (golangci-lint, gofumpt, goimports) |
 | `task fmt` | Format all Go files (goimports with local prefix + gofumpt) |
+| `task ci:test` | Run unit tests for CI (no coverage HTML) |
+| `task ci:lint` | Run golangci-lint for CI |
+| `task ci:check` | Run all CI checks (test + lint) |
+| `task release` | Run semantic-release (CI only) |
+| `task release:proxy-warmup` | Warm Go module proxy with latest tag |
 | `task clean` | Clean build artifacts |
 
 ## Architecture
