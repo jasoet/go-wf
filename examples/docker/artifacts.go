@@ -44,6 +44,10 @@ func main() {
 	// Example 3: Using Minio for artifact storage
 	fmt.Println("\n=== Example 3: Using Minio for Artifact Storage ===")
 	minioArtifactStorage(ctx, c)
+
+	// Example 4: Archive artifacts with cleanup config
+	fmt.Println("\n=== Example 4: Archive Artifacts & Cleanup Config ===")
+	artifactCleanupExample(ctx, c)
 }
 
 func buildTestPipeline(ctx context.Context, c client.Client) {
@@ -366,4 +370,98 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 
 	fmt.Printf("Minio pipeline completed: Success=%d, Failed=%d\n",
 		result.TotalSuccess, result.TotalFailed)
+}
+
+func artifactCleanupExample(ctx context.Context, c client.Client) {
+	// Create local file store
+	store, err := artifacts.NewLocalFileStore("/tmp/workflow-artifacts")
+	if err != nil {
+		log.Fatalln("Failed to create artifact store", err)
+	}
+	defer store.Close()
+
+	// Showcase ArtifactConfig with cleanup settings
+	artifactConfig := artifacts.ArtifactConfig{
+		Store:         store,
+		WorkflowID:    "archive-cleanup-demo",
+		RunID:         "run-001",
+		EnableCleanup: true,
+		RetentionDays: 7,
+	}
+
+	fmt.Printf("Artifact config: Cleanup=%v, Retention=%d days\n",
+		artifactConfig.EnableCleanup, artifactConfig.RetentionDays)
+
+	input := payload.DAGWorkflowInput{
+		Nodes: []payload.DAGNode{
+			{
+				Name: "build-archive",
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
+						Image: "alpine:latest",
+						Command: []string{"sh", "-c",
+							"mkdir -p /tmp/build-output && " +
+								"echo 'binary content' > /tmp/build-output/app && " +
+								"echo 'config content' > /tmp/build-output/config.yaml && " +
+								"echo 'Archive created'"},
+						AutoRemove: true,
+					},
+					// Archive artifact type — tars entire directory
+					OutputArtifacts: []payload.Artifact{
+						{
+							Name: "build-archive",
+							Path: "/tmp/build-output",
+							Type: "archive",
+						},
+					},
+				},
+			},
+			{
+				Name: "use-archive",
+				Container: payload.ExtendedContainerInput{
+					ContainerExecutionInput: payload.ContainerExecutionInput{
+						Image:      "alpine:latest",
+						Command:    []string{"sh", "-c", "ls -la /tmp/extracted/ && echo 'Archive extracted'"},
+						AutoRemove: true,
+					},
+					// Download and extract the archive
+					InputArtifacts: []payload.Artifact{
+						{
+							Name: "build-archive",
+							Path: "/tmp/extracted",
+							Type: "archive",
+						},
+					},
+				},
+				Dependencies: []string{"build-archive"},
+			},
+		},
+		ArtifactStore: store,
+		FailFast:      true,
+	}
+
+	workflowOptions := client.StartWorkflowOptions{
+		ID:        "archive-cleanup-example",
+		TaskQueue: "docker-tasks",
+	}
+
+	we, err := c.ExecuteWorkflow(ctx, workflowOptions, workflow.DAGWorkflow, input)
+	if err != nil {
+		log.Fatalln("Unable to execute workflow", err)
+	}
+
+	fmt.Printf("Started workflow: WorkflowID=%s\n", we.GetID())
+
+	var result payload.DAGWorkflowOutput
+	err = we.Get(ctx, &result)
+	if err != nil {
+		log.Fatalln("Unable to get workflow result", err)
+	}
+
+	fmt.Printf("Archive workflow completed: Success=%d, Failed=%d\n",
+		result.TotalSuccess, result.TotalFailed)
+
+	// Demonstrate cleanup reference
+	fmt.Println("\nTo cleanup workflow artifacts programmatically:")
+	fmt.Println("  artifacts.CleanupWorkflowArtifacts(ctx, store, workflowID, runID)")
 }
