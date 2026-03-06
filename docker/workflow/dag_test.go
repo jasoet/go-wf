@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
 func TestDAGWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock the activity
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-123",
 			ExitCode:    0,
@@ -123,9 +123,10 @@ func TestDAGWorkflowValidation(t *testing.T) {
 func TestDAGWorkflowFailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock activity to return failure for first call, success for second
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).
 		Return(&payload.ContainerExecutionOutput{
 			ContainerID: "container-fail",
 			ExitCode:    1,
@@ -133,7 +134,7 @@ func TestDAGWorkflowFailFast(t *testing.T) {
 			Duration:    1 * time.Second,
 		}, nil).Once()
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).
 		Return(&payload.ContainerExecutionOutput{
 			ContainerID: "container-ok",
 			ExitCode:    0,
@@ -173,8 +174,9 @@ func TestDAGWorkflowFailFast(t *testing.T) {
 func TestWorkflowWithParameters(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-123",
 			ExitCode:    0,
@@ -217,8 +219,9 @@ func TestHelperFunctions(t *testing.T) {
 func TestDAGWorkflow_DiamondDependency(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-diamond",
 			ExitCode:    0,
@@ -286,8 +289,9 @@ func TestDAGWorkflow_DiamondDependency(t *testing.T) {
 func TestDAGWorkflow_ParallelBranches(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-parallel",
 			ExitCode:    0,
@@ -344,8 +348,9 @@ func TestDAGWorkflow_ParallelBranches(t *testing.T) {
 func TestDAGWorkflow_FailFastFalseWithFailure(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.MatchedBy(func(input payload.ContainerExecutionInput) bool {
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.MatchedBy(func(input payload.ContainerExecutionInput) bool {
 		return input.Image == "alpine:fail"
 	})).Return(
 		&payload.ContainerExecutionOutput{
@@ -355,7 +360,7 @@ func TestDAGWorkflow_FailFastFalseWithFailure(t *testing.T) {
 			Duration:    1 * time.Second,
 		}, nil).Once()
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.MatchedBy(func(input payload.ContainerExecutionInput) bool {
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.MatchedBy(func(input payload.ContainerExecutionInput) bool {
 		return input.Image == "alpine:pass"
 	})).Return(
 		&payload.ContainerExecutionOutput{
@@ -402,8 +407,9 @@ func TestDAGWorkflow_FailFastFalseWithFailure(t *testing.T) {
 func TestDAGWorkflow_DependencyFailureBlocksDownstream(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-fail",
 			ExitCode:    1,
@@ -447,9 +453,10 @@ func TestDAGWorkflow_DependencyFailureBlocksDownstream(t *testing.T) {
 func TestDAGWorkflow_OutputExtractionAndSubstitution(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	// Mock build activity to return JSON stdout
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.MatchedBy(func(input payload.ContainerExecutionInput) bool {
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.MatchedBy(func(input payload.ContainerExecutionInput) bool {
 		return input.Image == "golang:1.25-build"
 	})).Return(
 		&payload.ContainerExecutionOutput{
@@ -461,7 +468,7 @@ func TestDAGWorkflow_OutputExtractionAndSubstitution(t *testing.T) {
 		}, nil)
 
 	// Mock deploy activity
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-deploy",
 			ExitCode:    0,
@@ -521,8 +528,9 @@ func TestDAGWorkflow_OutputExtractionAndSubstitution(t *testing.T) {
 func TestDAGWorkflow_ActivityError(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		nil, fmt.Errorf("docker daemon error"))
 
 	input := payload.DAGWorkflowInput{
@@ -548,8 +556,9 @@ func TestDAGWorkflow_ActivityError(t *testing.T) {
 func TestDAGWorkflow_MultipleIndependentRoots(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{
 			ContainerID: "container-ok",
 			ExitCode:    0,
@@ -605,9 +614,10 @@ func TestDAGWorkflow_MultipleIndependentRoots(t *testing.T) {
 func TestDAGWorkflow_AlreadyExecutedGuard(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	callCount := 0
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
 			callCount++
 			return &payload.ContainerExecutionOutput{

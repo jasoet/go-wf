@@ -1,87 +1,36 @@
 package workflow
 
 import (
-	"fmt"
-	"time"
+	wf "go.temporal.io/sdk/workflow"
 
-	"go.temporal.io/sdk/temporal"
-	"go.temporal.io/sdk/workflow"
-
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // ContainerPipelineWorkflow executes containers sequentially.
-func ContainerPipelineWorkflow(ctx workflow.Context, input payload.PipelineInput) (*payload.PipelineOutput, error) {
-	logger := workflow.GetLogger(ctx)
-	logger.Info("Starting container pipeline workflow", "steps", len(input.Containers))
-
-	// Validate input
-	if err := input.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid input: %w", err)
+func ContainerPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*payload.PipelineOutput, error) {
+	// Convert docker PipelineInput to generic PipelineInput
+	genericInput := generic.PipelineInput[*payload.ContainerExecutionInput]{
+		StopOnError: input.StopOnError,
+		Cleanup:     input.Cleanup,
+	}
+	// Convert []ContainerExecutionInput to []*ContainerExecutionInput
+	genericInput.Tasks = make([]*payload.ContainerExecutionInput, len(input.Containers))
+	for i := range input.Containers {
+		genericInput.Tasks[i] = &input.Containers[i]
 	}
 
-	startTime := workflow.Now(ctx)
-	output := &payload.PipelineOutput{
-		Results: make([]payload.ContainerExecutionOutput, 0, len(input.Containers)),
-	}
+	genericOutput, err := generic.PipelineWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput)
 
-	// Default activity options
-	ao := workflow.ActivityOptions{
-		StartToCloseTimeout: 10 * time.Minute,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    time.Minute,
-			MaximumAttempts:    3,
-		},
-	}
-	ctx = workflow.WithActivityOptions(ctx, ao)
-
-	for i, containerInput := range input.Containers {
-		stepName := containerInput.Name
-		if stepName == "" {
-			stepName = fmt.Sprintf("step-%d", i+1)
+	// Convert generic output back to docker output
+	if genericOutput != nil {
+		output := &payload.PipelineOutput{
+			Results:       genericOutput.Results,
+			TotalSuccess:  genericOutput.TotalSuccess,
+			TotalFailed:   genericOutput.TotalFailed,
+			TotalDuration: genericOutput.TotalDuration,
 		}
-
-		logger.Info("Executing pipeline step",
-			"step", i+1,
-			"name", stepName,
-			"image", containerInput.Image)
-
-		// Execute step
-		var result payload.ContainerExecutionOutput
-		err := workflow.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
-
-		output.Results = append(output.Results, result)
-
-		if err != nil || !result.Success {
-			output.TotalFailed++
-			logger.Error("Pipeline step failed",
-				"step", i+1,
-				"name", stepName,
-				"error", err)
-
-			if input.StopOnError {
-				output.TotalDuration = workflow.Now(ctx).Sub(startTime)
-				return output, fmt.Errorf("pipeline stopped at step %d: %w", i+1, err)
-			}
-			continue
-		}
-
-		output.TotalSuccess++
-		logger.Info("Pipeline step completed",
-			"step", i+1,
-			"name", stepName,
-			"duration", result.Duration)
+		return output, err
 	}
-
-	output.TotalDuration = workflow.Now(ctx).Sub(startTime)
-
-	logger.Info("Pipeline workflow completed",
-		"success", output.TotalSuccess,
-		"failed", output.TotalFailed,
-		"totalDuration", output.TotalDuration)
-
-	return output, nil
+	return nil, err
 }

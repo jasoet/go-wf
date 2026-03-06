@@ -11,7 +11,7 @@ import (
 // Compile-time interface checks.
 var (
 	_ workflow.TaskInput  = (*ContainerExecutionInput)(nil)
-	_ workflow.TaskOutput = (*ContainerExecutionOutput)(nil)
+	_ workflow.TaskOutput = ContainerExecutionOutput{}
 )
 
 const containerActivityName = "StartContainerActivity"
@@ -202,11 +202,11 @@ func (i *ContainerExecutionInput) ActivityName() string {
 }
 
 // IsSuccess returns whether the container executed successfully.
-func (o *ContainerExecutionOutput) IsSuccess() bool {
+func (o ContainerExecutionOutput) IsSuccess() bool {
 	return o.Success
 }
 
 // GetError returns the error message from container execution.
-func (o *ContainerExecutionOutput) GetError() string {
+func (o ContainerExecutionOutput) GetError() string {
 	return o.Error
 }

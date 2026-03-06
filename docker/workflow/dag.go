@@ -8,7 +8,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/artifacts"
 	"github.com/jasoet/go-wf/docker/payload"
 )
@@ -124,7 +123,7 @@ func executeDAGNode(ctx wf.Context, nodeName string, nodeMap map[string]*payload
 	}
 
 	var result payload.ContainerExecutionOutput
-	err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, containerInput).Get(ctx, &result)
+	err := wf.ExecuteActivity(ctx, containerInput.ActivityName(), containerInput).Get(ctx, &result)
 
 	extractAndStoreOutputs(logger, node, &result, state)
 	uploadOutputArtifacts(ctx, logger, input, node, &result)
@@ -375,7 +374,7 @@ func executeContainerInternal(ctx wf.Context, input payload.ContainerExecutionIn
 	ctx = wf.WithActivityOptions(ctx, ao)
 
 	var output payload.ContainerExecutionOutput
-	err := wf.ExecuteActivity(ctx, activity.StartContainerActivity, input).Get(ctx, &output)
+	err := wf.ExecuteActivity(ctx, input.ActivityName(), input).Get(ctx, &output)
 
 	return &output, err
 }

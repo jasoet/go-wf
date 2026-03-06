@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/docker/activity"
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
@@ -17,6 +16,7 @@ import (
 func TestParallelContainersWorkflow_Success(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -26,7 +26,7 @@ func TestParallelContainersWorkflow_Success(t *testing.T) {
 		FailureStrategy: "continue",
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -43,6 +43,7 @@ func TestParallelContainersWorkflow_Success(t *testing.T) {
 func TestParallelContainersWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{},
@@ -59,6 +60,7 @@ func TestParallelContainersWorkflow_InvalidInput(t *testing.T) {
 func TestParallelContainersWorkflow_FailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -69,11 +71,11 @@ func TestParallelContainersWorkflow_FailFast(t *testing.T) {
 	}
 
 	// First fails
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
 
 	// Second succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -87,6 +89,7 @@ func TestParallelContainersWorkflow_FailFast(t *testing.T) {
 func TestParallelContainersWorkflow_ContinueStrategy(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -97,11 +100,11 @@ func TestParallelContainersWorkflow_ContinueStrategy(t *testing.T) {
 	}
 
 	// First fails
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil).Once()
 
 	// Second succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -120,6 +123,7 @@ func TestParallelContainersWorkflow_ContinueStrategy(t *testing.T) {
 func TestParallelContainersWorkflow_MultipleFailuresContinue(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -132,15 +136,15 @@ func TestParallelContainersWorkflow_MultipleFailuresContinue(t *testing.T) {
 	}
 
 	// Containers 0 and 2 succeed
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "c0"}, nil).Once()
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[2]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[2]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "c2"}, nil).Once()
 
 	// Containers 1 and 3 fail
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1, ContainerID: "c1"}, nil).Once()
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[3]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[3]).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1, ContainerID: "c3"}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -160,6 +164,7 @@ func TestParallelContainersWorkflow_MultipleFailuresContinue(t *testing.T) {
 func TestParallelContainersWorkflow_AllFailContinue(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -170,7 +175,7 @@ func TestParallelContainersWorkflow_AllFailContinue(t *testing.T) {
 		FailureStrategy: "continue",
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil)
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -189,6 +194,7 @@ func TestParallelContainersWorkflow_AllFailContinue(t *testing.T) {
 func TestParallelContainersWorkflow_ActivityErrorFailFast(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -199,11 +205,11 @@ func TestParallelContainersWorkflow_ActivityErrorFailFast(t *testing.T) {
 	}
 
 	// Container 0 returns activity error
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		nil, fmt.Errorf("docker daemon unavailable")).Once()
 
 	// Container 1 returns success
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -216,6 +222,7 @@ func TestParallelContainersWorkflow_ActivityErrorFailFast(t *testing.T) {
 func TestParallelContainersWorkflow_ActivityErrorContinue(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -227,15 +234,15 @@ func TestParallelContainersWorkflow_ActivityErrorContinue(t *testing.T) {
 	}
 
 	// Container 0 succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	// Container 1 returns activity error
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[1]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[1]).Return(
 		nil, fmt.Errorf("docker daemon unavailable")).Once()
 
 	// Container 2 succeeds
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[2]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[2]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -248,6 +255,7 @@ func TestParallelContainersWorkflow_ActivityErrorContinue(t *testing.T) {
 func TestParallelContainersWorkflow_SingleContainer(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -256,7 +264,7 @@ func TestParallelContainersWorkflow_SingleContainer(t *testing.T) {
 		FailureStrategy: "continue",
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, input.Containers[0]).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, input.Containers[0]).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, ContainerID: "solo-1"}, nil).Once()
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
@@ -276,6 +284,7 @@ func TestParallelContainersWorkflow_SingleContainer(t *testing.T) {
 func TestParallelContainersWorkflow_ResultCountMatchesInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
 
 	input := payload.ParallelInput{
 		Containers: []payload.ContainerExecutionInput{
@@ -286,7 +295,7 @@ func TestParallelContainersWorkflow_ResultCountMatchesInput(t *testing.T) {
 		FailureStrategy: "continue",
 	}
 
-	env.OnActivity(activity.StartContainerActivity, mock.Anything, mock.Anything).Return(
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil)
 
 	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
