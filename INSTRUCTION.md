@@ -49,6 +49,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `docker/template/` | Container, script, and HTTP templates |
 | `docker/workflow/` | Workflow implementations (container, pipeline, parallel, DAG, loop) |
 | `examples/docker/` | Example code (build tag: `//go:build example`) |
+| `docs/plans/` | Implementation and design plans |
 | `Taskfile.yml` | All project commands |
 | `.claude/` | Claude Code hooks, scripts, and skills |
 | `.github/workflows/` | GitHub Actions CI/CD |
@@ -89,13 +90,14 @@ Go module-based library organized as package-per-feature:
 ## Testing Strategy
 
 - **Coverage target**: 85%+
-- **Unit tests**: `*_test.go` — no build tags, no external dependencies, fast
+- **Unit tests**: `*_test.go` — no build tags, no external dependencies, fast. Uses Temporal `TestWorkflowEnvironment` with mocked activities.
 - **Integration tests**: `*_integration_test.go` — `//go:build integration` tag, uses testcontainers, requires Docker/Podman
 - **Example code**: `//go:build example` tag in `examples/`
 - **Assertion library**: `github.com/stretchr/testify` (assert + require)
 - **Pattern**: Table-driven tests preferred
-- **Run unit**: `task test:unit`
-- **Run all**: `task test` (includes integration, Docker required)
+- **Run unit only**: `task test:unit` (fast, no container engine)
+- **Run integration only**: `task test:integration` (container engine required)
+- **Run all**: `task test` (unit + integration, container engine required)
 
 ## Quality Standards
 
