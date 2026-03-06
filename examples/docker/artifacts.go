@@ -9,7 +9,7 @@ import (
 
 	"go.temporal.io/sdk/client"
 
-	"github.com/jasoet/go-wf/docker/artifacts"
+	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
 )

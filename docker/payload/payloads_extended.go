@@ -3,7 +3,7 @@ package payload
 import (
 	"time"
 
-	"github.com/jasoet/go-wf/docker/errors"
+	"github.com/jasoet/go-wf/workflow/errors"
 )
 
 // ConditionalBehavior defines how containers behave based on conditions.

@@ -8,7 +8,7 @@ import (
 	"go.temporal.io/sdk/temporal"
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/docker/artifacts"
+	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
