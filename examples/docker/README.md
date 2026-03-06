@@ -69,6 +69,9 @@ go run -tags example dag.go
 go run -tags example loop.go
 go run -tags example data-passing.go
 go run -tags example artifacts.go
+go run -tags example operations.go
+go run -tags example patterns-demo.go
+go run -tags example builder-advanced.go
 ```
 
 These examples start a worker internally, execute the workflow, and clean up automatically.
@@ -344,6 +347,91 @@ go run -tags example advanced.go
 **Use Case**: Production-grade workflows with resource management, conditional logic, complex orchestration, and multi-environment deployments.
 
 **Argo Workflow Equivalent**: Parameters, resource requirements, conditionals, retryStrategy
+
+---
+
+### 10. Operations API (`operations.go`)
+
+**Purpose**: Demonstrates the workflow lifecycle management API.
+
+**Features**:
+- Fire-and-forget workflow submission (`SubmitWorkflow`)
+- Submit and wait with timeout (`SubmitAndWait`)
+- Query workflow status (`GetWorkflowStatus`)
+- Cancel running workflows (`CancelWorkflow`)
+- Force terminate workflows (`TerminateWorkflow`)
+- Signal workflows (`SignalWorkflow`)
+- Query workflow state (`QueryWorkflow`)
+- Watch workflow updates via channel (`WatchWorkflow`)
+
+**Examples Included**:
+1. **Submit and Check Status**: Submit pipeline, poll status
+2. **Submit with Timeout**: SubmitAndWait with 30s timeout
+3. **Cancel and Terminate**: Cancel and terminate long-running workflows
+4. **Watch Updates**: Stream workflow status changes, signal, query
+
+**Run**:
+```bash
+go run -tags example operations.go
+```
+
+**Use Case**: Managing workflow lifecycle in production: monitoring, cancellation, graceful shutdown.
+
+---
+
+### 11. Pre-built Patterns (`patterns-demo.go`)
+
+**Purpose**: Demonstrates all 16 pre-built pattern functions.
+
+**Features**:
+- CI/CD patterns: BuildTestDeploy, with health check, with notification, multi-environment
+- Parallel patterns: FanOutFanIn, ParallelDataProcessing, ParallelTestSuite, ParallelDeployment, MapReduce
+- Loop patterns: ParallelLoop, SequentialLoop, BatchProcessing, MultiRegionDeployment, MatrixBuild, ParameterSweep, ParallelLoopWithTemplate
+
+**Examples Included**:
+1. **CI/CD Patterns**: All 4 CI/CD pattern functions
+2. **Parallel Patterns**: All 5 parallel pattern functions
+3. **Loop Patterns**: All 7 loop pattern functions
+
+**Run**:
+```bash
+go run -tags example patterns-demo.go
+```
+
+**Use Case**: Quick-start common workflow scenarios without manual builder configuration.
+
+---
+
+### 12. Advanced Builder/Template APIs (`builder-advanced.go`)
+
+**Purpose**: Demonstrates advanced builder, template, and source APIs.
+
+**Features**:
+- `BuildSingle()` for single container execution
+- `Build()` auto-select (pipeline or parallel)
+- `Cleanup()` for cleanup between steps
+- Constructor options: `WithStopOnError`, `WithParallelMode`, `WithMaxConcurrency`, `WithGlobalAutoRemove`
+- `ContainerSource` / `NewContainerSource` — wrap payload as WorkflowSource
+- `AddInput()` for raw ContainerExecutionInput
+- `ForEachParam` + `NewParameterizedLoopBuilder` with `BuildParameterizedLoop`
+- `NewGoScript` — Go script template
+- `NewHTTPWebhook` — webhook notification template
+- Container options: `WithVolume`, `WithPorts`, `WithLabel`, `WithWaitForLog`, `WithWaitForPort`
+- Script options: `WithScriptVolume`, `WithScriptPorts`
+
+**Examples Included**:
+1. **BuildSingle**: Single container via builder with constructor options
+2. **Auto-Select Builder**: Build() with ContainerSource and AddInput
+3. **Cleanup Pipeline**: Pipeline with Cleanup + rich container options
+4. **Parameterized Loop Builder**: ForEachParam and NewParameterizedLoopBuilder
+5. **Additional Templates**: NewGoScript, NewHTTPWebhook, advanced container/script options
+
+**Run**:
+```bash
+go run -tags example builder-advanced.go
+```
+
+**Use Case**: Programmatic workflow construction with full API coverage.
 
 ---
 
