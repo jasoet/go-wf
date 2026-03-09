@@ -170,7 +170,8 @@ go-wf/
 │   ├── builder/      # Fluent builder API
 │   ├── payload/      # Type-safe payload structs
 │   └── workflow/     # Workflow implementations
-├── examples/docker/  # Example code (build tag: example)
+├── examples/docker/    # Docker example code (build tag: example)
+├── examples/function/  # Function example code (build tag: example)
 ├── docs/plans/       # Implementation plans
 ├── .github/          # GitHub Actions workflows
 ├── Taskfile.yml      # Task automation

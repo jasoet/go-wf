@@ -54,7 +54,8 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `function/builder/` | Fluent builder API for function workflows |
 | `function/payload/` | Type-safe payload structs for functions |
 | `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop) |
-| `examples/docker/` | Example code (build tag: `//go:build example`) |
+| `examples/docker/` | Docker example code (build tag: `//go:build example`) |
+| `examples/function/` | Function example code (build tag: `//go:build example`) |
 | `docs/plans/` | Implementation and design plans |
 | `Taskfile.yml` | All project commands |
 | `.claude/` | Claude Code hooks, scripts, and skills |
