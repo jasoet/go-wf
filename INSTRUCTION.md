@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-go-wf — a Go library providing a generic workflow orchestration core with Docker container support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `docker/` package is a concrete implementation that wires Docker container activities into the generic core. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
+go-wf — a Go library providing a generic workflow orchestration core with Docker container and Go function activity support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `docker/` package is a concrete implementation that wires Docker container activities into the generic core. The `function/` package provides a function registry pattern where named Go handler functions are dispatched as Temporal activities. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
 
 **Repository Type:** Library (Go module)
 **Module:** `github.com/jasoet/go-wf`
@@ -49,6 +49,11 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `docker/payload/` | Type-safe payload structs |
 | `docker/template/` | Container, script, and HTTP templates |
 | `docker/workflow/` | Workflow implementations (container, pipeline, parallel, DAG, loop) |
+| `function/` | Go function activities (concrete implementation) |
+| `function/activity/` | Temporal activity for function dispatch |
+| `function/builder/` | Fluent builder API for function workflows |
+| `function/payload/` | Type-safe payload structs for functions |
+| `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop) |
 | `examples/docker/` | Example code (build tag: `//go:build example`) |
 | `docs/plans/` | Implementation and design plans |
 | `Taskfile.yml` | All project commands |
@@ -95,6 +100,13 @@ Two-layer architecture organized as package-per-feature:
 - **Builder** provides a fluent API to compose container → pipeline → parallel → DAG
 - **Templates** (container, script, HTTP) generate payload structs from higher-level config
 - **Patterns** are pre-built workflow compositions (CI/CD pipelines, fan-out/fan-in, etc.)
+
+**Function Module (`function/`)** — concrete implementation
+- **Registry** maps named Go handler functions (`func(ctx, FunctionInput) (*FunctionOutput, error)`) for dispatch
+- **Activity** dispatches to registered handlers via closure over the registry
+- **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs
+- **Workflows** register with Temporal workers, using generic core for orchestration
+- **Builder** provides a fluent API to compose function → pipeline → parallel → loop
 
 ## Testing Strategy
 

@@ -9,6 +9,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 ## Features
 
 - **Docker Workflows** - Execute containers with Temporal orchestration
+- **Function Workflows** - Execute registered Go functions with Temporal orchestration
 - **Type-Safe Payloads** - Validated input/output structures
 - **Production-Ready** - Built-in retries, timeouts, error handling
 - **Observable** - Inherits OpenTelemetry from underlying packages
@@ -52,6 +53,42 @@ Temporal workflows for executing Docker containers with Argo Workflow-like capab
 - **Workflow Parameters** - Template variables for reusable workflows
 
 See [docker/README.md](./docker/README.md) for detailed documentation.
+
+### [function](./function/)
+
+Temporal workflows for executing registered Go functions:
+
+**Core Features:**
+- **Function Registry** - Register named Go handler functions
+- **Single Execution** - Execute individual functions as Temporal activities
+- **Pipeline** - Sequential function execution with error handling
+- **Parallel** - Concurrent function execution with configurable limits
+- **Loop** - Iterate over items or parameter combinations with template substitution
+
+**Builder API:**
+- **Fluent Builder** - Compose function workflows with chainable methods
+- **Loop Builder** - Item-based and parameterized loop construction
+- **WorkflowSource** - Composable function input sources
+
+**Usage:**
+```go
+// Create and populate registry
+registry := function.NewRegistry()
+registry.Register("validate", validateHandler)
+registry.Register("transform", transformHandler)
+
+// Register with Temporal worker
+w := worker.New(client, "task-queue", worker.Options{})
+function.RegisterWorkflows(w)
+function.RegisterActivity(w, activity.NewExecuteFunctionActivity(registry))
+
+// Build and execute a pipeline
+pipeline, _ := builder.NewWorkflowBuilder("my-pipeline").
+    AddInput(payload.FunctionExecutionInput{Name: "validate", Args: map[string]string{"path": "/config.yaml"}}).
+    AddInput(payload.FunctionExecutionInput{Name: "transform"}).
+    StopOnError(true).
+    BuildPipeline()
+```
 
 ## Installation
 
@@ -127,6 +164,11 @@ go-wf/
 │   ├── patterns/     # Pre-built patterns (CI/CD, loop, parallel)
 │   ├── payload/      # Type-safe payload structs
 │   ├── template/     # Container, script, HTTP templates
+│   └── workflow/     # Workflow implementations
+├── function/         # Go function activities (concrete implementation)
+│   ├── activity/     # Temporal activity for function dispatch
+│   ├── builder/      # Fluent builder API
+│   ├── payload/      # Type-safe payload structs
 │   └── workflow/     # Workflow implementations
 ├── examples/docker/  # Example code (build tag: example)
 ├── docs/plans/       # Implementation plans
