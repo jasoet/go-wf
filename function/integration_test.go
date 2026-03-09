@@ -52,6 +52,16 @@ func registerTestHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
+	// maybeFailOnItem — fails if args["item"] == "bad", otherwise echoes args.
+	registry.Register("maybe-fail", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		if input.Args["item"] == "bad" {
+			return nil, fmt.Errorf("item %s is bad", input.Args["item"])
+		}
+		return &fn.FunctionOutput{
+			Result: input.Args,
+		}, nil
+	})
+
 	// concat — returns {"item": input.Args["item"], "index": input.Args["index"]}
 	registry.Register("concat", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return &fn.FunctionOutput{
@@ -432,11 +442,13 @@ func TestIntegration_LoopParallel(t *testing.T) {
 func TestIntegration_LoopSequentialFailFast(t *testing.T) {
 	ctx := context.Background()
 
+	// Uses "maybe-fail" handler: fails when item == "bad", succeeds otherwise.
+	// With fail_fast, the loop should stop at "bad" and skip "skip".
 	input := payload.LoopInput{
-		Items: []string{"boom"},
+		Items: []string{"ok", "bad", "skip"},
 		Template: payload.FunctionExecutionInput{
-			Name: "fail",
-			Args: map[string]string{"message": "loop failure"},
+			Name: "maybe-fail",
+			Args: map[string]string{"item": "{{item}}"},
 		},
 		Parallel:        false,
 		FailureStrategy: "fail_fast",
@@ -461,11 +473,13 @@ func TestIntegration_LoopSequentialFailFast(t *testing.T) {
 func TestIntegration_LoopParallelContinue(t *testing.T) {
 	ctx := context.Background()
 
+	// Uses "maybe-fail" handler: fails when item == "bad", succeeds otherwise.
+	// With continue strategy, all items should be processed even if some fail.
 	input := payload.LoopInput{
-		Items: []string{"a", "b", "c"},
+		Items: []string{"ok1", "bad", "ok2"},
 		Template: payload.FunctionExecutionInput{
-			Name: "echo",
-			Args: map[string]string{"value": "{{item}}"},
+			Name: "maybe-fail",
+			Args: map[string]string{"item": "{{item}}"},
 		},
 		Parallel:        true,
 		FailureStrategy: "continue",
@@ -484,8 +498,8 @@ func TestIntegration_LoopParallelContinue(t *testing.T) {
 	var result payload.LoopOutput
 	require.NoError(t, we.Get(ctx, &result))
 
-	assert.Equal(t, 3, result.TotalSuccess)
-	assert.Equal(t, 0, result.TotalFailed)
+	assert.Equal(t, 2, result.TotalSuccess)
+	assert.Equal(t, 1, result.TotalFailed)
 	assert.Equal(t, 3, result.ItemCount)
 	assert.Len(t, result.Results, 3)
 }
