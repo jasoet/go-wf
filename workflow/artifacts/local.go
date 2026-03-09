@@ -202,7 +202,7 @@ func ArchiveDirectory(sourceDir string, writer io.Writer) (err error) {
 		}
 
 		// Write file data
-		f, err := os.Open(file) //#nosec G304 -- path from filepath.Walk within controlled sourceDir
+		f, err := os.Open(file) //#nosec G304,G122 -- path from filepath.Walk within controlled sourceDir
 		if err != nil {
 			return err
 		}
