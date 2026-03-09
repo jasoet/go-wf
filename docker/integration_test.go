@@ -4,22 +4,19 @@ package docker_test
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
+	"github.com/jasoet/go-wf/workflow/testutil"
 )
 
 var (
@@ -30,58 +27,20 @@ var (
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	// Start Temporal container
-	req := testcontainers.ContainerRequest{
-		Image:        "temporalio/temporal:latest",
-		ExposedPorts: []string{"7233/tcp", "8233/tcp"},
-		Cmd:          []string{"server", "start-dev", "--ip", "0.0.0.0"},
-		WaitingFor:   wait.ForListeningPort("7233/tcp").WithStartupTimeout(60 * time.Second),
-	}
-
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
+	// Start Temporal container using shared helper
+	tc, err := testutil.StartTemporalContainer(ctx)
 	if err != nil {
 		log.Fatalf("Failed to start temporal container: %v", err)
 	}
 
-	// Get the mapped port
-	mappedPort, err := container.MappedPort(ctx, "7233")
-	if err != nil {
-		_ = container.Terminate(ctx)
-		log.Fatalf("Failed to get mapped port: %v", err)
-	}
-
-	// Get the host
-	host, err := container.Host(ctx)
-	if err != nil {
-		_ = container.Terminate(ctx)
-		log.Fatalf("Failed to get host: %v", err)
-	}
-
-	hostPort := fmt.Sprintf("%s:%s", host, mappedPort.Port())
-	log.Printf("Temporal container started at %s", hostPort)
-
-	// Wait a bit more for Temporal to fully initialize
-	time.Sleep(3 * time.Second)
-
-	// Create Temporal client
-	testClient, err = client.Dial(client.Options{
-		HostPort: hostPort,
-	})
-	if err != nil {
-		_ = container.Terminate(ctx)
-		log.Fatalf("Failed to create Temporal client: %v", err)
-	}
+	testClient = tc.Client
 
 	// Create and start worker
 	w := worker.New(testClient, testTaskQueue, worker.Options{})
 	docker.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
-		testClient.Close()
-		_ = container.Terminate(ctx)
+		tc.Cleanup(ctx)
 		log.Fatalf("Failed to start worker: %v", err)
 	}
 
@@ -90,8 +49,7 @@ func TestMain(m *testing.M) {
 
 	// Cleanup
 	w.Stop()
-	testClient.Close()
-	_ = container.Terminate(ctx)
+	tc.Cleanup(ctx)
 
 	os.Exit(code)
 }
