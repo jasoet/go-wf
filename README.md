@@ -388,6 +388,26 @@ task test
 # Open output/coverage.html to view coverage
 ```
 
+### Running Examples
+
+All examples require a running Temporal server. Use the built-in demo tasks:
+
+```bash
+# Run all examples automatically (starts Temporal + worker, runs 16 examples, cleans up)
+task demo
+
+# Or run examples interactively:
+task demo:start                         # Start Temporal + docker worker in background
+task example:function -- basic.go       # Run a function example
+task example:docker -- pipeline.go      # Run a docker example
+task example:list                       # List all available examples
+task demo:stop                          # Stop Temporal + worker when done
+```
+
+Temporal Web UI is available at http://localhost:8233 to watch workflow executions.
+
+See [examples/docker/README.md](./examples/docker/README.md) and [examples/function/README.md](./examples/function/README.md) for detailed example descriptions.
+
 ### Code Quality
 
 The project enforces high code quality standards:
