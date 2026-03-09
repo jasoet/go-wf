@@ -250,7 +250,7 @@ tasks:
           [ -n "$TEMPORAL_PID" ] && kill $TEMPORAL_PID 2>/dev/null && echo "  Stopped Temporal server (PID $TEMPORAL_PID)"
           exit 0
         }
-        trap cleanup EXIT INT TERM
+        trap cleanup EXIT
 
         # 1. Start Temporal dev server
         echo "🚀 Starting Temporal dev server..."
