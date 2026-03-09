@@ -56,7 +56,8 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop) |
 | `examples/docker/` | Docker example code (build tag: `//go:build example`) |
 | `examples/function/` | Function example code (build tag: `//go:build example`) |
-| `docs/plans/` | Implementation and design plans |
+| `docs/plans/` | New implementation plans |
+| `docs/plans/archived/` | Completed implementation plans |
 | `Taskfile.yml` | All project commands |
 | `.claude/` | Claude Code hooks, scripts, and skills |
 | `.github/workflows/` | GitHub Actions CI/CD |

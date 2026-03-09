@@ -52,7 +52,7 @@ Temporal workflows for executing Docker containers with Argo Workflow-like capab
 - **Artifacts & Secrets** - Input/output artifacts and secret injection
 - **Workflow Parameters** - Template variables for reusable workflows
 
-See [docker/README.md](./docker/README.md) for detailed documentation.
+See [docker/README.md](./docker/README.md) for detailed documentation and [examples/docker/](./examples/docker/) for runnable examples.
 
 ### [function](./function/)
 
@@ -90,6 +90,8 @@ pipeline, _ := builder.NewWorkflowBuilder("my-pipeline").
     BuildPipeline()
 ```
 
+See [examples/function/](./examples/function/) for runnable examples.
+
 ## Installation
 
 ```bash
@@ -97,6 +99,8 @@ go get github.com/jasoet/go-wf
 ```
 
 ## Quick Start
+
+### Docker Workflow
 
 ```go
 package main
@@ -106,6 +110,8 @@ import (
     "log"
 
     "github.com/jasoet/go-wf/docker"
+    "github.com/jasoet/go-wf/docker/payload"
+    "github.com/jasoet/go-wf/docker/workflow"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/client"
     "go.temporal.io/sdk/worker"
@@ -113,11 +119,14 @@ import (
 
 func main() {
     // Create Temporal client
-    c, err := temporal.NewClient(temporal.DefaultConfig())
+    c, closer, err := temporal.NewClient(temporal.DefaultConfig())
     if err != nil {
         log.Fatal(err)
     }
     defer c.Close()
+    if closer != nil {
+        defer closer.Close()
+    }
 
     // Create and start worker
     w := worker.New(c, "docker-tasks", worker.Options{})
@@ -127,12 +136,12 @@ func main() {
     defer w.Stop()
 
     // Execute workflow
-    input := docker.ContainerExecutionInput{
+    input := payload.ContainerExecutionInput{
         Image: "postgres:16-alpine",
         Env: map[string]string{
             "POSTGRES_PASSWORD": "test",
         },
-        Ports: []string{"5432:5432"},
+        Ports:      []string{"5432:5432"},
         AutoRemove: true,
     }
 
@@ -141,13 +150,79 @@ func main() {
             ID:        "postgres-setup",
             TaskQueue: "docker-tasks",
         },
-        docker.ExecuteContainerWorkflow,
+        workflow.ExecuteContainerWorkflow,
         input,
     )
 
-    var result docker.ContainerExecutionOutput
+    var result payload.ContainerExecutionOutput
     we.Get(context.Background(), &result)
     log.Printf("Container executed: %s", result.ContainerID)
+}
+```
+
+### Function Workflow
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+
+    fn "github.com/jasoet/go-wf/function"
+    fnactivity "github.com/jasoet/go-wf/function/activity"
+    "github.com/jasoet/go-wf/function/payload"
+    "github.com/jasoet/go-wf/function/workflow"
+    "github.com/jasoet/pkg/v2/temporal"
+    "go.temporal.io/sdk/client"
+    "go.temporal.io/sdk/worker"
+)
+
+func main() {
+    // Create Temporal client
+    c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer c.Close()
+    if closer != nil {
+        defer closer.Close()
+    }
+
+    // Create function registry and register handlers
+    registry := fn.NewRegistry()
+    registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+        return &fn.FunctionOutput{
+            Result: map[string]string{"greeting": "Hello, " + input.Args["name"] + "!"},
+        }, nil
+    })
+
+    // Create and start worker
+    w := worker.New(c, "function-tasks", worker.Options{})
+    fn.RegisterWorkflows(w)
+    fn.RegisterActivity(w, fnactivity.NewExecuteFunctionActivity(registry))
+
+    go w.Run(nil)
+    defer w.Stop()
+
+    // Execute workflow
+    input := payload.FunctionExecutionInput{
+        Name: "greet",
+        Args: map[string]string{"name": "Temporal"},
+    }
+
+    we, _ := c.ExecuteWorkflow(context.Background(),
+        client.StartWorkflowOptions{
+            ID:        "greet-example",
+            TaskQueue: "function-tasks",
+        },
+        workflow.ExecuteFunctionWorkflow,
+        input,
+    )
+
+    var result payload.FunctionExecutionOutput
+    we.Get(context.Background(), &result)
+    log.Printf("Result: %v", result.Result)
 }
 ```
 
@@ -170,9 +245,9 @@ go-wf/
 │   ├── builder/      # Fluent builder API
 │   ├── payload/      # Type-safe payload structs
 │   └── workflow/     # Workflow implementations
-├── examples/docker/    # Docker example code (build tag: example)
-├── examples/function/  # Function example code (build tag: example)
-├── docs/plans/       # Implementation plans
+├── examples/docker/    # Docker examples (see [README](./examples/docker/README.md))
+├── examples/function/  # Function examples (see [README](./examples/function/README.md))
+├── docs/plans/         # Implementation plans (archived/)
 ├── .github/          # GitHub Actions workflows
 ├── Taskfile.yml      # Task automation
 └── README.md         # This file
