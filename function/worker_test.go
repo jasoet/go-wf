@@ -1,10 +1,13 @@
 package function
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.temporal.io/sdk/testsuite"
+
+	"github.com/jasoet/go-wf/function/payload"
 )
 
 func TestRegisterWorkflows(t *testing.T) {
@@ -16,22 +19,16 @@ func TestRegisterWorkflows(t *testing.T) {
 	})
 }
 
-func TestRegisterActivities(t *testing.T) {
+func TestRegisterActivity(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
-	registry := NewRegistry()
+
+	// Use a stub activity function since importing function/activity would create a cycle.
+	stubActivity := func(_ context.Context, _ payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error) {
+		return nil, nil
+	}
 
 	assert.NotPanics(t, func() {
-		RegisterActivities(env, registry)
-	})
-}
-
-func TestRegisterAll(t *testing.T) {
-	testSuite := &testsuite.WorkflowTestSuite{}
-	env := testSuite.NewTestWorkflowEnvironment()
-	registry := NewRegistry()
-
-	assert.NotPanics(t, func() {
-		RegisterAll(env, registry)
+		RegisterActivity(env, stubActivity)
 	})
 }
