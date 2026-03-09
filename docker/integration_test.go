@@ -669,3 +669,159 @@ func TestIntegration_LoopParallel(t *testing.T) {
 	assert.Equal(t, 3, result.ItemCount)
 	assert.Len(t, result.Results, 3)
 }
+
+// TestIntegration_LoopSequentialFailFast tests sequential loop stops on first failure.
+func TestIntegration_LoopSequentialFailFast(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.LoopInput{
+		Items: []string{"ok", "fail", "skip"},
+		Template: payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"sh", "-c", "if [ '{{item}}' = 'fail' ]; then exit 1; fi; echo {{item}}"},
+			AutoRemove: true,
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-loop-sequential-fail-fast",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.LoopWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.LoopOutput
+	err = we.Get(ctx, &result)
+
+	// Sequential loop returns an error when FailureStrategy=fail_fast and an item fails
+	assert.Error(t, err)
+}
+
+// TestIntegration_LoopParallelContinue tests parallel loop continues after failure.
+func TestIntegration_LoopParallelContinue(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.LoopInput{
+		Items: []string{"ok1", "fail", "ok2"},
+		Template: payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"sh", "-c", "if [ '{{item}}' = 'fail' ]; then exit 1; fi; echo {{item}}"},
+			AutoRemove: true,
+		},
+		Parallel:        true,
+		FailureStrategy: "continue",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-loop-parallel-continue",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.LoopWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.LoopOutput
+	require.NoError(t, we.Get(ctx, &result))
+
+	assert.Equal(t, 2, result.TotalSuccess)
+	assert.Equal(t, 1, result.TotalFailed)
+	assert.Equal(t, 3, result.ItemCount)
+	assert.Len(t, result.Results, 3)
+}
+
+// TestIntegration_ParameterizedLoop tests parameterized loop with cartesian product of parameters.
+func TestIntegration_ParameterizedLoop(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env":    {"dev", "prod"},
+			"region": {"us", "eu"},
+		},
+		Template: payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"echo", "{{env}}-{{region}}"},
+			AutoRemove: true,
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-parameterized-loop",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.ParameterizedLoopWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.LoopOutput
+	require.NoError(t, we.Get(ctx, &result))
+
+	assert.Equal(t, 4, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+	assert.Equal(t, 4, result.ItemCount)
+	assert.Len(t, result.Results, 4)
+}
+
+// TestIntegration_ParallelMaxConcurrency tests parallel execution with limited concurrency.
+func TestIntegration_ParallelMaxConcurrency(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 1"},
+				AutoRemove: true,
+				Name:       "conc-task-1",
+			},
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 2"},
+				AutoRemove: true,
+				Name:       "conc-task-2",
+			},
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 3"},
+				AutoRemove: true,
+				Name:       "conc-task-3",
+			},
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 4"},
+				AutoRemove: true,
+				Name:       "conc-task-4",
+			},
+		},
+		MaxConcurrency:  2,
+		FailureStrategy: "continue",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-parallel-max-concurrency",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.ParallelContainersWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.ParallelOutput
+	require.NoError(t, we.Get(ctx, &result))
+
+	assert.Equal(t, 4, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+	assert.Len(t, result.Results, 4)
+}
