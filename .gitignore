@@ -228,16 +228,16 @@ __pycache__/
 node_modules/
 
 # Compiled example binaries
-advanced
-artifacts
-basic
-builder
-builder-advanced
-dag
-data-passing
-loop
-main
-operations
-parallel
-patterns-demo
-pipeline
+examples/**/advanced
+examples/**/artifacts
+examples/**/basic
+examples/**/builder
+examples/**/builder-advanced
+examples/**/dag
+examples/**/data-passing
+examples/**/loop
+examples/**/main
+examples/**/operations
+examples/**/parallel
+examples/**/patterns-demo
+examples/**/pipeline
