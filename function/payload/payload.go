@@ -15,6 +15,9 @@ var (
 	_ workflow.TaskOutput = FunctionExecutionOutput{}
 )
 
+// validate is a package-level validator instance to avoid repeated instantiation.
+var pkgValidator = validator.New()
+
 const functionActivityName = "ExecuteFunctionActivity"
 
 // FunctionExecutionInput defines input for single function execution.
@@ -24,7 +27,7 @@ type FunctionExecutionInput struct {
 	Data    []byte            `json:"data,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
 	WorkDir string            `json:"work_dir,omitempty"`
-	Timeout time.Duration     `json:"timeout,omitempty"`
+	Timeout time.Duration     `json:"timeout,omitempty"` // Reserved for future use; not enforced by the activity.
 	Labels  map[string]string `json:"labels,omitempty"`
 }
 
@@ -98,8 +101,7 @@ type LoopOutput struct {
 
 // Validate validates input using struct tags.
 func (i *FunctionExecutionInput) Validate() error {
-	validate := validator.New()
-	return validate.Struct(i)
+	return pkgValidator.Struct(i)
 }
 
 // ActivityName returns the Temporal activity name for function execution.
@@ -119,20 +121,17 @@ func (o FunctionExecutionOutput) GetError() string {
 
 // Validate validates pipeline input using struct tags.
 func (i *PipelineInput) Validate() error {
-	validate := validator.New()
-	return validate.Struct(i)
+	return pkgValidator.Struct(i)
 }
 
 // Validate validates parallel input using struct tags.
 func (i *ParallelInput) Validate() error {
-	validate := validator.New()
-	return validate.Struct(i)
+	return pkgValidator.Struct(i)
 }
 
 // Validate validates loop input using struct tags.
 func (i *LoopInput) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	return i.Template.Validate()
@@ -140,8 +139,7 @@ func (i *LoopInput) Validate() error {
 
 // Validate validates parameterized loop input using struct tags.
 func (i *ParameterizedLoopInput) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 

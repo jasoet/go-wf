@@ -28,3 +28,10 @@ func RegisterActivity(w WorkflowRegistrar, activityFn interface{}) {
 		Name: "ExecuteFunctionActivity",
 	})
 }
+
+// RegisterAll registers all function workflows and the given activity.
+// Create the activity with activity.NewExecuteFunctionActivity(registry).
+func RegisterAll(w WorkflowRegistrar, activityFn interface{}) {
+	RegisterWorkflows(w)
+	RegisterActivity(w, activityFn)
+}

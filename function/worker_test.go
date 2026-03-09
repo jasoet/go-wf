@@ -32,3 +32,16 @@ func TestRegisterActivity(t *testing.T) {
 		RegisterActivity(env, stubActivity)
 	})
 }
+
+func TestRegisterAll(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	stubActivity := func(_ context.Context, _ payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error) {
+		return nil, nil
+	}
+
+	assert.NotPanics(t, func() {
+		RegisterAll(env, stubActivity)
+	})
+}

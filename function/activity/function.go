@@ -9,6 +9,11 @@ import (
 )
 
 // NewExecuteFunctionActivity creates a Temporal activity that dispatches to registered handlers.
+//
+// Error handling semantics:
+//   - Validation errors and registry lookup failures return an error, causing Temporal retries.
+//   - Handler execution errors are captured in the output (Success=false, Error set) but return nil
+//     error, so Temporal does NOT retry. This treats handler failures as business logic results.
 func NewExecuteFunctionActivity(registry *fn.Registry) func(ctx context.Context, input payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error) {
 	return func(ctx context.Context, input payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error) {
 		startTime := time.Now()
