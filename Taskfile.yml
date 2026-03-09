@@ -325,6 +325,87 @@ tasks:
         echo "  📊 Review workflows at http://localhost:8233"
         echo "═══════════════════════════════════════"
 
+  demo:start:
+    desc: Start Temporal dev server + docker worker in background (use demo:stop to clean up)
+    silent: true
+    env:
+      DOCKER_HOST: '{{.CONTAINER_HOST}}'
+      TESTCONTAINERS_RYUK_DISABLED: '{{if .CONTAINER_HOST}}true{{end}}'
+    cmds:
+      - |
+        set -e
+        PIDFILE="/tmp/go-wf-demo.pids"
+
+        # Check if already running
+        if [ -f "$PIDFILE" ]; then
+          echo "⚠ Demo already running (PID file exists). Run 'task demo:stop' first."
+          exit 1
+        fi
+
+        # 1. Start Temporal dev server
+        echo "🚀 Starting Temporal dev server..."
+        temporal server start-dev --ip 0.0.0.0 --log-format json --log-level error > /dev/null 2>&1 &
+        TEMPORAL_PID=$!
+        echo "  Temporal PID: $TEMPORAL_PID"
+
+        # Wait for Temporal to be ready
+        echo "  Waiting for Temporal (port 7233)..."
+        for i in $(seq 1 30); do
+          if nc -z localhost 7233 2>/dev/null; then
+            echo "  ✅ Temporal ready"
+            break
+          fi
+          if [ "$i" -eq 30 ]; then
+            echo "  ❌ Temporal failed to start"
+            kill $TEMPORAL_PID 2>/dev/null
+            exit 1
+          fi
+          sleep 1
+        done
+
+        # 2. Start docker worker
+        echo "🔧 Starting docker worker..."
+        cd examples/docker/worker && go run -tags example main.go > /dev/null 2>&1 &
+        WORKER_PID=$!
+        cd - > /dev/null
+        echo "  Worker PID: $WORKER_PID"
+        sleep 2
+
+        # Save PIDs
+        echo "$TEMPORAL_PID $WORKER_PID" > "$PIDFILE"
+
+        echo ""
+        echo "✅ Demo environment ready!"
+        echo "  📊 Temporal UI: http://localhost:8233"
+        echo ""
+        echo "Run examples with:"
+        echo "  task example:function -- basic.go"
+        echo "  task example:docker -- basic.go"
+        echo "  task example:list"
+        echo ""
+        echo "Stop with: task demo:stop"
+
+  demo:stop:
+    desc: Stop Temporal dev server + docker worker started by demo:start
+    silent: true
+    cmds:
+      - |
+        PIDFILE="/tmp/go-wf-demo.pids"
+
+        if [ ! -f "$PIDFILE" ]; then
+          echo "No demo environment running (no PID file found)."
+          exit 0
+        fi
+
+        read TEMPORAL_PID WORKER_PID < "$PIDFILE"
+
+        echo "🧹 Stopping demo environment..."
+        [ -n "$WORKER_PID" ] && kill $WORKER_PID 2>/dev/null && echo "  Stopped docker worker (PID $WORKER_PID)"
+        [ -n "$TEMPORAL_PID" ] && kill $TEMPORAL_PID 2>/dev/null && echo "  Stopped Temporal server (PID $TEMPORAL_PID)"
+
+        rm -f "$PIDFILE"
+        echo "✅ Demo environment stopped."
+
   clean:
     desc: Clean build artifacts
     silent: true
