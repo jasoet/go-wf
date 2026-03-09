@@ -90,6 +90,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task example:docker:worker` | Start the docker example worker (listens on docker-tasks queue) |
 | `task example:function` | Run a function example (`task example:function -- basic.go`) |
 | `task example:list` | List all available example files |
+| `task demo` | Start Temporal, run all examples, watch at http://localhost:8233 |
 | `task clean` | Clean build artifacts |
 
 ## Architecture

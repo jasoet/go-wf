@@ -232,6 +232,99 @@ tasks:
           echo "  $(basename $f)"
         done
 
+  demo:
+    desc: Start Temporal, run all examples, watch at http://localhost:8233
+    silent: true
+    env:
+      DOCKER_HOST: '{{.CONTAINER_HOST}}'
+      TESTCONTAINERS_RYUK_DISABLED: '{{if .CONTAINER_HOST}}true{{end}}'
+    cmds:
+      - |
+        set -e
+
+        # Cleanup function
+        cleanup() {
+          echo ""
+          echo "🧹 Cleaning up..."
+          [ -n "$WORKER_PID" ] && kill $WORKER_PID 2>/dev/null && echo "  Stopped docker worker (PID $WORKER_PID)"
+          [ -n "$TEMPORAL_PID" ] && kill $TEMPORAL_PID 2>/dev/null && echo "  Stopped Temporal server (PID $TEMPORAL_PID)"
+          exit 0
+        }
+        trap cleanup EXIT INT TERM
+
+        # 1. Start Temporal dev server
+        echo "🚀 Starting Temporal dev server..."
+        temporal server start-dev --ip 0.0.0.0 --log-format json --log-level error > /dev/null 2>&1 &
+        TEMPORAL_PID=$!
+        echo "  Temporal PID: $TEMPORAL_PID"
+
+        # Wait for Temporal to be ready
+        echo "  Waiting for Temporal (port 7233)..."
+        for i in $(seq 1 30); do
+          if nc -z localhost 7233 2>/dev/null; then
+            echo "  ✅ Temporal ready"
+            break
+          fi
+          if [ "$i" -eq 30 ]; then
+            echo "  ❌ Temporal failed to start"
+            exit 1
+          fi
+          sleep 1
+        done
+
+        echo "  📊 Temporal UI: http://localhost:8233"
+        echo ""
+
+        # 2. Start docker worker
+        echo "🔧 Starting docker worker..."
+        cd examples/docker/worker && go run -tags example main.go > /dev/null 2>&1 &
+        WORKER_PID=$!
+        cd - > /dev/null
+        echo "  Worker PID: $WORKER_PID"
+        sleep 2
+        echo ""
+
+        # 3. Run function examples (self-contained, no container engine needed)
+        echo "═══════════════════════════════════════"
+        echo "  FUNCTION EXAMPLES"
+        echo "═══════════════════════════════════════"
+        for f in basic.go pipeline.go parallel.go loop.go builder.go; do
+          echo ""
+          echo "▶ function/$f"
+          echo "---"
+          (cd examples/function && go run -tags example "$f") || echo "  ⚠ $f exited with error"
+          echo ""
+        done
+
+        # 4. Run standalone docker examples (have embedded workers)
+        echo "═══════════════════════════════════════"
+        echo "  DOCKER EXAMPLES (standalone)"
+        echo "═══════════════════════════════════════"
+        for f in basic.go pipeline.go parallel.go builder.go; do
+          echo ""
+          echo "▶ docker/$f"
+          echo "---"
+          (cd examples/docker && go run -tags example "$f") || echo "  ⚠ $f exited with error"
+          echo ""
+        done
+
+        # 5. Run worker-dependent docker examples (use external worker)
+        echo "═══════════════════════════════════════"
+        echo "  DOCKER EXAMPLES (worker-dependent)"
+        echo "═══════════════════════════════════════"
+        for f in advanced.go builder-advanced.go dag.go data-passing.go loop.go operations.go patterns-demo.go; do
+          echo ""
+          echo "▶ docker/$f"
+          echo "---"
+          (cd examples/docker && go run -tags example "$f") || echo "  ⚠ $f exited with error"
+          echo ""
+        done
+
+        echo "═══════════════════════════════════════"
+        echo "  ✅ All examples completed!"
+        echo "  📊 Review workflows at http://localhost:8233"
+        echo "═══════════════════════════════════════"
+
   clean:
     desc: Clean build artifacts
     silent: true
