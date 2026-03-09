@@ -1,26 +1,22 @@
 //go:build integration
-// +build integration
 
 package docker_test
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
 	"github.com/jasoet/go-wf/docker"
 	"github.com/jasoet/go-wf/docker/payload"
 	"github.com/jasoet/go-wf/docker/workflow"
+	"github.com/jasoet/go-wf/workflow/testutil"
 )
 
 var (
@@ -31,58 +27,20 @@ var (
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	// Start Temporal container
-	req := testcontainers.ContainerRequest{
-		Image:        "temporalio/temporal:latest",
-		ExposedPorts: []string{"7233/tcp", "8233/tcp"},
-		Cmd:          []string{"server", "start-dev", "--ip", "0.0.0.0"},
-		WaitingFor:   wait.ForListeningPort("7233/tcp").WithStartupTimeout(60 * time.Second),
-	}
-
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
+	// Start Temporal container using shared helper
+	tc, err := testutil.StartTemporalContainer(ctx)
 	if err != nil {
 		log.Fatalf("Failed to start temporal container: %v", err)
 	}
 
-	// Get the mapped port
-	mappedPort, err := container.MappedPort(ctx, "7233")
-	if err != nil {
-		_ = container.Terminate(ctx)
-		log.Fatalf("Failed to get mapped port: %v", err)
-	}
-
-	// Get the host
-	host, err := container.Host(ctx)
-	if err != nil {
-		_ = container.Terminate(ctx)
-		log.Fatalf("Failed to get host: %v", err)
-	}
-
-	hostPort := fmt.Sprintf("%s:%s", host, mappedPort.Port())
-	log.Printf("Temporal container started at %s", hostPort)
-
-	// Wait a bit more for Temporal to fully initialize
-	time.Sleep(3 * time.Second)
-
-	// Create Temporal client
-	testClient, err = client.Dial(client.Options{
-		HostPort: hostPort,
-	})
-	if err != nil {
-		_ = container.Terminate(ctx)
-		log.Fatalf("Failed to create Temporal client: %v", err)
-	}
+	testClient = tc.Client
 
 	// Create and start worker
 	w := worker.New(testClient, testTaskQueue, worker.Options{})
 	docker.RegisterAll(w)
 
 	if err := w.Start(); err != nil {
-		testClient.Close()
-		_ = container.Terminate(ctx)
+		tc.Cleanup(ctx)
 		log.Fatalf("Failed to start worker: %v", err)
 	}
 
@@ -91,8 +49,7 @@ func TestMain(m *testing.M) {
 
 	// Cleanup
 	w.Stop()
-	testClient.Close()
-	_ = container.Terminate(ctx)
+	tc.Cleanup(ctx)
 
 	os.Exit(code)
 }
@@ -711,4 +668,160 @@ func TestIntegration_LoopParallel(t *testing.T) {
 	assert.Equal(t, 0, result.TotalFailed)
 	assert.Equal(t, 3, result.ItemCount)
 	assert.Len(t, result.Results, 3)
+}
+
+// TestIntegration_LoopSequentialFailFast tests sequential loop stops on first failure.
+func TestIntegration_LoopSequentialFailFast(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.LoopInput{
+		Items: []string{"ok", "fail", "skip"},
+		Template: payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"sh", "-c", "if [ '{{item}}' = 'fail' ]; then exit 1; fi; echo {{item}}"},
+			AutoRemove: true,
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-loop-sequential-fail-fast",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.LoopWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.LoopOutput
+	err = we.Get(ctx, &result)
+
+	// Sequential loop returns an error when FailureStrategy=fail_fast and an item fails
+	assert.Error(t, err)
+}
+
+// TestIntegration_LoopParallelContinue tests parallel loop continues after failure.
+func TestIntegration_LoopParallelContinue(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.LoopInput{
+		Items: []string{"ok1", "fail", "ok2"},
+		Template: payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"sh", "-c", "if [ '{{item}}' = 'fail' ]; then exit 1; fi; echo {{item}}"},
+			AutoRemove: true,
+		},
+		Parallel:        true,
+		FailureStrategy: "continue",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-loop-parallel-continue",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.LoopWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.LoopOutput
+	require.NoError(t, we.Get(ctx, &result))
+
+	assert.Equal(t, 2, result.TotalSuccess)
+	assert.Equal(t, 1, result.TotalFailed)
+	assert.Equal(t, 3, result.ItemCount)
+	assert.Len(t, result.Results, 3)
+}
+
+// TestIntegration_ParameterizedLoop tests parameterized loop with cartesian product of parameters.
+func TestIntegration_ParameterizedLoop(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env":    {"dev", "prod"},
+			"region": {"us", "eu"},
+		},
+		Template: payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"echo", "{{env}}-{{region}}"},
+			AutoRemove: true,
+		},
+		Parallel:        false,
+		FailureStrategy: "continue",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-parameterized-loop",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.ParameterizedLoopWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.LoopOutput
+	require.NoError(t, we.Get(ctx, &result))
+
+	assert.Equal(t, 4, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+	assert.Equal(t, 4, result.ItemCount)
+	assert.Len(t, result.Results, 4)
+}
+
+// TestIntegration_ParallelMaxConcurrency tests parallel execution with limited concurrency.
+func TestIntegration_ParallelMaxConcurrency(t *testing.T) {
+	ctx := context.Background()
+
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 1"},
+				AutoRemove: true,
+				Name:       "conc-task-1",
+			},
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 2"},
+				AutoRemove: true,
+				Name:       "conc-task-2",
+			},
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 3"},
+				AutoRemove: true,
+				Name:       "conc-task-3",
+			},
+			{
+				Image:      "alpine:latest",
+				Command:    []string{"echo", "task 4"},
+				AutoRemove: true,
+				Name:       "conc-task-4",
+			},
+		},
+		MaxConcurrency:  2,
+		FailureStrategy: "continue",
+	}
+
+	we, err := testClient.ExecuteWorkflow(ctx,
+		client.StartWorkflowOptions{
+			ID:        "integration-test-parallel-max-concurrency",
+			TaskQueue: testTaskQueue,
+		},
+		workflow.ParallelContainersWorkflow,
+		input,
+	)
+	require.NoError(t, err)
+
+	var result payload.ParallelOutput
+	require.NoError(t, we.Get(ctx, &result))
+
+	assert.Equal(t, 4, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+	assert.Len(t, result.Results, 4)
 }

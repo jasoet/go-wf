@@ -42,6 +42,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `workflow/` | Generic workflow core (interfaces, orchestration logic) |
 | `workflow/errors/` | Error types and handling |
 | `workflow/artifacts/` | Artifact store (local + MinIO) |
+| `workflow/testutil/` | Shared test helpers (Temporal testcontainer) |
 | `docker/` | Docker container workflows (concrete implementation) |
 | `docker/activity/` | Temporal activities for container execution |
 | `docker/builder/` | Fluent builder API for workflows |
