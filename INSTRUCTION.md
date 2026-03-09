@@ -82,6 +82,13 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task ci:check` | Run all CI checks (test + lint) |
 | `task release` | Run semantic-release (CI only) |
 | `task release:proxy-warmup` | Warm Go module proxy with latest tag |
+| `task test:pkg` | Run unit tests for a specific package (`task test:pkg -- ./function/workflow/...`) |
+| `task test:run` | Run a specific test by name (`task test:run -- -run TestName ./package/...`) |
+| `task test:coverage` | Show coverage for a specific package (`task test:coverage -- ./function/workflow/...`) |
+| `task example:docker` | Run a docker example (`task example:docker -- basic.go`) |
+| `task example:docker:worker` | Start the docker example worker (listens on docker-tasks queue) |
+| `task example:function` | Run a function example (`task example:function -- basic.go`) |
+| `task example:list` | List all available example files |
 | `task clean` | Clean build artifacts |
 
 ## Architecture

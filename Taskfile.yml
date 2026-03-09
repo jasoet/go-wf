@@ -174,6 +174,64 @@ tasks:
           GOPROXY=https://proxy.golang.org GO111MODULE=on go list -m "github.com/jasoet/go-wf@${LATEST_TAG}" || true
         fi
 
+  test:pkg:
+    desc: "Run unit tests for a specific package (usage: task test:pkg -- ./function/workflow/...)"
+    silent: true
+    cmds:
+      - go test -race -count=1 -v {{.CLI_ARGS}}
+
+  test:run:
+    desc: "Run a specific test by name (usage: task test:run -- -run TestName ./package/...)"
+    silent: true
+    cmds:
+      - go test -race -count=1 -v {{.CLI_ARGS}}
+
+  test:coverage:
+    desc: "Show coverage for a specific package (usage: task test:coverage -- ./function/workflow/...)"
+    silent: true
+    cmds:
+      - go test -race -count=1 -coverprofile=/tmp/pkg-coverage.out -covermode=atomic {{.CLI_ARGS}}
+      - go tool cover -func=/tmp/pkg-coverage.out | grep total
+
+  example:docker:
+    desc: "Run a docker example (usage: task example:docker -- basic.go)"
+    silent: true
+    dir: examples/docker
+    cmds:
+      - go run -tags example {{.CLI_ARGS}}
+
+  example:docker:worker:
+    desc: Start the docker example worker (listens on docker-tasks queue)
+    silent: true
+    dir: examples/docker/worker
+    cmds:
+      - go run -tags example main.go
+
+  example:function:
+    desc: "Run a function example (usage: task example:function -- basic.go)"
+    silent: true
+    dir: examples/function
+    cmds:
+      - go run -tags example {{.CLI_ARGS}}
+
+  example:list:
+    desc: List all available example files
+    silent: true
+    cmds:
+      - |
+        echo "Docker examples (task example:docker -- <file>):"
+        for f in examples/docker/*.go; do
+          echo "  $(basename $f)"
+        done
+        echo ""
+        echo "Docker worker (task example:docker:worker):"
+        echo "  worker/main.go"
+        echo ""
+        echo "Function examples (task example:function -- <file>):"
+        for f in examples/function/*.go; do
+          echo "  $(basename $f)"
+        done
+
   clean:
     desc: Clean build artifacts
     silent: true
