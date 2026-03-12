@@ -40,7 +40,7 @@ func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput,
 	}
 
 	return toLoopOutput(
-		generic.LoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, containerSubstitutor()),
+		generic.InstrumentedLoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, containerSubstitutor()),
 	)
 }
 
@@ -55,7 +55,7 @@ func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopIn
 	}
 
 	return toLoopOutput(
-		generic.ParameterizedLoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, containerSubstitutor()),
+		generic.InstrumentedParameterizedLoopWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput, containerSubstitutor()),
 	)
 }
 
