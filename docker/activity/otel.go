@@ -45,6 +45,7 @@ func InstrumentedStartContainerActivity(
 
 		output, err := inner(lc.Context(), input)
 		if err != nil {
+			//nolint:errcheck,gosec // we return the original error, not lc.Error's return
 			lc.Error(err, "container execution failed")
 			recordDockerMetrics(lc.Context(), input.Image, "failure", 0, time.Duration(0))
 			return output, err
