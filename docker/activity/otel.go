@@ -45,9 +45,9 @@ func InstrumentedStartContainerActivity(
 
 		output, err := inner(lc.Context(), input)
 		if err != nil {
-			lcErr := lc.Error(err, "container execution failed")
+			lc.Error(err, "container execution failed")
 			recordDockerMetrics(lc.Context(), input.Image, "failure", 0, time.Duration(0))
-			return output, lcErr
+			return output, err
 		}
 
 		if output != nil {
