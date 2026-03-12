@@ -17,7 +17,8 @@ type activityType = func(context.Context, payload.FunctionExecutionInput) (*payl
 var instrumentActivity func(activityType) activityType
 
 // SetActivityInstrumenter sets the function used to wrap activity functions with instrumentation.
-// This is called by function/activity's init() to register OTel instrumentation.
+// This must only be called during package init(), not at runtime.
+// It is called by function/activity's init() to register OTel instrumentation.
 func SetActivityInstrumenter(wrapper func(activityType) activityType) {
 	instrumentActivity = wrapper
 }

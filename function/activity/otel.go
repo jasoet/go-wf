@@ -12,6 +12,8 @@ import (
 	"github.com/jasoet/go-wf/function/payload"
 )
 
+// init registers the OTel instrumentation wrapper with the parent function package.
+// This hook pattern avoids an import cycle (function -> function/activity -> function).
 func init() {
 	fn.SetActivityInstrumenter(InstrumentedExecuteFunctionActivity)
 }
