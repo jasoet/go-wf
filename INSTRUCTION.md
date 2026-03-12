@@ -55,6 +55,10 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `function/builder/` | Fluent builder API for function workflows |
 | `function/payload/` | Type-safe payload structs for functions |
 | `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop) |
+| `workflow/otel.go` | Instrumented workflow orchestration wrappers |
+| `docker/activity/otel.go` | Docker activity OTel spans + metrics |
+| `function/activity/otel.go` | Function activity OTel spans + metrics |
+| `workflow/artifacts/otel.go` | Instrumented artifact store decorator |
 | `examples/docker/` | Docker example code (build tag: `//go:build example`) |
 | `examples/function/` | Function example code (build tag: `//go:build example`) |
 | `docs/plans/` | New implementation plans |
@@ -120,6 +124,13 @@ Two-layer architecture organized as package-per-feature:
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs
 - **Workflows** register with Temporal workers, using generic core for orchestration
 - **Builder** provides a fluent API to compose function → pipeline → parallel → loop
+
+**Observability (`jasoet/pkg/v2/otel`)**
+- Activities get full OTel spans + metrics via `Layers.StartService` (docker: `go_wf.docker.task.*`, function: `go_wf.function.task.*`)
+- Workflow orchestration has structured logging wrappers at pipeline/parallel/loop boundaries
+- Artifact store uses `InstrumentedStore` decorator with `Layers.StartRepository` (metrics: `go_wf.artifact.operation.*`)
+- All instrumentation is opt-in via `otel.ContextWithConfig()` — zero overhead when disabled
+- Three-signal correlation: traces, logs, and metrics share the same trace context
 
 ## Testing Strategy
 
