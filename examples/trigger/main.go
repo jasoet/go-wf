@@ -36,9 +36,10 @@ func main() {
 
 	ctx := context.Background()
 
+	var cmdErr error
 	switch os.Args[1] {
 	case "run":
-		runAll(ctx, c)
+		cmdErr = runAll(ctx, c)
 	case "schedule":
 		createSchedules(ctx, c)
 	case "clean":
@@ -48,39 +49,47 @@ func main() {
 		fmt.Println("Usage: trigger <run|schedule|clean>")
 		os.Exit(1)
 	}
+
+	if cmdErr != nil {
+		os.Exit(1)
+	}
 }
 
-func submit(ctx context.Context, c client.Client, workflowID, taskQueue string, workflowFunc interface{}, input interface{}) {
+func submit(ctx context.Context, c client.Client, workflowID, taskQueue string, workflowFunc interface{}, input interface{}) error {
 	we, err := c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
 		ID:        workflowID,
 		TaskQueue: taskQueue,
 	}, workflowFunc, input)
 	if err != nil {
 		log.Printf("  FAILED %s: %v", workflowID, err)
-		return
+		return err
 	}
 	log.Printf("  Submitted %s (RunID: %s)", we.GetID(), we.GetRunID())
+	return nil
 }
 
-func runAll(ctx context.Context, c client.Client) {
+func runAll(ctx context.Context, c client.Client) error {
 	ts := time.Now().Format("20060102-150405")
 	dockerQueue := "docker-tasks"
 	fnQueue := "function-tasks"
+	var failures int
 
 	log.Println("=== Submitting Docker Workflows ===")
 
+	track := func(err error) { if err != nil { failures++ } }
+
 	// 1. Basic container
-	submit(ctx, c, fmt.Sprintf("demo-docker-basic-%s", ts), dockerQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-docker-basic-%s", ts), dockerQueue,
 		dockerwf.ExecuteContainerWorkflow,
 		dockerpayload.ContainerExecutionInput{
 			Image:      "alpine:latest",
 			Command:    []string{"echo", "Hello from basic container"},
 			AutoRemove: true,
 			Name:       "demo-basic",
-		})
+		}))
 
 	// 2. Pipeline
-	submit(ctx, c, fmt.Sprintf("demo-docker-pipeline-%s", ts), dockerQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-docker-pipeline-%s", ts), dockerQueue,
 		dockerwf.ContainerPipelineWorkflow,
 		dockerpayload.PipelineInput{
 			StopOnError: true,
@@ -89,10 +98,10 @@ func runAll(ctx context.Context, c client.Client) {
 				{Image: "alpine:latest", Command: []string{"echo", "Step 2: Testing..."}, AutoRemove: true, Name: "test"},
 				{Image: "alpine:latest", Command: []string{"echo", "Step 3: Deploying..."}, AutoRemove: true, Name: "deploy"},
 			},
-		})
+		}))
 
 	// 3. Parallel
-	submit(ctx, c, fmt.Sprintf("demo-docker-parallel-%s", ts), dockerQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-docker-parallel-%s", ts), dockerQueue,
 		dockerwf.ParallelContainersWorkflow,
 		dockerpayload.ParallelInput{
 			Containers: []dockerpayload.ContainerExecutionInput{
@@ -100,10 +109,10 @@ func runAll(ctx context.Context, c client.Client) {
 				{Image: "alpine:latest", Command: []string{"echo", "Parallel task B"}, AutoRemove: true, Name: "task-b"},
 				{Image: "alpine:latest", Command: []string{"echo", "Parallel task C"}, AutoRemove: true, Name: "task-c"},
 			},
-		})
+		}))
 
 	// 4. Loop
-	submit(ctx, c, fmt.Sprintf("demo-docker-loop-%s", ts), dockerQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-docker-loop-%s", ts), dockerQueue,
 		dockerwf.LoopWorkflow,
 		dockerpayload.LoopInput{
 			Items: []string{"item-1", "item-2", "item-3"},
@@ -112,10 +121,10 @@ func runAll(ctx context.Context, c client.Client) {
 				Command:    []string{"echo", "Processing loop item"},
 				AutoRemove: true,
 			},
-		})
+		}))
 
 	// 5. Parameterized Loop
-	submit(ctx, c, fmt.Sprintf("demo-docker-paramloop-%s", ts), dockerQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-docker-paramloop-%s", ts), dockerQueue,
 		dockerwf.ParameterizedLoopWorkflow,
 		dockerpayload.ParameterizedLoopInput{
 			Parameters: map[string][]string{
@@ -127,21 +136,21 @@ func runAll(ctx context.Context, c client.Client) {
 				Command:    []string{"echo", "Deploying parameterized"},
 				AutoRemove: true,
 			},
-		})
+		}))
 
 	log.Println()
 	log.Println("=== Submitting Function Workflows ===")
 
 	// 1. Basic function
-	submit(ctx, c, fmt.Sprintf("demo-fn-basic-%s", ts), fnQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-basic-%s", ts), fnQueue,
 		fnwf.ExecuteFunctionWorkflow,
 		fnpayload.FunctionExecutionInput{
 			Name: "greet",
 			Args: map[string]string{"name": "Temporal"},
-		})
+		}))
 
 	// 2. Pipeline
-	submit(ctx, c, fmt.Sprintf("demo-fn-pipeline-%s", ts), fnQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-pipeline-%s", ts), fnQueue,
 		fnwf.FunctionPipelineWorkflow,
 		fnpayload.PipelineInput{
 			StopOnError: true,
@@ -150,10 +159,10 @@ func runAll(ctx context.Context, c client.Client) {
 				{Name: "transform", Args: map[string]string{"name": "Demo", "email": "user@example.com"}},
 				{Name: "notify", Args: map[string]string{"name": "Demo", "channel": "slack"}},
 			},
-		})
+		}))
 
 	// 3. Parallel
-	submit(ctx, c, fmt.Sprintf("demo-fn-parallel-%s", ts), fnQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-parallel-%s", ts), fnQueue,
 		fnwf.ParallelFunctionsWorkflow,
 		fnpayload.ParallelInput{
 			Functions: []fnpayload.FunctionExecutionInput{
@@ -161,10 +170,10 @@ func runAll(ctx context.Context, c client.Client) {
 				{Name: "fetch-orders"},
 				{Name: "fetch-inventory"},
 			},
-		})
+		}))
 
 	// 4. Loop
-	submit(ctx, c, fmt.Sprintf("demo-fn-loop-%s", ts), fnQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-loop-%s", ts), fnQueue,
 		fnwf.LoopWorkflow,
 		fnpayload.LoopInput{
 			Items: []string{"data-2024-01.csv", "data-2024-02.csv", "data-2024-03.csv"},
@@ -172,10 +181,10 @@ func runAll(ctx context.Context, c client.Client) {
 				Name: "process-csv",
 				Args: map[string]string{"format": "standard"},
 			},
-		})
+		}))
 
 	// 5. Parameterized Loop
-	submit(ctx, c, fmt.Sprintf("demo-fn-paramloop-%s", ts), fnQueue,
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-paramloop-%s", ts), fnQueue,
 		fnwf.ParameterizedLoopWorkflow,
 		fnpayload.ParameterizedLoopInput{
 			Parameters: map[string][]string{
@@ -186,10 +195,15 @@ func runAll(ctx context.Context, c client.Client) {
 				Name: "deploy-service",
 				Args: map[string]string{"version": "v1.2.3"},
 			},
-		})
+		}))
 
 	log.Println()
+	if failures > 0 {
+		log.Printf("%d workflow(s) failed to submit", failures)
+		return fmt.Errorf("%d workflow(s) failed to submit", failures)
+	}
 	log.Println("All workflows submitted. Visit http://localhost:8233 to inspect them.")
+	return nil
 }
 
 // scheduleDefinition holds data for creating a single schedule.
@@ -281,7 +295,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 			},
 		})
 		if err != nil {
-			if strings.Contains(err.Error(), "already exists") {
+			if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "AlreadyExists") {
 				log.Printf("  Schedule %s already exists, skipping", s.ID)
 			} else {
 				log.Printf("  FAILED to create schedule %s: %v", s.ID, err)
