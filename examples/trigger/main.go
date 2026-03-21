@@ -295,7 +295,8 @@ func createSchedules(ctx context.Context, c client.Client) {
 			},
 		})
 		if err != nil {
-			if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "AlreadyExists") {
+			errMsg := strings.ToLower(err.Error())
+			if strings.Contains(errMsg, "already") {
 				log.Printf("  Schedule %s already exists, skipping", s.ID)
 			} else {
 				log.Printf("  FAILED to create schedule %s: %v", s.ID, err)
@@ -323,8 +324,10 @@ func cleanSchedules(ctx context.Context, c client.Client) {
 		handle := c.ScheduleClient().GetHandle(ctx, id)
 		err := handle.Delete(ctx)
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") ||
-				strings.Contains(err.Error(), "not exist") {
+			errMsg := strings.ToLower(err.Error())
+			if strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "not exist") ||
+				strings.Contains(errMsg, "already completed") {
 				log.Printf("  Schedule %s not found, skipping", id)
 			} else {
 				log.Printf("  FAILED to delete schedule %s: %v", id, err)

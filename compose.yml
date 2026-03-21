@@ -24,12 +24,11 @@ services:
       POSTGRES_USER: temporal
       POSTGRES_PWD: temporal
       POSTGRES_SEEDS: postgresql
-      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
     depends_on:
       postgresql:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      test: ["CMD-SHELL", "temporal operator cluster health --address $(hostname):7233"]
       start_period: 30s
       interval: 10s
       timeout: 5s
