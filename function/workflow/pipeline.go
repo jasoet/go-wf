@@ -14,7 +14,7 @@ func FunctionPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*pay
 		StopOnError: input.StopOnError,
 	}
 
-	genericOutput, err := generic.PipelineWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput)
+	genericOutput, err := generic.InstrumentedPipelineWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput)
 
 	return toPipelineOutput(genericOutput, err)
 }

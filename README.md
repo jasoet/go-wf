@@ -12,7 +12,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 - **Function Workflows** - Execute registered Go functions with Temporal orchestration
 - **Type-Safe Payloads** - Validated input/output structures
 - **Production-Ready** - Built-in retries, timeouts, error handling
-- **Observable** - Inherits OpenTelemetry from underlying packages
+- **Observable** - Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled
 - **Comprehensive Testing** - 85%+ coverage with integration tests
 - **Full CI/CD** - Automated releases and quality checks
 
@@ -91,6 +91,29 @@ pipeline, _ := builder.NewWorkflowBuilder("my-pipeline").
 ```
 
 See [examples/function/](./examples/function/) for runnable examples.
+
+## Observability
+
+go-wf includes built-in OpenTelemetry instrumentation via [`jasoet/pkg/v2/otel`](https://github.com/jasoet/pkg). All instrumentation is opt-in — zero overhead when not configured.
+
+**What's instrumented:**
+- **Activity spans** — Docker container and function execution with attributes (image, function name, duration, exit code)
+- **Activity metrics** — `go_wf.docker.task.*` and `go_wf.function.task.*` (counters + histograms)
+- **Artifact store spans** — Upload, download, delete, exists, list operations with `go_wf.artifact.operation.*` metrics
+- **Workflow logging** — Structured log events at pipeline/parallel/loop boundaries with step counts and durations
+
+**Enable in your application:**
+```go
+import pkgotel "github.com/jasoet/pkg/v2/otel"
+
+// Store OTel config in context — go-wf reads it automatically
+ctx = pkgotel.ContextWithConfig(ctx, otelCfg)
+
+// For artifact store, wrap with instrumented decorator
+store := artifacts.NewInstrumentedStore(myStore)
+```
+
+When `otel.Config` is absent from context, all instrumentation is a no-op with zero allocations.
 
 ## Installation
 

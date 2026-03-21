@@ -20,8 +20,11 @@ func RegisterWorkflows(w worker.Worker) {
 }
 
 // RegisterActivities registers all docker activities with a worker.
+// The activity is wrapped with OTel instrumentation that activates
+// when otel.Config is present in the activity context.
 func RegisterActivities(w worker.Worker) {
-	w.RegisterActivityWithOptions(containerActivity.StartContainerActivity, activity.RegisterOptions{
+	instrumented := containerActivity.InstrumentedStartContainerActivity(containerActivity.StartContainerActivity)
+	w.RegisterActivityWithOptions(instrumented, activity.RegisterOptions{
 		Name: "StartContainerActivity",
 	})
 }

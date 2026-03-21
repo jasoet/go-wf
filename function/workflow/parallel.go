@@ -15,7 +15,7 @@ func ParallelFunctionsWorkflow(ctx wf.Context, input payload.ParallelInput) (*pa
 		FailureStrategy: input.FailureStrategy,
 	}
 
-	genericOutput, err := generic.ParallelWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput)
+	genericOutput, err := generic.InstrumentedParallelWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput)
 
 	return toParallelOutput(genericOutput, err)
 }

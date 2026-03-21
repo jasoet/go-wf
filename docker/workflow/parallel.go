@@ -15,7 +15,7 @@ func ParallelContainersWorkflow(ctx wf.Context, input payload.ParallelInput) (*p
 		FailureStrategy: input.FailureStrategy,
 	}
 
-	genericOutput, err := generic.ParallelWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput)
+	genericOutput, err := generic.InstrumentedParallelWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput)
 
 	return toParallelOutput(genericOutput, err)
 }
