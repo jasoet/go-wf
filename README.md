@@ -411,6 +411,41 @@ task test
 # Open output/coverage.html to view coverage
 ```
 
+### Local Environment
+
+Run all examples with persistent Temporal infrastructure for manual workflow inspection via the UI:
+
+```bash
+# One command to start everything (Temporal, workers, trigger workflows, schedules)
+task local:start
+
+# Stop everything
+task local:stop
+
+# Clean up (remove all data volumes)
+task local:clean
+```
+
+**Services:**
+- Temporal UI: http://localhost:8233
+- MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
+- Temporal gRPC: localhost:7233
+- PostgreSQL: localhost:5432 (temporal/temporal)
+
+**Prerequisites:** Podman and podman-compose installed.
+
+**Individual commands for advanced usage:**
+
+| Command | Description |
+|---------|-------------|
+| `task local:up` | Start infrastructure only |
+| `task local:down` | Stop infrastructure |
+| `task local:workers` | Start workers in background |
+| `task local:workers:stop` | Stop workers |
+| `task local:trigger` | Submit all workflows once |
+| `task local:schedule` | Create recurring schedules |
+| `task local:schedule:clean` | Remove schedules |
+
 ### Running Examples
 
 All examples require a running Temporal server. Use the built-in demo tasks:
