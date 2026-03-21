@@ -59,8 +59,11 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `docker/activity/otel.go` | Docker activity OTel spans + metrics |
 | `function/activity/otel.go` | Function activity OTel spans + metrics |
 | `workflow/artifacts/otel.go` | Instrumented artifact store decorator |
+| `compose.yml` | Podman compose for local Temporal infrastructure |
 | `examples/docker/` | Docker example code (build tag: `//go:build example`) |
 | `examples/function/` | Function example code (build tag: `//go:build example`) |
+| `examples/function/worker/` | Shared function worker for all examples |
+| `examples/trigger/` | Trigger CLI for submitting and scheduling workflows |
 | `docs/plans/` | New implementation plans |
 | `docs/plans/archived/` | Completed implementation plans |
 | `Taskfile.yml` | All project commands |
@@ -97,6 +100,16 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task demo` | Start Temporal, run all examples, watch at http://localhost:8233 |
 | `task demo:start` | Start Temporal + docker worker in background for manual example running |
 | `task demo:stop` | Stop Temporal + docker worker started by `demo:start` |
+| `task local:up` | Start local infrastructure (Temporal, PostgreSQL, MinIO) via podman-compose |
+| `task local:down` | Stop local infrastructure |
+| `task local:clean` | Stop infrastructure and remove volumes |
+| `task local:workers` | Start docker and function workers in background |
+| `task local:workers:stop` | Stop background workers |
+| `task local:trigger` | Submit all example workflows once |
+| `task local:schedule` | Create recurring workflow schedules |
+| `task local:schedule:clean` | Remove all workflow schedules |
+| `task local:start` | Start everything (infra + workers + trigger + schedules) |
+| `task local:stop` | Stop everything (schedules + workers + infra) |
 | `task clean` | Clean build artifacts |
 
 ## Architecture
