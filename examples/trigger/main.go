@@ -76,7 +76,11 @@ func runAll(ctx context.Context, c client.Client) error {
 
 	log.Println("=== Submitting Docker Workflows ===")
 
-	track := func(err error) { if err != nil { failures++ } }
+	track := func(err error) {
+		if err != nil {
+			failures++
+		}
+	}
 
 	// 1. Basic container
 	track(submit(ctx, c, fmt.Sprintf("demo-docker-basic-%s", ts), dockerQueue,

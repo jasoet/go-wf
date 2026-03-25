@@ -241,3 +241,4 @@ examples/**/operations
 examples/**/parallel
 examples/**/patterns-demo
 examples/**/pipeline
+.claude/worktrees/

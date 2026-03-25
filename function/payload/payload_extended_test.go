@@ -206,6 +206,8 @@ func TestFunctionDAGWorkflowOutput_Fields(t *testing.T) {
 
 	assert.Len(t, output.Results, 1)
 	assert.Len(t, output.NodeResults, 1)
+	assert.Len(t, output.StepOutputs, 1)
+	assert.Equal(t, "/tmp/out", output.StepOutputs["step-1"]["artifact"])
 	assert.Equal(t, 1, output.TotalSuccess)
 	assert.Equal(t, 0, output.TotalFailed)
 	assert.Equal(t, 5*time.Second, output.TotalDuration)

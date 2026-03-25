@@ -64,11 +64,19 @@ Temporal workflows for executing registered Go functions:
 - **Pipeline** - Sequential function execution with error handling
 - **Parallel** - Concurrent function execution with configurable limits
 - **Loop** - Iterate over items or parameter combinations with template substitution
+- **DAG** - Dependency-based execution graph with data passing between nodes
 
 **Builder API:**
 - **Fluent Builder** - Compose function workflows with chainable methods
 - **Loop Builder** - Item-based and parameterized loop construction
+- **DAG Builder** - Construct dependency graphs with input/output/data mappings
 - **WorkflowSource** - Composable function input sources
+
+**Pre-built Patterns:**
+- **Pipeline** - ETL, validate-transform-notify, multi-environment deploy
+- **Parallel** - Fan-out/fan-in, parallel data fetch, health checks
+- **Loop** - Batch processing, sequential migration, multi-region deploy, parameter sweep
+- **DAG** - ETL with validation, CI pipeline
 
 **Usage:**
 ```go

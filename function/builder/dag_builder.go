@@ -78,7 +78,7 @@ func (b *DAGBuilder) WithInputMapping(nodeName string, mappings ...payload.Funct
 }
 
 // WithDataMapping sets the data mapping on the named node.
-func (b *DAGBuilder) WithDataMapping(nodeName string, fromNode string) *DAGBuilder {
+func (b *DAGBuilder) WithDataMapping(nodeName, fromNode string) *DAGBuilder {
 	idx, exists := b.nodeIndex[nodeName]
 	if !exists {
 		b.errors = append(b.errors, fmt.Errorf("unknown node for data mapping: %s", nodeName))
