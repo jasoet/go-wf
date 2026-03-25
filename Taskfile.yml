@@ -407,13 +407,28 @@ tasks:
         echo "✅ Demo environment stopped."
 
   local:up:
-    desc: Start local environment (infrastructure + workers + trigger)
+    desc: Start local environment (infrastructure + function worker + trigger)
     silent: true
     cmds:
       - podman-compose up -d --build
       - |
         echo ""
         echo "Local environment starting..."
+        echo "  Temporal UI: http://localhost:8233"
+        echo "  MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
+        echo ""
+        echo "To also start docker worker: task local:up:all CONTAINER_SOCK=<socket-path>"
+        echo "Use 'task local:logs' to follow logs"
+        echo "Use 'task local:down' to stop"
+
+  local:up:all:
+    desc: Start all services including docker worker (requires CONTAINER_SOCK env var)
+    silent: true
+    cmds:
+      - podman-compose --profile docker up -d --build
+      - |
+        echo ""
+        echo "Local environment starting (with docker worker)..."
         echo "  Temporal UI: http://localhost:8233"
         echo "  MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
         echo ""
@@ -424,13 +439,13 @@ tasks:
     desc: Stop local environment
     silent: true
     cmds:
-      - podman-compose down
+      - podman-compose --profile docker down
 
   local:clean:
     desc: Stop local environment and remove volumes
     silent: true
     cmds:
-      - podman-compose down -v
+      - podman-compose --profile docker down -v
 
   local:build:
     desc: Build worker and trigger container images
