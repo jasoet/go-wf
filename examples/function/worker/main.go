@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/jasoet/pkg/v2/temporal"
@@ -22,7 +23,11 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	config := temporal.DefaultConfig()
+	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
+		config.HostPort = hostPort
+	}
+	c, closer, err := temporal.NewClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
@@ -399,10 +404,23 @@ func createMinioArtifactStore() artifacts.ArtifactStore {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	endpoint := "localhost:9000"
+	if e := os.Getenv("MINIO_ENDPOINT"); e != "" {
+		endpoint = e
+	}
+	accessKey := "minioadmin"
+	if k := os.Getenv("MINIO_ACCESS_KEY"); k != "" {
+		accessKey = k
+	}
+	secretKey := "minioadmin"
+	if k := os.Getenv("MINIO_SECRET_KEY"); k != "" {
+		secretKey = k
+	}
+
 	store, err := artifacts.NewMinioStore(ctx, artifacts.MinioConfig{
-		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		Endpoint:  endpoint,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
 		Bucket:    "go-wf-artifacts",
 		Prefix:    "functions/",
 		UseSSL:    false,
