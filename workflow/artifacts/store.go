@@ -64,6 +64,22 @@ func (m ArtifactMetadata) StorageKey() string {
 	return m.WorkflowID + "/" + m.RunID + "/" + m.StepName + "/" + m.Name
 }
 
+// ArtifactRef defines a reference to an artifact on a workflow node.
+// Used by both docker and function DAG nodes to declare input/output artifacts.
+type ArtifactRef struct {
+	// Name is the artifact identifier
+	Name string `json:"name" validate:"required"`
+
+	// Path is the file/directory path (used for file-based artifacts)
+	Path string `json:"path,omitempty"`
+
+	// Type can be "file", "directory", "archive", or "bytes"
+	Type string `json:"type" validate:"required,oneof=file directory archive bytes"`
+
+	// Optional indicates if the artifact is optional
+	Optional bool `json:"optional"`
+}
+
 // ArtifactConfig contains configuration for artifact storage.
 type ArtifactConfig struct {
 	// Store is the artifact storage backend

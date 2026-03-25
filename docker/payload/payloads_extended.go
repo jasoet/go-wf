@@ -3,6 +3,7 @@ package payload
 import (
 	"time"
 
+	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/workflow/errors"
 )
 
@@ -179,7 +180,7 @@ type DAGWorkflowInput struct {
 
 	// ArtifactStore is the artifact storage backend (optional)
 	// If provided, artifacts will be automatically uploaded/downloaded
-	ArtifactStore interface{} `json:"-"`
+	ArtifactStore artifacts.ArtifactStore `json:"-"`
 }
 
 // Validate validates DAG workflow input.

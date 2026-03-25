@@ -218,11 +218,6 @@ func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...in
 		return nil
 	}
 
-	store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
-	if !ok {
-		return fmt.Errorf("invalid artifact store type")
-	}
-
 	for _, artifact := range node.Container.InputArtifacts {
 		metadata := artifacts.ArtifactMetadata{
 			Name:       artifact.Name,
@@ -238,7 +233,7 @@ func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...in
 			DestPath: artifact.Path,
 		}
 
-		err := wf.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, store, downloadInput).Get(ctx, nil)
+		err := wf.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, input.ArtifactStore, downloadInput).Get(ctx, nil)
 		if err != nil && !artifact.Optional {
 			return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
 		}
@@ -279,11 +274,6 @@ func uploadOutputArtifacts(ctx wf.Context, logger interface {
 		return
 	}
 
-	store, ok := input.ArtifactStore.(artifacts.ArtifactStore)
-	if !ok {
-		return
-	}
-
 	for _, artifact := range node.Container.OutputArtifacts {
 		metadata := artifacts.ArtifactMetadata{
 			Name:       artifact.Name,
@@ -299,7 +289,7 @@ func uploadOutputArtifacts(ctx wf.Context, logger interface {
 			SourcePath: artifact.Path,
 		}
 
-		err := wf.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, store, uploadInput).Get(ctx, nil)
+		err := wf.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, input.ArtifactStore, uploadInput).Get(ctx, nil)
 		if err != nil && !artifact.Optional {
 			logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
 		} else if err == nil {

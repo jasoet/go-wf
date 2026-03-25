@@ -11,9 +11,13 @@ import (
 
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
+	wf "go.temporal.io/sdk/workflow"
 
 	fn "github.com/jasoet/go-wf/function"
 	fnactivity "github.com/jasoet/go-wf/function/activity"
+	fnpayload "github.com/jasoet/go-wf/function/payload"
+	fnwf "github.com/jasoet/go-wf/function/workflow"
+	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
 func main() {
@@ -39,6 +43,28 @@ func main() {
 	registry := fn.NewRegistry()
 	registerAllHandlers(registry)
 
+	// Create artifact stores for DAG examples
+	localStore, err := createLocalArtifactStore()
+	if err != nil {
+		log.Printf("Warning: could not create local artifact store: %v", err)
+	}
+
+	minioStore := createMinioArtifactStore()
+
+	// Register artifact-backed DAG workflows
+	if localStore != nil {
+		w.RegisterWorkflowWithOptions(
+			newArtifactDAGWorkflow(localStore),
+			wf.RegisterOptions{Name: "ArtifactDAGWorkflow-Local"},
+		)
+	}
+	if minioStore != nil {
+		w.RegisterWorkflowWithOptions(
+			newArtifactDAGWorkflow(minioStore),
+			wf.RegisterOptions{Name: "ArtifactDAGWorkflow-MinIO"},
+		)
+	}
+
 	// Register workflows and activity
 	fn.RegisterWorkflows(w)
 	fn.RegisterActivity(w, fnactivity.NewExecuteFunctionActivity(registry))
@@ -50,6 +76,12 @@ func main() {
 	log.Println("  - LoopWorkflow")
 	log.Println("  - ParameterizedLoopWorkflow")
 	log.Println("  - InstrumentedDAGWorkflow")
+	if localStore != nil {
+		log.Println("  - ArtifactDAGWorkflow-Local")
+	}
+	if minioStore != nil {
+		log.Println("  - ArtifactDAGWorkflow-MinIO")
+	}
 	log.Println()
 	log.Println("Registered activities:")
 	log.Println("  - ExecuteFunctionActivity")
@@ -312,5 +344,79 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	log.Printf("Registered %d handler functions", 21)
+	// --- Artifact demo handlers (3 handlers) ---
+
+	registry.Register("generate-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		reportType := input.Args["type"]
+		if reportType == "" {
+			reportType = "summary"
+		}
+		log.Printf("[generate-report] Generating %s report...", reportType)
+
+		// Simulate generating report data
+		reportData := fmt.Sprintf(`{"report_type":"%s","generated_at":"%s","records":150,"status":"complete"}`,
+			reportType, time.Now().Format(time.RFC3339))
+
+		return &fn.FunctionOutput{
+			Result: map[string]string{"type": reportType, "records": "150", "status": "generated"},
+			Data:   []byte(reportData),
+		}, nil
+	})
+
+	registry.Register("process-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		log.Printf("[process-report] Processing report data (%d bytes)...", len(input.Data))
+
+		// Simulate processing the report data
+		processed := fmt.Sprintf(`{"original_size":%d,"processed_at":"%s","transformations":["filtered","aggregated","sorted"]}`,
+			len(input.Data), time.Now().Format(time.RFC3339))
+
+		return &fn.FunctionOutput{
+			Result: map[string]string{"original_size": fmt.Sprintf("%d", len(input.Data)), "status": "processed"},
+			Data:   []byte(processed),
+		}, nil
+	})
+
+	registry.Register("archive-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		log.Printf("[archive-report] Archiving report data (%d bytes)...", len(input.Data))
+
+		return &fn.FunctionOutput{
+			Result: map[string]string{
+				"archived":     "true",
+				"archive_size": fmt.Sprintf("%d", len(input.Data)),
+				"location":     "artifacts/reports/",
+			},
+		}, nil
+	})
+
+	log.Printf("Registered %d handler functions", 24)
+}
+
+func createLocalArtifactStore() (artifacts.ArtifactStore, error) {
+	return artifacts.NewLocalFileStore("/tmp/go-wf-artifacts")
+}
+
+func createMinioArtifactStore() artifacts.ArtifactStore {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store, err := artifacts.NewMinioStore(ctx, artifacts.MinioConfig{
+		Endpoint:  "localhost:9000",
+		AccessKey: "minioadmin",
+		SecretKey: "minioadmin",
+		Bucket:    "go-wf-artifacts",
+		Prefix:    "functions/",
+		UseSSL:    false,
+	})
+	if err != nil {
+		log.Printf("Warning: MinIO not available, skipping MinIO artifact store: %v", err)
+		return nil
+	}
+	return store
+}
+
+func newArtifactDAGWorkflow(store artifacts.ArtifactStore) func(wf.Context, fnpayload.DAGWorkflowInput) (*fnpayload.FunctionDAGWorkflowOutput, error) {
+	return func(ctx wf.Context, input fnpayload.DAGWorkflowInput) (*fnpayload.FunctionDAGWorkflowOutput, error) {
+		input.ArtifactStore = store
+		return fnwf.InstrumentedDAGWorkflow(ctx, input)
+	}
 }

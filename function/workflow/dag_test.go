@@ -12,6 +12,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
 func TestDAGWorkflow_Success(t *testing.T) {
@@ -357,4 +358,128 @@ func TestDAGWorkflow_ContinueOnFailure(t *testing.T) {
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 1, result.TotalSuccess)
 	assert.Equal(t, 1, result.TotalFailed)
+}
+
+func TestDAGWorkflow_WithNilArtifactStore(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	registerFunctionActivity(env)
+
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
+		&payload.FunctionExecutionOutput{
+			Name:     "test-func",
+			Success:  true,
+			Result:   map[string]string{"status": "ok"},
+			Duration: 1 * time.Second,
+		}, nil)
+
+	input := payload.DAGWorkflowInput{
+		ArtifactStore: nil,
+		Nodes: []payload.FunctionDAGNode{
+			{
+				Name:     "node1",
+				Function: payload.FunctionExecutionInput{Name: "test-func"},
+				InputArtifacts: []artifacts.ArtifactRef{
+					{Name: "input-data", Type: "bytes"},
+				},
+				OutputArtifacts: []artifacts.ArtifactRef{
+					{Name: "output-data", Type: "bytes"},
+				},
+			},
+		},
+		FailFast: false,
+	}
+
+	env.ExecuteWorkflow(DAGWorkflow, input)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.FunctionDAGWorkflowOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 1, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+}
+
+func TestDAGWorkflow_WithArtifactStore_BytesUpload(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	registerFunctionActivity(env)
+
+	store, err := artifacts.NewLocalFileStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	outputData := []byte(`{"result": "processed"}`)
+
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
+		&payload.FunctionExecutionOutput{
+			Name:     "producer-func",
+			Success:  true,
+			Data:     outputData,
+			Result:   map[string]string{"status": "done"},
+			Duration: 1 * time.Second,
+		}, nil)
+
+	input := payload.DAGWorkflowInput{
+		ArtifactStore: store,
+		Nodes: []payload.FunctionDAGNode{
+			{
+				Name:     "producer",
+				Function: payload.FunctionExecutionInput{Name: "producer-func"},
+				OutputArtifacts: []artifacts.ArtifactRef{
+					{Name: "result-data", Type: "bytes"},
+				},
+			},
+		},
+		FailFast: false,
+	}
+
+	env.ExecuteWorkflow(DAGWorkflow, input)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.FunctionDAGWorkflowOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 1, result.TotalSuccess)
+	assert.Equal(t, 0, result.TotalFailed)
+}
+
+func TestDAGWorkflow_ArtifactDownloadOptionalSkipped(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	registerFunctionActivity(env)
+
+	// Empty store — no artifacts exist, but artifact ref is optional.
+	store, err := artifacts.NewLocalFileStore(t.TempDir())
+	require.NoError(t, err)
+	defer store.Close()
+
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
+		&payload.FunctionExecutionOutput{
+			Name:     "consumer-func",
+			Success:  true,
+			Duration: 1 * time.Second,
+		}, nil)
+
+	input := payload.DAGWorkflowInput{
+		ArtifactStore: store,
+		Nodes: []payload.FunctionDAGNode{
+			{
+				Name:     "consumer",
+				Function: payload.FunctionExecutionInput{Name: "consumer-func"},
+				InputArtifacts: []artifacts.ArtifactRef{
+					{Name: "missing-data", Type: "bytes", Optional: true},
+				},
+			},
+		},
+		FailFast: false,
+	}
+
+	env.ExecuteWorkflow(DAGWorkflow, input)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result payload.FunctionDAGWorkflowOutput
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 1, result.TotalSuccess)
 }
