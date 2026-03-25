@@ -4,6 +4,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
@@ -13,7 +14,11 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	config := temporal.DefaultConfig()
+	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
+		config.HostPort = hostPort
+	}
+	c, closer, err := temporal.NewClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

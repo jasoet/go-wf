@@ -22,11 +22,15 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: trigger <run|schedule|clean>")
+		fmt.Println("Usage: trigger <run|run-all|schedule|clean>")
 		os.Exit(1)
 	}
 
-	c, closer, err := pkgtemporal.NewClient(pkgtemporal.DefaultConfig())
+	config := pkgtemporal.DefaultConfig()
+	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
+		config.HostPort = hostPort
+	}
+	c, closer, err := pkgtemporal.NewClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
@@ -41,13 +45,18 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		cmdErr = runAll(ctx, c)
+	case "run-all":
+		cmdErr = runAll(ctx, c)
+		if cmdErr == nil {
+			createSchedules(ctx, c)
+		}
 	case "schedule":
 		createSchedules(ctx, c)
 	case "clean":
 		cleanSchedules(ctx, c)
 	default:
 		fmt.Printf("Unknown command: %s\n", os.Args[1])
-		fmt.Println("Usage: trigger <run|schedule|clean>")
+		fmt.Println("Usage: trigger <run|run-all|schedule|clean>")
 		os.Exit(1)
 	}
 
