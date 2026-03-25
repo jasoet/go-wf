@@ -22,7 +22,9 @@ func DownloadBytes(ctx context.Context, store ArtifactStore, metadata ArtifactMe
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() {
+		_ = reader.Close() //nolint:errcheck // best-effort close on read path
+	}()
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
