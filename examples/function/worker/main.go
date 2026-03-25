@@ -49,6 +49,7 @@ func main() {
 	log.Println("  - ParallelFunctionsWorkflow")
 	log.Println("  - LoopWorkflow")
 	log.Println("  - ParameterizedLoopWorkflow")
+	log.Println("  - InstrumentedDAGWorkflow")
 	log.Println()
 	log.Println("Registered activities:")
 	log.Println("  - ExecuteFunctionActivity")
@@ -285,5 +286,31 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	log.Printf("Registered %d handler functions", 18)
+	// --- From dag.go (3 handlers) ---
+
+	registry.Register("compile", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		log.Println("[compile] Compiling application...")
+		time.Sleep(300 * time.Millisecond)
+		return &fn.FunctionOutput{
+			Result: map[string]string{"artifact": "app-binary", "status": "compiled", "version": "1.0.0"},
+		}, nil
+	})
+
+	registry.Register("run-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		log.Println("[run-tests] Running test suite...")
+		time.Sleep(500 * time.Millisecond)
+		return &fn.FunctionOutput{
+			Result: map[string]string{"passed": "42", "failed": "0", "skipped": "3"},
+		}, nil
+	})
+
+	registry.Register("publish-artifact", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		artifactPath := input.Args["artifact_path"]
+		log.Printf("[publish-artifact] Publishing artifact: %s", artifactPath)
+		return &fn.FunctionOutput{
+			Result: map[string]string{"published": "true", "registry": "artifacts.example.com", "artifact": artifactPath},
+		}, nil
+	})
+
+	log.Printf("Registered %d handler functions", 21)
 }
