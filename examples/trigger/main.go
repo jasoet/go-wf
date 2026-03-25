@@ -76,7 +76,11 @@ func runAll(ctx context.Context, c client.Client) error {
 
 	log.Println("=== Submitting Docker Workflows ===")
 
-	track := func(err error) { if err != nil { failures++ } }
+	track := func(err error) {
+		if err != nil {
+			failures++
+		}
+	}
 
 	// 1. Basic container
 	track(submit(ctx, c, fmt.Sprintf("demo-docker-basic-%s", ts), dockerQueue,
@@ -197,6 +201,49 @@ func runAll(ctx context.Context, c client.Client) error {
 			},
 		}))
 
+	// 6. DAG — ETL with validation
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-dag-etl-%s", ts), fnQueue,
+		fnwf.InstrumentedDAGWorkflow,
+		fnpayload.DAGWorkflowInput{
+			Nodes: []fnpayload.FunctionDAGNode{
+				{Name: "validate-config", Function: fnpayload.FunctionExecutionInput{
+					Name: "validate-config", Args: map[string]string{"env": "production"},
+				}},
+				{Name: "extract", Function: fnpayload.FunctionExecutionInput{
+					Name: "extract", Args: map[string]string{"source": "database"},
+				}},
+				{Name: "transform", Function: fnpayload.FunctionExecutionInput{
+					Name: "etl-transform", Args: map[string]string{"format": "parquet"},
+				}, Dependencies: []string{"validate-config", "extract"}},
+				{Name: "load", Function: fnpayload.FunctionExecutionInput{
+					Name: "load", Args: map[string]string{"target": "warehouse"},
+				}, Dependencies: []string{"transform"}},
+			},
+			FailFast: true,
+		}))
+
+	// 7. DAG — CI Pipeline
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-dag-ci-%s", ts), fnQueue,
+		fnwf.InstrumentedDAGWorkflow,
+		fnpayload.DAGWorkflowInput{
+			Nodes: []fnpayload.FunctionDAGNode{
+				{
+					Name:     "compile",
+					Function: fnpayload.FunctionExecutionInput{Name: "compile"},
+					Outputs:  []fnpayload.OutputMapping{{Name: "artifact", ResultKey: "artifact"}},
+				},
+				{Name: "unit-test", Function: fnpayload.FunctionExecutionInput{Name: "run-tests"}, Dependencies: []string{"compile"}},
+				{Name: "lint", Function: fnpayload.FunctionExecutionInput{Name: "validate-config", Args: map[string]string{"env": "ci"}}, Dependencies: []string{"compile"}},
+				{
+					Name:         "publish",
+					Function:     fnpayload.FunctionExecutionInput{Name: "publish-artifact", Args: map[string]string{}},
+					Dependencies: []string{"unit-test", "lint"},
+					Inputs:       []fnpayload.FunctionInputMapping{{Name: "artifact_path", From: "compile.artifact"}},
+				},
+			},
+			FailFast: true,
+		}))
+
 	log.Println()
 	if failures > 0 {
 		log.Printf("%d workflow(s) failed to submit", failures)
@@ -264,6 +311,31 @@ func createSchedules(ctx context.Context, c client.Client) {
 			},
 		},
 		{
+			ID:           "schedule-fn-dag-ci",
+			Interval:     15 * time.Minute,
+			WorkflowID:   "scheduled-fn-dag-ci",
+			WorkflowFunc: fnwf.InstrumentedDAGWorkflow,
+			TaskQueue:    "function-tasks",
+			Input: fnpayload.DAGWorkflowInput{
+				Nodes: []fnpayload.FunctionDAGNode{
+					{
+						Name:     "compile",
+						Function: fnpayload.FunctionExecutionInput{Name: "compile"},
+						Outputs:  []fnpayload.OutputMapping{{Name: "artifact", ResultKey: "artifact"}},
+					},
+					{Name: "unit-test", Function: fnpayload.FunctionExecutionInput{Name: "run-tests"}, Dependencies: []string{"compile"}},
+					{Name: "lint", Function: fnpayload.FunctionExecutionInput{Name: "validate-config", Args: map[string]string{"env": "ci"}}, Dependencies: []string{"compile"}},
+					{
+						Name:         "publish",
+						Function:     fnpayload.FunctionExecutionInput{Name: "publish-artifact", Args: map[string]string{}},
+						Dependencies: []string{"unit-test", "lint"},
+						Inputs:       []fnpayload.FunctionInputMapping{{Name: "artifact_path", From: "compile.artifact"}},
+					},
+				},
+				FailFast: true,
+			},
+		},
+		{
 			ID:           "schedule-fn-loop",
 			Interval:     20 * time.Minute,
 			WorkflowID:   "scheduled-fn-loop",
@@ -317,6 +389,7 @@ func cleanSchedules(ctx context.Context, c client.Client) {
 		"schedule-docker-pipeline",
 		"schedule-docker-parallel",
 		"schedule-fn-pipeline",
+		"schedule-fn-dag-ci",
 		"schedule-fn-loop",
 	}
 

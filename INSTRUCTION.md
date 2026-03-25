@@ -52,9 +52,10 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `docker/workflow/` | Workflow implementations (container, pipeline, parallel, DAG, loop) |
 | `function/` | Go function activities (concrete implementation) |
 | `function/activity/` | Temporal activity for function dispatch |
-| `function/builder/` | Fluent builder API for function workflows |
-| `function/payload/` | Type-safe payload structs for functions |
-| `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop) |
+| `function/builder/` | Fluent builder API for function workflows (including DAG) |
+| `function/patterns/` | Pre-built patterns (pipeline, parallel, loop, DAG) |
+| `function/payload/` | Type-safe payload structs for functions (including DAG) |
+| `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop, DAG) |
 | `workflow/otel.go` | Instrumented workflow orchestration wrappers |
 | `docker/activity/otel.go` | Docker activity OTel spans + metrics |
 | `function/activity/otel.go` | Function activity OTel spans + metrics |
@@ -135,8 +136,9 @@ Two-layer architecture organized as package-per-feature:
 - **Registry** maps named Go handler functions (`func(ctx, FunctionInput) (*FunctionOutput, error)`) for dispatch
 - **Activity** dispatches to registered handlers via closure over the registry
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs
-- **Workflows** register with Temporal workers, using generic core for orchestration
-- **Builder** provides a fluent API to compose function → pipeline → parallel → loop
+- **Workflows** register with Temporal workers, using generic core for orchestration (pipeline, parallel, loop, DAG)
+- **Builder** provides a fluent API to compose function → pipeline → parallel → loop → DAG
+- **Patterns** are pre-built workflow compositions (ETL, fan-out/fan-in, batch processing, CI/CD DAG, etc.)
 
 **Observability (`jasoet/pkg/v2/otel`)**
 - Activities get full OTel spans + metrics via `Layers.StartService` (docker: `go_wf.docker.task.*`, function: `go_wf.function.task.*`)

@@ -36,6 +36,7 @@ func RegisterWorkflows(w WorkflowRegistrar) {
 	w.RegisterWorkflow(wf.ParallelFunctionsWorkflow)
 	w.RegisterWorkflow(wf.LoopWorkflow)
 	w.RegisterWorkflow(wf.ParameterizedLoopWorkflow)
+	w.RegisterWorkflow(wf.InstrumentedDAGWorkflow)
 }
 
 // RegisterActivity registers a function execution activity.
