@@ -142,6 +142,30 @@ func runAll(ctx context.Context, c client.Client) error {
 			},
 		}))
 
+	// 6. DAG
+	track(submit(ctx, c, fmt.Sprintf("demo-docker-dag-%s", ts), dockerQueue,
+		dockerwf.DAGWorkflow,
+		dockerpayload.DAGWorkflowInput{
+			Nodes: []dockerpayload.DAGNode{
+				{Name: "build", Container: dockerpayload.ExtendedContainerInput{
+					ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+						Image: "alpine:latest", Command: []string{"echo", "Building..."}, AutoRemove: true, Name: "dag-build",
+					},
+				}},
+				{Name: "test", Container: dockerpayload.ExtendedContainerInput{
+					ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+						Image: "alpine:latest", Command: []string{"echo", "Testing..."}, AutoRemove: true, Name: "dag-test",
+					},
+				}, Dependencies: []string{"build"}},
+				{Name: "deploy", Container: dockerpayload.ExtendedContainerInput{
+					ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+						Image: "alpine:latest", Command: []string{"echo", "Deploying..."}, AutoRemove: true, Name: "dag-deploy",
+					},
+				}, Dependencies: []string{"test"}},
+			},
+			FailFast: true,
+		}))
+
 	log.Println()
 	log.Println("=== Submitting Function Workflows ===")
 
@@ -349,6 +373,103 @@ func createSchedules(ctx context.Context, c client.Client) {
 				},
 			},
 		},
+		{
+			ID:           "schedule-docker-loop",
+			Interval:     20 * time.Minute,
+			WorkflowID:   "scheduled-docker-loop",
+			WorkflowFunc: dockerwf.LoopWorkflow,
+			TaskQueue:    "docker-tasks",
+			Input: dockerpayload.LoopInput{
+				Items: []string{"item-1", "item-2", "item-3"},
+				Template: dockerpayload.ContainerExecutionInput{
+					Image:      "alpine:latest",
+					Command:    []string{"echo", "Scheduled loop item"},
+					AutoRemove: true,
+				},
+			},
+		},
+		{
+			ID:           "schedule-docker-dag",
+			Interval:     15 * time.Minute,
+			WorkflowID:   "scheduled-docker-dag",
+			WorkflowFunc: dockerwf.DAGWorkflow,
+			TaskQueue:    "docker-tasks",
+			Input: dockerpayload.DAGWorkflowInput{
+				Nodes: []dockerpayload.DAGNode{
+					{Name: "build", Container: dockerpayload.ExtendedContainerInput{
+						ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+							Image: "alpine:latest", Command: []string{"echo", "Building..."}, AutoRemove: true, Name: "dag-build",
+						},
+					}},
+					{Name: "test", Container: dockerpayload.ExtendedContainerInput{
+						ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+							Image: "alpine:latest", Command: []string{"echo", "Testing..."}, AutoRemove: true, Name: "dag-test",
+						},
+					}, Dependencies: []string{"build"}},
+					{Name: "deploy", Container: dockerpayload.ExtendedContainerInput{
+						ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+							Image: "alpine:latest", Command: []string{"echo", "Deploying..."}, AutoRemove: true, Name: "dag-deploy",
+						},
+					}, Dependencies: []string{"test"}},
+				},
+				FailFast: true,
+			},
+		},
+		{
+			ID:           "schedule-fn-parallel",
+			Interval:     15 * time.Minute,
+			WorkflowID:   "scheduled-fn-parallel",
+			WorkflowFunc: fnwf.ParallelFunctionsWorkflow,
+			TaskQueue:    "function-tasks",
+			Input: fnpayload.ParallelInput{
+				Functions: []fnpayload.FunctionExecutionInput{
+					{Name: "fetch-users"},
+					{Name: "fetch-orders"},
+					{Name: "fetch-inventory"},
+				},
+			},
+		},
+		{
+			ID:           "schedule-fn-paramloop",
+			Interval:     20 * time.Minute,
+			WorkflowID:   "scheduled-fn-paramloop",
+			WorkflowFunc: fnwf.ParameterizedLoopWorkflow,
+			TaskQueue:    "function-tasks",
+			Input: fnpayload.ParameterizedLoopInput{
+				Parameters: map[string][]string{
+					"environment": {"dev", "staging"},
+					"region":      {"us-east-1", "eu-west-1"},
+				},
+				Template: fnpayload.FunctionExecutionInput{
+					Name: "deploy-service",
+					Args: map[string]string{"version": "v1.2.3"},
+				},
+			},
+		},
+		{
+			ID:           "schedule-fn-dag-etl",
+			Interval:     20 * time.Minute,
+			WorkflowID:   "scheduled-fn-dag-etl",
+			WorkflowFunc: fnwf.InstrumentedDAGWorkflow,
+			TaskQueue:    "function-tasks",
+			Input: fnpayload.DAGWorkflowInput{
+				Nodes: []fnpayload.FunctionDAGNode{
+					{Name: "validate-config", Function: fnpayload.FunctionExecutionInput{
+						Name: "validate-config", Args: map[string]string{"env": "production"},
+					}},
+					{Name: "extract", Function: fnpayload.FunctionExecutionInput{
+						Name: "extract", Args: map[string]string{"source": "database"},
+					}},
+					{Name: "transform", Function: fnpayload.FunctionExecutionInput{
+						Name: "etl-transform", Args: map[string]string{"format": "parquet"},
+					}, Dependencies: []string{"validate-config", "extract"}},
+					{Name: "load", Function: fnpayload.FunctionExecutionInput{
+						Name: "load", Args: map[string]string{"target": "warehouse"},
+					}, Dependencies: []string{"transform"}},
+				},
+				FailFast: true,
+			},
+		},
 	}
 
 	for _, s := range schedules {
@@ -388,9 +509,14 @@ func cleanSchedules(ctx context.Context, c client.Client) {
 	scheduleIDs := []string{
 		"schedule-docker-pipeline",
 		"schedule-docker-parallel",
+		"schedule-docker-loop",
+		"schedule-docker-dag",
 		"schedule-fn-pipeline",
 		"schedule-fn-dag-ci",
 		"schedule-fn-loop",
+		"schedule-fn-parallel",
+		"schedule-fn-paramloop",
+		"schedule-fn-dag-etl",
 	}
 
 	for _, id := range scheduleIDs {
