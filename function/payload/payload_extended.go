@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/workflow/errors"
 )
 
@@ -62,6 +63,12 @@ type FunctionDAGNode struct {
 
 	// DataInput defines how to pass data from a previous node.
 	DataInput *DataMapping `json:"data_input,omitempty"`
+
+	// InputArtifacts defines artifacts to download before execution.
+	InputArtifacts []artifacts.ArtifactRef `json:"input_artifacts,omitempty"`
+
+	// OutputArtifacts defines artifacts to upload after execution.
+	OutputArtifacts []artifacts.ArtifactRef `json:"output_artifacts,omitempty"`
 }
 
 // DAGWorkflowInput defines a DAG (Directed Acyclic Graph) workflow for functions.
@@ -74,6 +81,10 @@ type DAGWorkflowInput struct {
 
 	// MaxParallel limits the number of parallel executions.
 	MaxParallel int `json:"max_parallel,omitempty"`
+
+	// ArtifactStore is the artifact storage backend (optional).
+	// If nil, artifact operations are skipped.
+	ArtifactStore artifacts.ArtifactStore `json:"-"`
 }
 
 // Validate validates DAG workflow input including structural integrity checks.

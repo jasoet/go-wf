@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	wf "go.temporal.io/sdk/workflow"
 
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
 // dagState holds shared mutable state for function DAG execution.
@@ -119,10 +121,15 @@ func executeFnDAGNode(
 	}
 	applyFnDataMapping(&fnInput, node, state)
 
+	if err := downloadFnInputArtifacts(ctx, input.ArtifactStore, node, &fnInput); err != nil {
+		return err
+	}
+
 	var result payload.FunctionExecutionOutput
 	err := wf.ExecuteActivity(ctx, fnInput.ActivityName(), fnInput).Get(ctx, &result)
 
 	extractFnOutputs(logger, node, &result, state)
+	uploadFnOutputArtifacts(ctx, logger, input.ArtifactStore, node, &result)
 
 	state.mu.Lock()
 	state.results[nodeName] = &result
@@ -296,6 +303,119 @@ func recordFnNodeResult(
 	}
 
 	output.NodeResults = append(output.NodeResults, nodeResult)
+}
+
+func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, node *payload.FunctionDAGNode, fnInput *payload.FunctionExecutionInput) error {
+	if store == nil || len(node.InputArtifacts) == 0 {
+		return nil
+	}
+
+	info := wf.GetInfo(ctx)
+	lao := wf.LocalActivityOptions{
+		StartToCloseTimeout: 5 * time.Minute,
+	}
+	laCtx := wf.WithLocalActivityOptions(ctx, lao)
+
+	for _, ref := range node.InputArtifacts {
+		metadata := artifacts.ArtifactMetadata{
+			Name:       ref.Name,
+			Path:       ref.Path,
+			Type:       ref.Type,
+			WorkflowID: info.WorkflowExecution.ID,
+			RunID:      info.WorkflowExecution.RunID,
+			StepName:   node.Name,
+		}
+
+		if ref.Type == "bytes" {
+			var data []byte
+			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) ([]byte, error) {
+				return artifacts.DownloadBytes(ctx, store, metadata)
+			}).Get(ctx, &data)
+			if err != nil {
+				if ref.Optional {
+					continue
+				}
+				return fmt.Errorf("failed to download artifact %s: %w", ref.Name, err)
+			}
+			fnInput.Data = data
+		} else {
+			downloadInput := artifacts.DownloadArtifactInput{
+				Metadata: metadata,
+				DestPath: ref.Path,
+			}
+			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
+				return artifacts.DownloadArtifactActivity(ctx, store, downloadInput)
+			}).Get(ctx, nil)
+			if err != nil && !ref.Optional {
+				return fmt.Errorf("failed to download artifact %s: %w", ref.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func uploadFnOutputArtifacts(
+	ctx wf.Context,
+	logger interface {
+		Info(string, ...interface{})
+		Error(string, ...interface{})
+	},
+	store artifacts.ArtifactStore,
+	node *payload.FunctionDAGNode,
+	result *payload.FunctionExecutionOutput,
+) {
+	if store == nil || len(node.OutputArtifacts) == 0 || !result.Success {
+		return
+	}
+
+	info := wf.GetInfo(ctx)
+	lao := wf.LocalActivityOptions{
+		StartToCloseTimeout: 5 * time.Minute,
+	}
+	laCtx := wf.WithLocalActivityOptions(ctx, lao)
+
+	for _, ref := range node.OutputArtifacts {
+		metadata := artifacts.ArtifactMetadata{
+			Name:       ref.Name,
+			Path:       ref.Path,
+			Type:       ref.Type,
+			WorkflowID: info.WorkflowExecution.ID,
+			RunID:      info.WorkflowExecution.RunID,
+			StepName:   node.Name,
+		}
+
+		if ref.Type == "bytes" {
+			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
+				return artifacts.UploadBytes(ctx, store, metadata, result.Data)
+			}).Get(ctx, nil)
+			if err != nil {
+				if ref.Optional {
+					logger.Info("Optional artifact upload skipped", "name", ref.Name, "error", err)
+				} else {
+					logger.Error("Failed to upload artifact", "name", ref.Name, "error", err)
+				}
+			} else {
+				logger.Info("Uploaded bytes artifact", "name", ref.Name)
+			}
+		} else {
+			uploadInput := artifacts.UploadArtifactInput{
+				Metadata:   metadata,
+				SourcePath: ref.Path,
+			}
+			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
+				return artifacts.UploadArtifactActivity(ctx, store, uploadInput)
+			}).Get(ctx, nil)
+			if err != nil {
+				if ref.Optional {
+					logger.Info("Optional artifact upload skipped", "name", ref.Name, "error", err)
+				} else {
+					logger.Error("Failed to upload artifact", "name", ref.Name, "error", err)
+				}
+			} else {
+				logger.Info("Uploaded artifact", "name", ref.Name, "path", ref.Path)
+			}
+		}
+	}
 }
 
 func dagActivityOptions() wf.ActivityOptions {
