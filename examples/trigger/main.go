@@ -293,7 +293,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 	schedules := []scheduleDefinition{
 		{
 			ID:           "schedule-docker-pipeline",
-			Interval:     10 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-pipeline",
 			WorkflowFunc: dockerwf.ContainerPipelineWorkflow,
 			TaskQueue:    "docker-tasks",
@@ -308,7 +308,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-docker-parallel",
-			Interval:     15 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-parallel",
 			WorkflowFunc: dockerwf.ParallelContainersWorkflow,
 			TaskQueue:    "docker-tasks",
@@ -321,7 +321,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-fn-pipeline",
-			Interval:     10 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-pipeline",
 			WorkflowFunc: fnwf.FunctionPipelineWorkflow,
 			TaskQueue:    "function-tasks",
@@ -336,7 +336,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-fn-dag-ci",
-			Interval:     15 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-dag-ci",
 			WorkflowFunc: fnwf.InstrumentedDAGWorkflow,
 			TaskQueue:    "function-tasks",
@@ -361,7 +361,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-fn-loop",
-			Interval:     20 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-loop",
 			WorkflowFunc: fnwf.LoopWorkflow,
 			TaskQueue:    "function-tasks",
@@ -375,7 +375,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-docker-loop",
-			Interval:     20 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-loop",
 			WorkflowFunc: dockerwf.LoopWorkflow,
 			TaskQueue:    "docker-tasks",
@@ -390,7 +390,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-docker-dag",
-			Interval:     15 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-dag",
 			WorkflowFunc: dockerwf.DAGWorkflow,
 			TaskQueue:    "docker-tasks",
@@ -417,7 +417,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-fn-parallel",
-			Interval:     15 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-parallel",
 			WorkflowFunc: fnwf.ParallelFunctionsWorkflow,
 			TaskQueue:    "function-tasks",
@@ -431,7 +431,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-fn-paramloop",
-			Interval:     20 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-paramloop",
 			WorkflowFunc: fnwf.ParameterizedLoopWorkflow,
 			TaskQueue:    "function-tasks",
@@ -448,7 +448,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 		},
 		{
 			ID:           "schedule-fn-dag-etl",
-			Interval:     20 * time.Minute,
+			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-dag-etl",
 			WorkflowFunc: fnwf.InstrumentedDAGWorkflow,
 			TaskQueue:    "function-tasks",
