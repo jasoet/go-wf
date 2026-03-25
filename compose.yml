@@ -62,6 +62,53 @@ services:
       timeout: 5s
       retries: 5
 
+  docker-worker:
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: docker-worker
+    environment:
+      TEMPORAL_HOST_PORT: temporal:7233
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  function-worker:
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: function-worker
+    environment:
+      TEMPORAL_HOST_PORT: temporal:7233
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - artifact-data:/tmp/go-wf-artifacts
+    depends_on:
+      temporal:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  trigger:
+    build:
+      context: .
+      dockerfile: Containerfile
+      target: trigger
+    command: ["run-all"]
+    environment:
+      TEMPORAL_HOST_PORT: temporal:7233
+    depends_on:
+      docker-worker:
+        condition: service_started
+      function-worker:
+        condition: service_started
+
 volumes:
   postgresql-data:
   minio-data:
+  artifact-data:
