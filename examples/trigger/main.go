@@ -17,6 +17,7 @@ import (
 	dockerwf "github.com/jasoet/go-wf/docker/workflow"
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
+	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
 func main() {
@@ -268,6 +269,60 @@ func runAll(ctx context.Context, c client.Client) error {
 			FailFast: true,
 		}))
 
+	// 8. DAG — Artifact demo (LocalFile)
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-dag-artifact-local-%s", ts), fnQueue,
+		"ArtifactDAGWorkflow-Local",
+		fnpayload.DAGWorkflowInput{
+			Nodes: []fnpayload.FunctionDAGNode{
+				{
+					Name:            "generate",
+					Function:        fnpayload.FunctionExecutionInput{Name: "generate-report", Args: map[string]string{"type": "sales"}},
+					OutputArtifacts: []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+				},
+				{
+					Name:            "process",
+					Function:        fnpayload.FunctionExecutionInput{Name: "process-report"},
+					Dependencies:    []string{"generate"},
+					InputArtifacts:  []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					OutputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+				},
+				{
+					Name:           "archive",
+					Function:       fnpayload.FunctionExecutionInput{Name: "archive-report"},
+					Dependencies:   []string{"process"},
+					InputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+				},
+			},
+			FailFast: true,
+		}))
+
+	// 9. DAG — Artifact demo (MinIO)
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-dag-artifact-minio-%s", ts), fnQueue,
+		"ArtifactDAGWorkflow-MinIO",
+		fnpayload.DAGWorkflowInput{
+			Nodes: []fnpayload.FunctionDAGNode{
+				{
+					Name:            "generate",
+					Function:        fnpayload.FunctionExecutionInput{Name: "generate-report", Args: map[string]string{"type": "inventory"}},
+					OutputArtifacts: []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+				},
+				{
+					Name:            "process",
+					Function:        fnpayload.FunctionExecutionInput{Name: "process-report"},
+					Dependencies:    []string{"generate"},
+					InputArtifacts:  []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					OutputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+				},
+				{
+					Name:           "archive",
+					Function:       fnpayload.FunctionExecutionInput{Name: "archive-report"},
+					Dependencies:   []string{"process"},
+					InputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+				},
+			},
+			FailFast: true,
+		}))
+
 	log.Println()
 	if failures > 0 {
 		log.Printf("%d workflow(s) failed to submit", failures)
@@ -470,6 +525,36 @@ func createSchedules(ctx context.Context, c client.Client) {
 				FailFast: true,
 			},
 		},
+		{
+			ID:           "schedule-fn-dag-artifact",
+			Interval:     2 * time.Minute,
+			WorkflowID:   "scheduled-fn-dag-artifact",
+			WorkflowFunc: "ArtifactDAGWorkflow-MinIO",
+			TaskQueue:    "function-tasks",
+			Input: fnpayload.DAGWorkflowInput{
+				Nodes: []fnpayload.FunctionDAGNode{
+					{
+						Name:            "generate",
+						Function:        fnpayload.FunctionExecutionInput{Name: "generate-report", Args: map[string]string{"type": "scheduled"}},
+						OutputArtifacts: []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					},
+					{
+						Name:            "process",
+						Function:        fnpayload.FunctionExecutionInput{Name: "process-report"},
+						Dependencies:    []string{"generate"},
+						InputArtifacts:  []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+						OutputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+					},
+					{
+						Name:           "archive",
+						Function:       fnpayload.FunctionExecutionInput{Name: "archive-report"},
+						Dependencies:   []string{"process"},
+						InputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+					},
+				},
+				FailFast: true,
+			},
+		},
 	}
 
 	for _, s := range schedules {
@@ -517,6 +602,7 @@ func cleanSchedules(ctx context.Context, c client.Client) {
 		"schedule-fn-parallel",
 		"schedule-fn-paramloop",
 		"schedule-fn-dag-etl",
+		"schedule-fn-dag-artifact",
 	}
 
 	for _, id := range scheduleIDs {
