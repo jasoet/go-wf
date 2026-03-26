@@ -1,11 +1,50 @@
 package activity
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jasoet/go-wf/docker/payload"
 )
+
+func TestTruncateOutput(t *testing.T) {
+	t.Run("short string unchanged", func(t *testing.T) {
+		input := "hello world"
+		result := truncateOutput(input)
+		if result != input {
+			t.Errorf("expected %q, got %q", input, result)
+		}
+	})
+
+	t.Run("empty string unchanged", func(t *testing.T) {
+		result := truncateOutput("")
+		if result != "" {
+			t.Errorf("expected empty string, got %q", result)
+		}
+	})
+
+	t.Run("exactly maxOutputSize unchanged", func(t *testing.T) {
+		input := strings.Repeat("a", maxOutputSize)
+		result := truncateOutput(input)
+		if result != input {
+			t.Errorf("expected string of length %d, got length %d", maxOutputSize, len(result))
+		}
+	})
+
+	t.Run("over maxOutputSize is truncated", func(t *testing.T) {
+		input := strings.Repeat("b", maxOutputSize+100)
+		result := truncateOutput(input)
+		if !strings.HasSuffix(result, "\n... [truncated]") {
+			t.Error("expected truncation suffix")
+		}
+		// The prefix should be exactly maxOutputSize bytes of 'b'
+		prefix := result[:maxOutputSize]
+		if prefix != strings.Repeat("b", maxOutputSize) {
+			t.Error("expected prefix to be preserved")
+		}
+	})
+}
 
 func TestBuildWaitStrategy(t *testing.T) {
 	tests := []struct {

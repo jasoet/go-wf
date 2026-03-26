@@ -1,7 +1,6 @@
 package artifacts
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -83,22 +82,34 @@ func uploadFile(ctx context.Context, store ArtifactStore, input UploadArtifactIn
 	return store.Upload(ctx, input.Metadata, file)
 }
 
-// uploadDirectory creates a tar.gz archive and uploads it.
+// uploadDirectory creates a tar.gz archive and uploads it using streaming.
 func uploadDirectory(ctx context.Context, store ArtifactStore, input UploadArtifactInput) error {
-	// Create a buffer to hold the archive
-	var buf bytes.Buffer
+	pr, pw := io.Pipe()
 
-	// Archive the directory
-	if err := ArchiveDirectory(input.SourcePath, &buf); err != nil {
-		return fmt.Errorf("failed to archive directory: %w", err)
-	}
+	// Archive in a goroutine, streaming to the pipe writer.
+	var archiveErr error
+	go func() {
+		archiveErr = ArchiveDirectory(input.SourcePath, pw)
+		pw.CloseWithError(archiveErr)
+	}()
 
-	// Update metadata
-	input.Metadata.Size = int64(buf.Len())
 	input.Metadata.ContentType = "application/gzip"
 
-	// Upload the archive
-	return store.Upload(ctx, input.Metadata, &buf)
+	// Upload reads from the pipe reader (streaming, no full buffer).
+	if err := store.Upload(ctx, input.Metadata, pr); err != nil {
+		// Drain the pipe to unblock the archive goroutine.
+		_ = pr.Close() //nolint:errcheck // intentionally ignoring close error during error handling
+		if archiveErr != nil {
+			return fmt.Errorf("failed to archive directory: %w", archiveErr)
+		}
+		return fmt.Errorf("failed to upload directory archive: %w", err)
+	}
+
+	if archiveErr != nil {
+		return fmt.Errorf("failed to archive directory: %w", archiveErr)
+	}
+
+	return nil
 }
 
 // DownloadArtifactActivity downloads an artifact from the artifact store to local filesystem.

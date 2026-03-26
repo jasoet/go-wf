@@ -117,11 +117,11 @@ type PipelineOutput struct {
 
 // ParallelInput defines parallel container execution.
 type ParallelInput struct {
-	Containers      []ContainerExecutionInput `json:"containers" validate:"required,min=1"`
+	Containers []ContainerExecutionInput `json:"containers" validate:"required,min=1"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency int `json:"max_concurrency,omitempty"`
-	FailureStrategy string                    `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
+	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
 // ParallelOutput defines parallel execution results.

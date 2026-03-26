@@ -41,7 +41,7 @@ type ParallelInput[I TaskInput] struct {
 	Tasks []I `json:"tasks" validate:"required,min=1"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency int `json:"max_concurrency,omitempty"`
+	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
 	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
@@ -69,13 +69,13 @@ type ParallelOutput[O TaskOutput] struct {
 
 // LoopInput defines loop iteration over items.
 type LoopInput[I TaskInput] struct {
-	Items           []string `json:"items" validate:"required,min=1"`
-	Template        I        `json:"template" validate:"required"`
-	Parallel bool `json:"parallel"`
+	Items    []string `json:"items" validate:"required,min=1"`
+	Template I        `json:"template" validate:"required"`
+	Parallel bool     `json:"parallel"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency int `json:"max_concurrency,omitempty"`
-	FailureStrategy string   `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
+	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
 // Validate validates loop input.
@@ -89,13 +89,13 @@ func (i *LoopInput[I]) Validate() error {
 
 // ParameterizedLoopInput defines loop with multiple parameters.
 type ParameterizedLoopInput[I TaskInput] struct {
-	Parameters      map[string][]string `json:"parameters" validate:"required,min=1"`
-	Template        I                   `json:"template" validate:"required"`
-	Parallel bool `json:"parallel"`
+	Parameters map[string][]string `json:"parameters" validate:"required,min=1"`
+	Template   I                   `json:"template" validate:"required"`
+	Parallel   bool                `json:"parallel"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency int `json:"max_concurrency,omitempty"`
-	FailureStrategy string              `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
+	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
 // Validate validates parameterized loop input.

@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+const (
+	// MaxUploadSize is the maximum size for artifact uploads (1GB).
+	MaxUploadSize = 1 << 30
+)
+
 // LocalFileStore implements ArtifactStore using the local filesystem.
 type LocalFileStore struct {
 	// BasePath is the root directory for storing artifacts
@@ -54,8 +59,9 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 		}
 	}()
 
-	// Copy data
-	written, err := io.Copy(file, data)
+	// Copy data with size limit
+	limitedData := io.LimitReader(data, MaxUploadSize)
+	written, err := io.Copy(file, limitedData)
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}

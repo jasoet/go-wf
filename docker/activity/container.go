@@ -10,6 +10,16 @@ import (
 	"github.com/jasoet/go-wf/docker/payload"
 )
 
+const maxOutputSize = 1 << 20 // 1MB
+
+// truncateOutput truncates a string to maxOutputSize bytes to prevent oversized payloads.
+func truncateOutput(s string) string {
+	if len(s) > maxOutputSize {
+		return s[:maxOutputSize] + "\n... [truncated]"
+	}
+	return s
+}
+
 // StartContainerActivity starts a container, waits for completion, and returns results.
 //
 //nolint:gocyclo,funlen // This function orchestrates container lifecycle which requires conditional logic and multiple steps
@@ -121,6 +131,10 @@ func StartContainerActivity(ctx context.Context, input payload.ContainerExecutio
 	if stderrErr != nil {
 		logger.Error("Failed to get stderr", "error", stderrErr)
 	}
+
+	// Truncate output to prevent oversized Temporal payloads
+	stdout = truncateOutput(stdout)
+	stderr = truncateOutput(stderr)
 
 	// Get endpoint if ports exposed
 	var endpoint string
