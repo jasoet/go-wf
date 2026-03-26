@@ -32,7 +32,7 @@ func main() {
 
 	// Create and start worker
 	w := worker.New(c, "container-tasks", worker.Options{})
-	docker.RegisterAll(w)
+	container.RegisterAll(w)
 
 	go func() {
 		if err := w.Run(worker.InterruptCh()); err != nil {
@@ -92,7 +92,7 @@ func submitAndCheckStatus(c client.Client) {
 	}
 
 	// Submit the workflow (non-blocking)
-	status, err := docker.SubmitWorkflow(ctx, c, input, "container-tasks")
+	status, err := container.SubmitWorkflow(ctx, c, input, "container-tasks")
 	if err != nil {
 		log.Printf("Failed to submit workflow: %v", err)
 		return
@@ -103,7 +103,7 @@ func submitAndCheckStatus(c client.Client) {
 
 	// Check status while running
 	time.Sleep(time.Second)
-	currentStatus, err := docker.GetWorkflowStatus(ctx, c, status.WorkflowID, status.RunID)
+	currentStatus, err := container.GetWorkflowStatus(ctx, c, status.WorkflowID, status.RunID)
 	if err != nil {
 		log.Printf("Failed to get status: %v", err)
 		return
@@ -112,7 +112,7 @@ func submitAndCheckStatus(c client.Client) {
 
 	// Wait for completion and check final status
 	time.Sleep(5 * time.Second)
-	finalStatus, err := docker.GetWorkflowStatus(ctx, c, status.WorkflowID, status.RunID)
+	finalStatus, err := container.GetWorkflowStatus(ctx, c, status.WorkflowID, status.RunID)
 	if err != nil {
 		log.Printf("Failed to get final status: %v", err)
 		return
@@ -133,7 +133,7 @@ func submitWithTimeout(c client.Client) {
 	}
 
 	// Submit and wait up to 30 seconds
-	status, err := docker.SubmitAndWait(ctx, c, input, "container-tasks", 30*time.Second)
+	status, err := container.SubmitAndWait(ctx, c, input, "container-tasks", 30*time.Second)
 	if err != nil {
 		log.Printf("Workflow failed or timed out: %v", err)
 		if status != nil {
@@ -165,7 +165,7 @@ func cancelAndTerminate(c client.Client) {
 		Name:       "ops-cancel-demo",
 	}
 
-	cancelStatus, err := docker.SubmitWorkflow(ctx, c, cancelInput, "container-tasks")
+	cancelStatus, err := container.SubmitWorkflow(ctx, c, cancelInput, "container-tasks")
 	if err != nil {
 		log.Printf("Failed to submit cancel-demo workflow: %v", err)
 		return
@@ -180,7 +180,7 @@ func cancelAndTerminate(c client.Client) {
 		Name:       "ops-terminate-demo",
 	}
 
-	terminateStatus, err := docker.SubmitWorkflow(ctx, c, terminateInput, "container-tasks")
+	terminateStatus, err := container.SubmitWorkflow(ctx, c, terminateInput, "container-tasks")
 	if err != nil {
 		log.Printf("Failed to submit terminate-demo workflow: %v", err)
 		return
@@ -191,7 +191,7 @@ func cancelAndTerminate(c client.Client) {
 	time.Sleep(3 * time.Second)
 
 	// Cancel the first workflow
-	err = docker.CancelWorkflow(ctx, c, cancelStatus.WorkflowID, cancelStatus.RunID)
+	err = container.CancelWorkflow(ctx, c, cancelStatus.WorkflowID, cancelStatus.RunID)
 	if err != nil {
 		log.Printf("Failed to cancel workflow: %v", err)
 	} else {
@@ -199,7 +199,7 @@ func cancelAndTerminate(c client.Client) {
 	}
 
 	// Terminate the second workflow with a reason
-	err = docker.TerminateWorkflow(ctx, c, terminateStatus.WorkflowID, terminateStatus.RunID,
+	err = container.TerminateWorkflow(ctx, c, terminateStatus.WorkflowID, terminateStatus.RunID,
 		"Terminated by operations example")
 	if err != nil {
 		log.Printf("Failed to terminate workflow: %v", err)
@@ -210,12 +210,12 @@ func cancelAndTerminate(c client.Client) {
 	// Check the status of both workflows after cancellation/termination
 	time.Sleep(2 * time.Second)
 
-	cancelledStatus, _ := docker.GetWorkflowStatus(ctx, c, cancelStatus.WorkflowID, cancelStatus.RunID)
+	cancelledStatus, _ := container.GetWorkflowStatus(ctx, c, cancelStatus.WorkflowID, cancelStatus.RunID)
 	if cancelledStatus != nil {
 		log.Printf("Cancelled workflow status: %s", cancelledStatus.Status)
 	}
 
-	terminatedStatus, _ := docker.GetWorkflowStatus(ctx, c, terminateStatus.WorkflowID, terminateStatus.RunID)
+	terminatedStatus, _ := container.GetWorkflowStatus(ctx, c, terminateStatus.WorkflowID, terminateStatus.RunID)
 	if terminatedStatus != nil {
 		log.Printf("Terminated workflow status: %s", terminatedStatus.Status)
 	}
@@ -235,7 +235,7 @@ func watchWorkflowUpdates(c client.Client) {
 	}
 
 	// Submit the workflow
-	status, err := docker.SubmitWorkflow(ctx, c, input, "container-tasks")
+	status, err := container.SubmitWorkflow(ctx, c, input, "container-tasks")
 	if err != nil {
 		log.Printf("Failed to submit workflow: %v", err)
 		return
@@ -243,11 +243,11 @@ func watchWorkflowUpdates(c client.Client) {
 	log.Printf("Submitted watch-demo: ID=%s", status.WorkflowID)
 
 	// Watch for updates in a goroutine
-	updates := make(chan *docker.WorkflowStatus, 10)
+	updates := make(chan *container.WorkflowStatus, 10)
 	watchDone := make(chan error, 1)
 
 	go func() {
-		watchDone <- docker.WatchWorkflow(ctx, c, status.WorkflowID, status.RunID, updates)
+		watchDone <- container.WatchWorkflow(ctx, c, status.WorkflowID, status.RunID, updates)
 	}()
 
 	// Consume updates in another goroutine
@@ -261,7 +261,7 @@ func watchWorkflowUpdates(c client.Client) {
 
 	// Send a signal to the workflow (best effort — may not be handled by the container workflow)
 	time.Sleep(2 * time.Second)
-	err = docker.SignalWorkflow(ctx, c, status.WorkflowID, status.RunID, "custom-signal",
+	err = container.SignalWorkflow(ctx, c, status.WorkflowID, status.RunID, "custom-signal",
 		map[string]string{"action": "info", "source": "operations-example"})
 	if err != nil {
 		log.Printf("  Signal failed (expected for container workflows): %v", err)
@@ -271,7 +271,7 @@ func watchWorkflowUpdates(c client.Client) {
 
 	// Query the workflow (best effort — requires workflow to register a query handler)
 	var queryResult string
-	err = docker.QueryWorkflow(ctx, c, status.WorkflowID, status.RunID, "status", &queryResult)
+	err = container.QueryWorkflow(ctx, c, status.WorkflowID, status.RunID, "status", &queryResult)
 	if err != nil {
 		log.Printf("  Query failed (may not be supported): %v", err)
 	} else {

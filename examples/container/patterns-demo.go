@@ -20,7 +20,7 @@ import (
 )
 
 // This example demonstrates all 16 pre-built pattern functions from the
-// docker/patterns package, organized into three groups:
+// container/patterns package, organized into three groups:
 // 1. CI/CD patterns (4 functions)
 // 2. Parallel patterns (5 functions)
 // 3. Loop patterns (7 functions)
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	w := worker.New(c, "container-tasks", worker.Options{})
-	docker.RegisterAll(w)
+	container.RegisterAll(w)
 
 	go func() {
 		if err := w.Run(worker.InterruptCh()); err != nil {

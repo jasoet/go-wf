@@ -46,7 +46,7 @@ services:
         condition: service_healthy
 
   minio:
-    image: minio/minio:RELEASE.2025-03-12T18-39-45Z
+    image: minio/minio:latest
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"

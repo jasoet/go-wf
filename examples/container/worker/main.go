@@ -35,8 +35,8 @@ func main() {
 		MaxConcurrentWorkflowTaskExecutionSize: 10,
 	})
 
-	// Register all docker workflows and activities
-	docker.RegisterAll(w)
+	// Register all container workflows and activities
+	container.RegisterAll(w)
 
 	log.Println("Registered workflows:")
 	log.Println("  - ExecuteContainerWorkflow")

@@ -1,6 +1,6 @@
 //go:build integration
 
-package docker_test
+package container_test
 
 import (
 	"context"

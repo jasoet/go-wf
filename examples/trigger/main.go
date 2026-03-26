@@ -13,8 +13,8 @@ import (
 	pkgtemporal "github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
 
-	dockerpayload "github.com/jasoet/go-wf/container/payload"
-	dockerwf "github.com/jasoet/go-wf/container/workflow"
+	containerpayload "github.com/jasoet/go-wf/container/payload"
+	containerwf "github.com/jasoet/go-wf/container/workflow"
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
 	"github.com/jasoet/go-wf/workflow/artifacts"
@@ -80,7 +80,7 @@ func submit(ctx context.Context, c client.Client, workflowID, taskQueue string, 
 
 func runAll(ctx context.Context, c client.Client) error {
 	ts := time.Now().Format("20060102-150405")
-	dockerQueue := "container-tasks"
+	containerQueue := "container-tasks"
 	fnQueue := "function-tasks"
 	var failures int
 
@@ -93,9 +93,9 @@ func runAll(ctx context.Context, c client.Client) error {
 	}
 
 	// 1. Basic container
-	track(submit(ctx, c, fmt.Sprintf("demo-docker-basic-%s", ts), dockerQueue,
-		dockerwf.ExecuteContainerWorkflow,
-		dockerpayload.ContainerExecutionInput{
+	track(submit(ctx, c, fmt.Sprintf("demo-container-basic-%s", ts), containerQueue,
+		containerwf.ExecuteContainerWorkflow,
+		containerpayload.ContainerExecutionInput{
 			Image:      "alpine:latest",
 			Command:    []string{"echo", "Hello from basic container"},
 			AutoRemove: true,
@@ -103,11 +103,11 @@ func runAll(ctx context.Context, c client.Client) error {
 		}))
 
 	// 2. Pipeline
-	track(submit(ctx, c, fmt.Sprintf("demo-docker-pipeline-%s", ts), dockerQueue,
-		dockerwf.ContainerPipelineWorkflow,
-		dockerpayload.PipelineInput{
+	track(submit(ctx, c, fmt.Sprintf("demo-container-pipeline-%s", ts), containerQueue,
+		containerwf.ContainerPipelineWorkflow,
+		containerpayload.PipelineInput{
 			StopOnError: true,
-			Containers: []dockerpayload.ContainerExecutionInput{
+			Containers: []containerpayload.ContainerExecutionInput{
 				{Image: "alpine:latest", Command: []string{"echo", "Step 1: Building..."}, AutoRemove: true, Name: "build"},
 				{Image: "alpine:latest", Command: []string{"echo", "Step 2: Testing..."}, AutoRemove: true, Name: "test"},
 				{Image: "alpine:latest", Command: []string{"echo", "Step 3: Deploying..."}, AutoRemove: true, Name: "deploy"},
@@ -115,10 +115,10 @@ func runAll(ctx context.Context, c client.Client) error {
 		}))
 
 	// 3. Parallel
-	track(submit(ctx, c, fmt.Sprintf("demo-docker-parallel-%s", ts), dockerQueue,
-		dockerwf.ParallelContainersWorkflow,
-		dockerpayload.ParallelInput{
-			Containers: []dockerpayload.ContainerExecutionInput{
+	track(submit(ctx, c, fmt.Sprintf("demo-container-parallel-%s", ts), containerQueue,
+		containerwf.ParallelContainersWorkflow,
+		containerpayload.ParallelInput{
+			Containers: []containerpayload.ContainerExecutionInput{
 				{Image: "alpine:latest", Command: []string{"echo", "Parallel task A"}, AutoRemove: true, Name: "task-a"},
 				{Image: "alpine:latest", Command: []string{"echo", "Parallel task B"}, AutoRemove: true, Name: "task-b"},
 				{Image: "alpine:latest", Command: []string{"echo", "Parallel task C"}, AutoRemove: true, Name: "task-c"},
@@ -126,11 +126,11 @@ func runAll(ctx context.Context, c client.Client) error {
 		}))
 
 	// 4. Loop
-	track(submit(ctx, c, fmt.Sprintf("demo-docker-loop-%s", ts), dockerQueue,
-		dockerwf.LoopWorkflow,
-		dockerpayload.LoopInput{
+	track(submit(ctx, c, fmt.Sprintf("demo-container-loop-%s", ts), containerQueue,
+		containerwf.LoopWorkflow,
+		containerpayload.LoopInput{
 			Items: []string{"item-1", "item-2", "item-3"},
-			Template: dockerpayload.ContainerExecutionInput{
+			Template: containerpayload.ContainerExecutionInput{
 				Image:      "alpine:latest",
 				Command:    []string{"echo", "Processing loop item"},
 				AutoRemove: true,
@@ -138,14 +138,14 @@ func runAll(ctx context.Context, c client.Client) error {
 		}))
 
 	// 5. Parameterized Loop
-	track(submit(ctx, c, fmt.Sprintf("demo-docker-paramloop-%s", ts), dockerQueue,
-		dockerwf.ParameterizedLoopWorkflow,
-		dockerpayload.ParameterizedLoopInput{
+	track(submit(ctx, c, fmt.Sprintf("demo-container-paramloop-%s", ts), containerQueue,
+		containerwf.ParameterizedLoopWorkflow,
+		containerpayload.ParameterizedLoopInput{
 			Parameters: map[string][]string{
 				"env":    {"dev", "staging"},
 				"region": {"us-east-1", "eu-west-1"},
 			},
-			Template: dockerpayload.ContainerExecutionInput{
+			Template: containerpayload.ContainerExecutionInput{
 				Image:      "alpine:latest",
 				Command:    []string{"echo", "Deploying parameterized"},
 				AutoRemove: true,
@@ -153,22 +153,22 @@ func runAll(ctx context.Context, c client.Client) error {
 		}))
 
 	// 6. DAG
-	track(submit(ctx, c, fmt.Sprintf("demo-docker-dag-%s", ts), dockerQueue,
-		dockerwf.DAGWorkflow,
-		dockerpayload.DAGWorkflowInput{
-			Nodes: []dockerpayload.DAGNode{
-				{Name: "build", Container: dockerpayload.ExtendedContainerInput{
-					ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+	track(submit(ctx, c, fmt.Sprintf("demo-container-dag-%s", ts), containerQueue,
+		containerwf.DAGWorkflow,
+		containerpayload.DAGWorkflowInput{
+			Nodes: []containerpayload.DAGNode{
+				{Name: "build", Container: containerpayload.ExtendedContainerInput{
+					ContainerExecutionInput: containerpayload.ContainerExecutionInput{
 						Image: "alpine:latest", Command: []string{"echo", "Building..."}, AutoRemove: true, Name: "dag-build",
 					},
 				}},
-				{Name: "test", Container: dockerpayload.ExtendedContainerInput{
-					ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+				{Name: "test", Container: containerpayload.ExtendedContainerInput{
+					ContainerExecutionInput: containerpayload.ContainerExecutionInput{
 						Image: "alpine:latest", Command: []string{"echo", "Testing..."}, AutoRemove: true, Name: "dag-test",
 					},
 				}, Dependencies: []string{"build"}},
-				{Name: "deploy", Container: dockerpayload.ExtendedContainerInput{
-					ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+				{Name: "deploy", Container: containerpayload.ExtendedContainerInput{
+					ContainerExecutionInput: containerpayload.ContainerExecutionInput{
 						Image: "alpine:latest", Command: []string{"echo", "Deploying..."}, AutoRemove: true, Name: "dag-deploy",
 					},
 				}, Dependencies: []string{"test"}},
@@ -356,14 +356,14 @@ func createSchedules(ctx context.Context, c client.Client) {
 
 	schedules := []scheduleDefinition{
 		{
-			ID:           "schedule-docker-pipeline",
+			ID:           "schedule-container-pipeline",
 			Interval:     2 * time.Minute,
-			WorkflowID:   "scheduled-docker-pipeline",
-			WorkflowFunc: dockerwf.ContainerPipelineWorkflow,
+			WorkflowID:   "scheduled-container-pipeline",
+			WorkflowFunc: containerwf.ContainerPipelineWorkflow,
 			TaskQueue:    "container-tasks",
-			Input: dockerpayload.PipelineInput{
+			Input: containerpayload.PipelineInput{
 				StopOnError: true,
-				Containers: []dockerpayload.ContainerExecutionInput{
+				Containers: []containerpayload.ContainerExecutionInput{
 					{Image: "alpine:latest", Command: []string{"echo", "Scheduled build"}, AutoRemove: true, Name: "build"},
 					{Image: "alpine:latest", Command: []string{"echo", "Scheduled test"}, AutoRemove: true, Name: "test"},
 					{Image: "alpine:latest", Command: []string{"echo", "Scheduled deploy"}, AutoRemove: true, Name: "deploy"},
@@ -371,13 +371,13 @@ func createSchedules(ctx context.Context, c client.Client) {
 			},
 		},
 		{
-			ID:           "schedule-docker-parallel",
+			ID:           "schedule-container-parallel",
 			Interval:     2 * time.Minute,
-			WorkflowID:   "scheduled-docker-parallel",
-			WorkflowFunc: dockerwf.ParallelContainersWorkflow,
+			WorkflowID:   "scheduled-container-parallel",
+			WorkflowFunc: containerwf.ParallelContainersWorkflow,
 			TaskQueue:    "container-tasks",
-			Input: dockerpayload.ParallelInput{
-				Containers: []dockerpayload.ContainerExecutionInput{
+			Input: containerpayload.ParallelInput{
+				Containers: []containerpayload.ContainerExecutionInput{
 					{Image: "alpine:latest", Command: []string{"echo", "Scheduled parallel A"}, AutoRemove: true, Name: "par-a"},
 					{Image: "alpine:latest", Command: []string{"echo", "Scheduled parallel B"}, AutoRemove: true, Name: "par-b"},
 				},
@@ -438,14 +438,14 @@ func createSchedules(ctx context.Context, c client.Client) {
 			},
 		},
 		{
-			ID:           "schedule-docker-loop",
+			ID:           "schedule-container-loop",
 			Interval:     2 * time.Minute,
-			WorkflowID:   "scheduled-docker-loop",
-			WorkflowFunc: dockerwf.LoopWorkflow,
+			WorkflowID:   "scheduled-container-loop",
+			WorkflowFunc: containerwf.LoopWorkflow,
 			TaskQueue:    "container-tasks",
-			Input: dockerpayload.LoopInput{
+			Input: containerpayload.LoopInput{
 				Items: []string{"item-1", "item-2", "item-3"},
-				Template: dockerpayload.ContainerExecutionInput{
+				Template: containerpayload.ContainerExecutionInput{
 					Image:      "alpine:latest",
 					Command:    []string{"echo", "Scheduled loop item"},
 					AutoRemove: true,
@@ -453,25 +453,25 @@ func createSchedules(ctx context.Context, c client.Client) {
 			},
 		},
 		{
-			ID:           "schedule-docker-dag",
+			ID:           "schedule-container-dag",
 			Interval:     2 * time.Minute,
-			WorkflowID:   "scheduled-docker-dag",
-			WorkflowFunc: dockerwf.DAGWorkflow,
+			WorkflowID:   "scheduled-container-dag",
+			WorkflowFunc: containerwf.DAGWorkflow,
 			TaskQueue:    "container-tasks",
-			Input: dockerpayload.DAGWorkflowInput{
-				Nodes: []dockerpayload.DAGNode{
-					{Name: "build", Container: dockerpayload.ExtendedContainerInput{
-						ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+			Input: containerpayload.DAGWorkflowInput{
+				Nodes: []containerpayload.DAGNode{
+					{Name: "build", Container: containerpayload.ExtendedContainerInput{
+						ContainerExecutionInput: containerpayload.ContainerExecutionInput{
 							Image: "alpine:latest", Command: []string{"echo", "Building..."}, AutoRemove: true, Name: "dag-build",
 						},
 					}},
-					{Name: "test", Container: dockerpayload.ExtendedContainerInput{
-						ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+					{Name: "test", Container: containerpayload.ExtendedContainerInput{
+						ContainerExecutionInput: containerpayload.ContainerExecutionInput{
 							Image: "alpine:latest", Command: []string{"echo", "Testing..."}, AutoRemove: true, Name: "dag-test",
 						},
 					}, Dependencies: []string{"build"}},
-					{Name: "deploy", Container: dockerpayload.ExtendedContainerInput{
-						ContainerExecutionInput: dockerpayload.ContainerExecutionInput{
+					{Name: "deploy", Container: containerpayload.ExtendedContainerInput{
+						ContainerExecutionInput: containerpayload.ContainerExecutionInput{
 							Image: "alpine:latest", Command: []string{"echo", "Deploying..."}, AutoRemove: true, Name: "dag-deploy",
 						},
 					}, Dependencies: []string{"test"}},
@@ -601,10 +601,10 @@ func cleanSchedules(ctx context.Context, c client.Client) {
 	log.Println("=== Cleaning Schedules ===")
 
 	scheduleIDs := []string{
-		"schedule-docker-pipeline",
-		"schedule-docker-parallel",
-		"schedule-docker-loop",
-		"schedule-docker-dag",
+		"schedule-container-pipeline",
+		"schedule-container-parallel",
+		"schedule-container-loop",
+		"schedule-container-dag",
 		"schedule-fn-pipeline",
 		"schedule-fn-dag-ci",
 		"schedule-fn-loop",

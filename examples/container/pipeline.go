@@ -29,7 +29,7 @@ func main() {
 
 	// Create and start worker
 	w := worker.New(c, "container-tasks", worker.Options{})
-	docker.RegisterAll(w)
+	container.RegisterAll(w)
 
 	go func() {
 		if err := w.Run(worker.InterruptCh()); err != nil {
