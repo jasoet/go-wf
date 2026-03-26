@@ -177,6 +177,7 @@ func ListWorkflows(ctx context.Context, c client.Client, query string) ([]*Workf
 //	updates := make(chan *WorkflowStatus)
 //	err := docker.WatchWorkflow(ctx, temporalClient, workflowID, runID, updates)
 func WatchWorkflow(ctx context.Context, c client.Client, workflowID, runID string, updates chan<- *WorkflowStatus) error {
+	defer close(updates) // Always close channel on exit
 	// Poll for updates
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -200,7 +201,6 @@ func WatchWorkflow(ctx context.Context, c client.Client, workflowID, runID strin
 
 			// Stop watching if completed
 			if status.Status == statusCompleted || status.Status == "Failed" {
-				close(updates)
 				return nil
 			}
 		}

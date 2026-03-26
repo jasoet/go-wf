@@ -2,11 +2,14 @@ package payload
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/workflow/errors"
 )
+
+var safeNodeName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 // OutputMapping defines how to capture output from a function execution result.
 type OutputMapping struct {
@@ -93,9 +96,15 @@ func (i *DAGWorkflowInput) Validate() error {
 		return errors.ErrInvalidInput.Wrap("at least one node is required")
 	}
 
-	// Build node name set and check for duplicates.
+	// Build node name set, check for duplicates, and validate name format.
 	nodeMap := make(map[string]bool, len(i.Nodes))
 	for _, node := range i.Nodes {
+		if len(node.Name) > 255 {
+			return errors.ErrInvalidInput.Wrap(fmt.Sprintf("node name too long: %s", node.Name[:50]))
+		}
+		if !safeNodeName.MatchString(node.Name) {
+			return errors.ErrInvalidInput.Wrap(fmt.Sprintf("invalid node name: %s", node.Name))
+		}
 		if nodeMap[node.Name] {
 			return errors.ErrInvalidInput.Wrap(fmt.Sprintf("duplicate node name: %s", node.Name))
 		}

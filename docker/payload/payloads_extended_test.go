@@ -58,6 +58,65 @@ func TestDAGWorkflowInput_Validate(t *testing.T) {
 			errMsg:  "at least one node is required",
 		},
 		{
+			name: "invalid - node name with spaces",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{
+						Name: "bad name",
+						Container: ExtendedContainerInput{
+							ContainerExecutionInput: ContainerExecutionInput{Image: "alpine:latest"},
+						},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid node name",
+		},
+		{
+			name: "invalid - node name starts with digit",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{
+						Name: "1build",
+						Container: ExtendedContainerInput{
+							ContainerExecutionInput: ContainerExecutionInput{Image: "alpine:latest"},
+						},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid node name",
+		},
+		{
+			name: "invalid - empty node name",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{
+						Name: "",
+						Container: ExtendedContainerInput{
+							ContainerExecutionInput: ContainerExecutionInput{Image: "alpine:latest"},
+						},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid node name",
+		},
+		{
+			name: "valid - node name with hyphens and underscores",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{
+						Name: "build-step_1",
+						Container: ExtendedContainerInput{
+							ContainerExecutionInput: ContainerExecutionInput{Image: "alpine:latest"},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid - dependency not found",
 			input: DAGWorkflowInput{
 				Nodes: []DAGNode{

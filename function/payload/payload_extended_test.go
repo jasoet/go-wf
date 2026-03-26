@@ -142,6 +142,67 @@ func TestDAGWorkflowInput_DuplicateNodeNames(t *testing.T) {
 	assert.Contains(t, err.Error(), "duplicate node name")
 }
 
+func TestDAGWorkflowInput_InvalidNodeName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   DAGWorkflowInput
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "invalid - node name with spaces",
+			input: DAGWorkflowInput{
+				Nodes: []FunctionDAGNode{
+					{Name: "bad name", Function: FunctionExecutionInput{Name: "f"}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid node name",
+		},
+		{
+			name: "invalid - node name starts with digit",
+			input: DAGWorkflowInput{
+				Nodes: []FunctionDAGNode{
+					{Name: "1build", Function: FunctionExecutionInput{Name: "f"}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid node name",
+		},
+		{
+			name: "invalid - empty node name",
+			input: DAGWorkflowInput{
+				Nodes: []FunctionDAGNode{
+					{Name: "", Function: FunctionExecutionInput{Name: "f"}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "invalid node name",
+		},
+		{
+			name: "valid - node name with hyphens and underscores",
+			input: DAGWorkflowInput{
+				Nodes: []FunctionDAGNode{
+					{Name: "build-step_1", Function: FunctionExecutionInput{Name: "f"}},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestFunctionDAGNode_Fields(t *testing.T) {
 	node := FunctionDAGNode{
 		Name: "build",

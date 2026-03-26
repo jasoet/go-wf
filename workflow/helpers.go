@@ -94,6 +94,8 @@ func GenerateParameterCombinations(params map[string][]string) []map[string]stri
 	return result
 }
 
+var arrayIndexPattern = regexp.MustCompile(`^(\w+)\[(\d+)\]$`)
+
 // ExtractJSONPath extracts a value from JSON using a simple JSONPath expression,
 // supporting basic paths like "$.field", "$.field.nested", "$.array[0]".
 func ExtractJSONPath(jsonStr, path string) (string, error) {
@@ -119,8 +121,7 @@ func ExtractJSONPath(jsonStr, path string) (string, error) {
 		// Handle array indexing
 		if strings.Contains(part, "[") {
 			// Extract field name and index
-			re := regexp.MustCompile(`^(\w+)\[(\d+)\]$`)
-			matches := re.FindStringSubmatch(part)
+			matches := arrayIndexPattern.FindStringSubmatch(part)
 			if len(matches) != 3 {
 				return "", fmt.Errorf("invalid array syntax: %s", part)
 			}
