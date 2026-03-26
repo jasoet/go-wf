@@ -311,6 +311,46 @@ func TestWaitStrategyConfig_Validation(t *testing.T) {
 	}
 }
 
+func TestValidateVolumes(t *testing.T) {
+	tests := []struct {
+		name    string
+		volumes map[string]string
+		wantErr bool
+	}{
+		{"valid volumes", map[string]string{"/data": "/app/data", "/tmp/work": "/work"}, false},
+		{"empty volumes", map[string]string{}, false},
+		{"docker socket", map[string]string{"/var/run/docker.sock": "/var/run/docker.sock"}, true},
+		{"podman socket", map[string]string{"/run/podman/podman.sock": "/var/run/docker.sock"}, true},
+		{"/etc mount", map[string]string{"/etc": "/host-etc"}, true},
+		{"/etc subpath", map[string]string{"/etc/shadow": "/shadow"}, true},
+		{"/root mount", map[string]string{"/root/.ssh": "/ssh"}, true},
+		{"/proc mount", map[string]string{"/proc": "/proc"}, true},
+		{"/dev mount", map[string]string{"/dev": "/dev"}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateVolumes(tt.volumes)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "sensitive")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestContainerExecutionInput_ValidateVolumes(t *testing.T) {
+	input := ContainerExecutionInput{
+		Image:   "alpine",
+		Volumes: map[string]string{"/var/run/docker.sock": "/var/run/docker.sock"},
+	}
+	err := input.Validate()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "sensitive")
+}
+
 func TestContainerExecutionInput_ActivityName(t *testing.T) {
 	input := &ContainerExecutionInput{Image: "alpine"}
 	assert.Equal(t, "StartContainerActivity", input.ActivityName())

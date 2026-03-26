@@ -2,12 +2,40 @@ package payload
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 
 	"github.com/jasoet/go-wf/workflow"
 )
+
+// sensitivePathPrefixes lists host paths that should never be mounted into containers.
+var sensitivePathPrefixes = []string{
+	"/etc",
+	"/root",
+	"/var/run/docker.sock",
+	"/run/docker.sock",
+	"/var/run/podman",
+	"/run/podman",
+	"/proc",
+	"/sys",
+	"/dev",
+}
+
+// ValidateVolumes checks that no sensitive host paths are mounted.
+func ValidateVolumes(volumes map[string]string) error {
+	for hostPath := range volumes {
+		cleaned := filepath.Clean(hostPath)
+		for _, sensitive := range sensitivePathPrefixes {
+			if cleaned == sensitive || strings.HasPrefix(cleaned, sensitive+"/") {
+				return fmt.Errorf("volume mount rejected: host path %q is sensitive", hostPath)
+			}
+		}
+	}
+	return nil
+}
 
 // Compile-time interface checks.
 var (
@@ -105,7 +133,15 @@ type ParallelOutput struct {
 // Validate validates input using struct tags.
 func (i *ContainerExecutionInput) Validate() error {
 	validate := validator.New()
-	return validate.Struct(i)
+	if err := validate.Struct(i); err != nil {
+		return err
+	}
+	if len(i.Volumes) > 0 {
+		if err := ValidateVolumes(i.Volumes); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Validate validates pipeline input using struct tags.
