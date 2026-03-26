@@ -90,6 +90,27 @@ func TestExecuteFunctionActivity_ValidationError(t *testing.T) {
 	assert.False(t, output.Success)
 }
 
+func TestExecuteFunctionActivity_PanicRecovery(t *testing.T) {
+	registry := fn.NewRegistry()
+	registry.Register("panic-handler", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
+		panic("unexpected nil pointer")
+	})
+
+	activity := NewExecuteFunctionActivity(registry)
+
+	input := payload.FunctionExecutionInput{Name: "panic-handler"}
+
+	// Should NOT panic — should return graceful error
+	output, err := activity(context.Background(), input)
+	require.NoError(t, err) // Activity returns nil error (business logic failure)
+	require.NotNil(t, output)
+
+	assert.False(t, output.Success)
+	assert.Contains(t, output.Error, "panic")
+	assert.Contains(t, output.Error, "unexpected nil pointer")
+	assert.NotZero(t, output.Duration)
+}
+
 func TestExecuteFunctionActivity_WithData(t *testing.T) {
 	registry := fn.NewRegistry()
 	registry.Register("echo-data", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {

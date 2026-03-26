@@ -2,6 +2,7 @@ package activity
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	fn "github.com/jasoet/go-wf/function"
@@ -49,8 +50,17 @@ func NewExecuteFunctionActivity(registry *fn.Registry) func(ctx context.Context,
 			WorkDir: input.WorkDir,
 		}
 
-		// Call handler
-		fnOutput, handlerErr := handler(ctx, fnInput)
+		// Call handler with panic recovery.
+		var fnOutput *fn.FunctionOutput
+		var handlerErr error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					handlerErr = fmt.Errorf("handler panic: %v", r)
+				}
+			}()
+			fnOutput, handlerErr = handler(ctx, fnInput)
+		}()
 		finishTime := time.Now()
 
 		output := &payload.FunctionExecutionOutput{
