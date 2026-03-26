@@ -64,13 +64,19 @@ type ArtifactMetadata struct {
 // safeNamePattern allows alphanumeric, hyphens, underscores, dots.
 var safeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// safeWorkflowIDPattern also allows colons for Temporal workflow IDs with ISO 8601 timestamps.
+var safeWorkflowIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:-]*$`)
+
 // ValidateMetadata checks that metadata fields are safe for use as path/key components.
 func ValidateMetadata(m ArtifactMetadata) error {
-	fields := []struct{ name, value string }{
-		{"WorkflowID", m.WorkflowID},
-		{"RunID", m.RunID},
-		{"StepName", m.StepName},
-		{"Name", m.Name},
+	fields := []struct {
+		name, value string
+		pattern     *regexp.Regexp
+	}{
+		{"WorkflowID", m.WorkflowID, safeWorkflowIDPattern},
+		{"RunID", m.RunID, safeNamePattern},
+		{"StepName", m.StepName, safeNamePattern},
+		{"Name", m.Name, safeNamePattern},
 	}
 	for _, f := range fields {
 		if f.value == "" {
@@ -82,7 +88,7 @@ func ValidateMetadata(m ArtifactMetadata) error {
 		if strings.Contains(f.value, "..") {
 			return fmt.Errorf("invalid metadata: %s contains path traversal sequence", f.name)
 		}
-		if !safeNamePattern.MatchString(f.value) {
+		if !f.pattern.MatchString(f.value) {
 			return fmt.Errorf("invalid metadata: %s contains invalid characters", f.name)
 		}
 	}

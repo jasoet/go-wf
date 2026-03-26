@@ -75,6 +75,34 @@ func TestValidateMetadata(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "WorkflowID with colons allowed (ISO 8601 timestamp)",
+			metadata: ArtifactMetadata{
+				Name: "report-data", WorkflowID: "scheduled-fn-dag-artifact-2026-03-26T15:40:00Z", RunID: "run-456", StepName: "generate",
+			},
+			wantErr: false,
+		},
+		{
+			name: "colons rejected in StepName",
+			metadata: ArtifactMetadata{
+				Name: "file", WorkflowID: "wf-123", RunID: "run-456", StepName: "step:name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "colons rejected in Name",
+			metadata: ArtifactMetadata{
+				Name: "file:name", WorkflowID: "wf-123", RunID: "run-456", StepName: "step",
+			},
+			wantErr: true,
+		},
+		{
+			name: "colons rejected in RunID",
+			metadata: ArtifactMetadata{
+				Name: "file", WorkflowID: "wf-123", RunID: "run:456", StepName: "step",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
