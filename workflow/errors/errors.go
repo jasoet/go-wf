@@ -48,7 +48,9 @@ func (e *WorkflowError) Wrap(msg string) *WorkflowError {
 	}
 }
 
-// Predefined errors.
+// Predefined sentinel errors.
+// These are safe from mutation because Wrap returns a new *WorkflowError
+// rather than modifying the receiver in-place.
 var (
 	// ErrInvalidInput indicates invalid input provided.
 	ErrInvalidInput = &WorkflowError{
