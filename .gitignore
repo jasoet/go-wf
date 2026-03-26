@@ -211,7 +211,8 @@ sim_output
 
 aof/
 
-.env.prod
+.env
+.env.*
 .secret
 temporal.db
 .temporal/

@@ -254,7 +254,7 @@ tasks:
 
         # 1. Start Temporal dev server
         echo "🚀 Starting Temporal dev server..."
-        temporal server start-dev --ip 0.0.0.0 --log-format json --log-level error > /dev/null 2>&1 &
+        temporal server start-dev --ip 127.0.0.1 --log-format json --log-level error > /dev/null 2>&1 &
         TEMPORAL_PID=$!
         echo "  Temporal PID: $TEMPORAL_PID"
 
@@ -344,7 +344,7 @@ tasks:
 
         # 1. Start Temporal dev server
         echo "🚀 Starting Temporal dev server..."
-        temporal server start-dev --ip 0.0.0.0 --log-format json --log-level error > /dev/null 2>&1 &
+        temporal server start-dev --ip 127.0.0.1 --log-format json --log-level error > /dev/null 2>&1 &
         TEMPORAL_PID=$!
         echo "  Temporal PID: $TEMPORAL_PID"
 
