@@ -30,7 +30,7 @@ func main() {
 
 	// Create function registry and register handlers
 	registry := fn.NewRegistry()
-	registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		name := input.Args["name"]
 		if name == "" {
 			name = "World"

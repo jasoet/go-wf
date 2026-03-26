@@ -38,7 +38,7 @@ func main() {
 	registry := fn.NewRegistry()
 
 	// Step 1: Validate incoming data
-	registry.Register("validate", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("validate", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		email := input.Args["email"]
 		name := input.Args["name"]
 
@@ -58,7 +58,7 @@ func main() {
 	})
 
 	// Step 2: Transform/enrich the data
-	registry.Register("transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		name := input.Args["name"]
 		email := input.Args["email"]
 
@@ -80,7 +80,7 @@ func main() {
 	})
 
 	// Step 3: Send notification
-	registry.Register("notify", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("notify", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		channel := input.Args["channel"]
 		if channel == "" {
 			channel = "email"

@@ -38,21 +38,21 @@ func main() {
 
 	// Create function registry and register handlers
 	registry := fn.NewRegistry()
-	registry.Register("process-csv", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("process-csv", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		file := input.Args["file"]
 		log.Printf("Processing CSV file: %s", file)
 		return &fn.FunctionOutput{
 			Result: map[string]string{"file": file, "status": "processed"},
 		}, nil
 	})
-	registry.Register("run-migration", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("run-migration", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		migration := input.Args["migration"]
 		log.Printf("Running migration: %s", migration)
 		return &fn.FunctionOutput{
 			Result: map[string]string{"migration": migration, "status": "applied"},
 		}, nil
 	})
-	registry.Register("deploy-service", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("deploy-service", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		env := input.Args["environment"]
 		region := input.Args["region"]
 		log.Printf("Deploying to %s in %s", env, region)
@@ -60,14 +60,14 @@ func main() {
 			Result: map[string]string{"env": env, "region": region, "status": "deployed"},
 		}, nil
 	})
-	registry.Register("sync-tenant", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("sync-tenant", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		tenant := input.Args["tenant"]
 		log.Printf("Syncing tenant: %s", tenant)
 		return &fn.FunctionOutput{
 			Result: map[string]string{"tenant": tenant, "status": "synced"},
 		}, nil
 	})
-	registry.Register("health-check", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("health-check", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		service := input.Args["service"]
 		env := input.Args["environment"]
 		log.Printf("Health check: %s in %s", service, env)

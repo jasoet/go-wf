@@ -14,7 +14,7 @@ import (
 
 func TestExecuteFunctionActivity_Success(t *testing.T) {
 	registry := fn.NewRegistry()
-	registry.Register("greet", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("greet", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		name := input.Args["name"]
 		return &fn.FunctionOutput{
 			Result: map[string]string{"greeting": "hello " + name},
@@ -43,7 +43,7 @@ func TestExecuteFunctionActivity_Success(t *testing.T) {
 
 func TestExecuteFunctionActivity_HandlerError(t *testing.T) {
 	registry := fn.NewRegistry()
-	registry.Register("fail", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fail", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return nil, fmt.Errorf("something went wrong")
 	})
 
@@ -92,7 +92,7 @@ func TestExecuteFunctionActivity_ValidationError(t *testing.T) {
 
 func TestExecuteFunctionActivity_PanicRecovery(t *testing.T) {
 	registry := fn.NewRegistry()
-	registry.Register("panic-handler", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("panic-handler", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
 		panic("unexpected nil pointer")
 	})
 
@@ -113,7 +113,7 @@ func TestExecuteFunctionActivity_PanicRecovery(t *testing.T) {
 
 func TestExecuteFunctionActivity_WithData(t *testing.T) {
 	registry := fn.NewRegistry()
-	registry.Register("echo-data", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("echo-data", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return &fn.FunctionOutput{
 			Data: input.Data,
 		}, nil

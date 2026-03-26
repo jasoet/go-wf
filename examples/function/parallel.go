@@ -38,7 +38,7 @@ func main() {
 	registry := fn.NewRegistry()
 
 	// Fetch users from user service
-	registry.Register("fetch-users", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fetch-users", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[fetch-users] Fetching user data...")
 		time.Sleep(500 * time.Millisecond) // Simulate API call
 
@@ -56,7 +56,7 @@ func main() {
 	})
 
 	// Fetch orders from order service
-	registry.Register("fetch-orders", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fetch-orders", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[fetch-orders] Fetching order data...")
 		time.Sleep(700 * time.Millisecond) // Simulate API call
 
@@ -73,7 +73,7 @@ func main() {
 	})
 
 	// Fetch inventory from warehouse service
-	registry.Register("fetch-inventory", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fetch-inventory", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[fetch-inventory] Fetching inventory data...")
 		time.Sleep(300 * time.Millisecond) // Simulate API call
 

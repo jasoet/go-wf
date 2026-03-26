@@ -39,7 +39,7 @@ func main() {
 	// Create function registry with ETL handlers
 	registry := fn.NewRegistry()
 
-	registry.Register("extract", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("extract", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		source := input.Args["source"]
 		log.Printf("[extract] Extracting data from %s", source)
 		return &fn.FunctionOutput{
@@ -47,7 +47,7 @@ func main() {
 		}, nil
 	})
 
-	registry.Register("transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		format := input.Args["format"]
 		log.Printf("[transform] Transforming data to %s format", format)
 		return &fn.FunctionOutput{
@@ -55,7 +55,7 @@ func main() {
 		}, nil
 	})
 
-	registry.Register("load", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("load", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		target := input.Args["target"]
 		log.Printf("[load] Loading data into %s", target)
 		return &fn.FunctionOutput{
@@ -63,7 +63,7 @@ func main() {
 		}, nil
 	})
 
-	registry.Register("validate-config", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("validate-config", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		env := input.Args["env"]
 		log.Printf("[validate-config] Validating config for %s", env)
 		return &fn.FunctionOutput{
@@ -71,7 +71,7 @@ func main() {
 		}, nil
 	})
 
-	registry.Register("check-deps", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("check-deps", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		service := input.Args["service"]
 		log.Printf("[check-deps] Checking dependencies for %s", service)
 		return &fn.FunctionOutput{
@@ -79,7 +79,7 @@ func main() {
 		}, nil
 	})
 
-	registry.Register("run-smoke-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("run-smoke-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		target := input.Args["target"]
 		log.Printf("[run-smoke-tests] Running smoke tests against %s", target)
 		return &fn.FunctionOutput{

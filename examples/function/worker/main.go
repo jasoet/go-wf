@@ -104,7 +104,7 @@ func main() {
 func registerAllHandlers(registry *fn.Registry) {
 	// --- From basic.go (1 handler) ---
 
-	registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		name := input.Args["name"]
 		if name == "" {
 			name = "World"
@@ -116,7 +116,7 @@ func registerAllHandlers(registry *fn.Registry) {
 
 	// --- From pipeline.go (3 handlers) ---
 
-	registry.Register("validate", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("validate", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		email := input.Args["email"]
 		name := input.Args["name"]
 
@@ -135,7 +135,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		name := input.Args["name"]
 		email := input.Args["email"]
 
@@ -156,7 +156,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("notify", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("notify", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		channel := input.Args["channel"]
 		if channel == "" {
 			channel = "email"
@@ -175,7 +175,7 @@ func registerAllHandlers(registry *fn.Registry) {
 
 	// --- From parallel.go (3 handlers) ---
 
-	registry.Register("fetch-users", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fetch-users", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[fetch-users] Fetching user data...")
 		time.Sleep(500 * time.Millisecond) // Simulate API call
 
@@ -192,7 +192,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("fetch-orders", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fetch-orders", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[fetch-orders] Fetching order data...")
 		time.Sleep(700 * time.Millisecond) // Simulate API call
 
@@ -208,7 +208,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("fetch-inventory", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fetch-inventory", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[fetch-inventory] Fetching inventory data...")
 		time.Sleep(300 * time.Millisecond) // Simulate API call
 
@@ -231,7 +231,7 @@ func registerAllHandlers(registry *fn.Registry) {
 
 	// --- From loop.go (5 handlers) ---
 
-	registry.Register("process-csv", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("process-csv", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		file := input.Args["file"]
 		log.Printf("Processing CSV file: %s", file)
 		return &fn.FunctionOutput{
@@ -239,7 +239,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("run-migration", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("run-migration", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		migration := input.Args["migration"]
 		log.Printf("Running migration: %s", migration)
 		return &fn.FunctionOutput{
@@ -247,7 +247,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("deploy-service", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("deploy-service", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		env := input.Args["environment"]
 		region := input.Args["region"]
 		log.Printf("Deploying to %s in %s", env, region)
@@ -256,7 +256,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("sync-tenant", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("sync-tenant", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		tenant := input.Args["tenant"]
 		log.Printf("Syncing tenant: %s", tenant)
 		return &fn.FunctionOutput{
@@ -264,7 +264,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("health-check", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("health-check", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		service := input.Args["service"]
 		env := input.Args["environment"]
 		log.Printf("Health check: %s in %s", service, env)
@@ -275,7 +275,7 @@ func registerAllHandlers(registry *fn.Registry) {
 
 	// --- From builder.go (6 handlers, with "transform" renamed to "etl-transform") ---
 
-	registry.Register("extract", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("extract", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		source := input.Args["source"]
 		log.Printf("[extract] Extracting data from %s", source)
 		return &fn.FunctionOutput{
@@ -283,7 +283,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("etl-transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("etl-transform", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		format := input.Args["format"]
 		log.Printf("[etl-transform] Transforming data to %s format", format)
 		return &fn.FunctionOutput{
@@ -291,7 +291,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("load", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("load", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		target := input.Args["target"]
 		log.Printf("[load] Loading data into %s", target)
 		return &fn.FunctionOutput{
@@ -299,7 +299,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("validate-config", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("validate-config", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		env := input.Args["env"]
 		log.Printf("[validate-config] Validating config for %s", env)
 		return &fn.FunctionOutput{
@@ -307,7 +307,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("check-deps", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("check-deps", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		service := input.Args["service"]
 		log.Printf("[check-deps] Checking dependencies for %s", service)
 		return &fn.FunctionOutput{
@@ -315,7 +315,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("run-smoke-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("run-smoke-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		target := input.Args["target"]
 		log.Printf("[run-smoke-tests] Running smoke tests against %s", target)
 		return &fn.FunctionOutput{
@@ -325,7 +325,7 @@ func registerAllHandlers(registry *fn.Registry) {
 
 	// --- From dag.go (3 handlers) ---
 
-	registry.Register("compile", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("compile", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[compile] Compiling application...")
 		time.Sleep(300 * time.Millisecond)
 		return &fn.FunctionOutput{
@@ -333,7 +333,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("run-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("run-tests", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Println("[run-tests] Running test suite...")
 		time.Sleep(500 * time.Millisecond)
 		return &fn.FunctionOutput{
@@ -341,7 +341,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("publish-artifact", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("publish-artifact", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		artifactPath := input.Args["artifact_path"]
 		log.Printf("[publish-artifact] Publishing artifact: %s", artifactPath)
 		return &fn.FunctionOutput{
@@ -351,7 +351,7 @@ func registerAllHandlers(registry *fn.Registry) {
 
 	// --- Artifact demo handlers (3 handlers) ---
 
-	registry.Register("generate-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("generate-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		reportType := input.Args["type"]
 		if reportType == "" {
 			reportType = "summary"
@@ -368,7 +368,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("process-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("process-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Printf("[process-report] Processing report data (%d bytes)...", len(input.Data))
 
 		// Simulate processing the report data
@@ -381,7 +381,7 @@ func registerAllHandlers(registry *fn.Registry) {
 		}, nil
 	})
 
-	registry.Register("archive-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("archive-report", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		log.Printf("[archive-report] Archiving report data (%d bytes)...", len(input.Data))
 
 		return &fn.FunctionOutput{

@@ -36,11 +36,16 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Register adds a named handler to the registry.
-func (r *Registry) Register(name string, handler Handler) {
+// Register adds a named handler to the registry. Returns an error if a handler
+// with the same name is already registered.
+func (r *Registry) Register(name string, handler Handler) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if _, exists := r.handlers[name]; exists {
+		return fmt.Errorf("handler already registered: %s", name)
+	}
 	r.handlers[name] = handler
+	return nil
 }
 
 // Get retrieves a handler by name.

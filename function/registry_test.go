@@ -21,7 +21,8 @@ func TestRegistry_RegisterAndGet(t *testing.T) {
 		return &FunctionOutput{Result: map[string]string{"key": "value"}}, nil
 	}
 
-	r.Register("my-func", handler)
+	err := r.Register("my-func", handler)
+	require.NoError(t, err)
 	assert.True(t, r.Has("my-func"))
 
 	got, err := r.Get("my-func")
@@ -32,6 +33,21 @@ func TestRegistry_RegisterAndGet(t *testing.T) {
 	out, err := got(context.Background(), FunctionInput{})
 	require.NoError(t, err)
 	assert.Equal(t, "value", out.Result["key"])
+}
+
+func TestRegistry_RegisterDuplicate(t *testing.T) {
+	r := NewRegistry()
+
+	handler := func(_ context.Context, _ FunctionInput) (*FunctionOutput, error) {
+		return &FunctionOutput{}, nil
+	}
+
+	err := r.Register("dup", handler)
+	require.NoError(t, err)
+
+	err = r.Register("dup", handler)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already registered")
 }
 
 func TestRegistry_GetNotFound(t *testing.T) {
@@ -45,7 +61,7 @@ func TestRegistry_GetNotFound(t *testing.T) {
 func TestRegistry_Has(t *testing.T) {
 	r := NewRegistry()
 
-	r.Register("exists", func(_ context.Context, _ FunctionInput) (*FunctionOutput, error) {
+	_ = r.Register("exists", func(_ context.Context, _ FunctionInput) (*FunctionOutput, error) {
 		return &FunctionOutput{}, nil
 	})
 

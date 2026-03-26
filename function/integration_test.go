@@ -29,14 +29,14 @@ var (
 
 func registerTestHandlers(registry *fn.Registry) {
 	// echo — returns input.Args as Result
-	registry.Register("echo", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("echo", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return &fn.FunctionOutput{
 			Result: input.Args,
 		}, nil
 	})
 
 	// fail — returns error with message from args or default
-	registry.Register("fail", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fail", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		msg := input.Args["message"]
 		if msg == "" {
 			msg = "intentional failure"
@@ -45,7 +45,7 @@ func registerTestHandlers(registry *fn.Registry) {
 	})
 
 	// slow — sleeps 100ms, returns {"status": "completed"}
-	registry.Register("slow", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("slow", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		time.Sleep(100 * time.Millisecond)
 		return &fn.FunctionOutput{
 			Result: map[string]string{"status": "completed"},
@@ -53,7 +53,7 @@ func registerTestHandlers(registry *fn.Registry) {
 	})
 
 	// maybeFailOnItem — fails if args["item"] == "bad", otherwise echoes args.
-	registry.Register("maybe-fail", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("maybe-fail", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		if input.Args["item"] == "bad" {
 			return nil, fmt.Errorf("item %s is bad", input.Args["item"])
 		}
@@ -63,7 +63,7 @@ func registerTestHandlers(registry *fn.Registry) {
 	})
 
 	// concat — returns {"item": input.Args["item"], "index": input.Args["index"]}
-	registry.Register("concat", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("concat", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return &fn.FunctionOutput{
 			Result: map[string]string{
 				"item":  input.Args["item"],

@@ -35,7 +35,7 @@ func TestRecordFunctionMetrics_NilConfig(t *testing.T) {
 func TestInstrumentedExecuteFunctionActivity_PassThrough(t *testing.T) {
 	// Set up a real registry with a handler
 	registry := fn.NewRegistry()
-	registry.Register("echo", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("echo", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return &fn.FunctionOutput{
 			Result: map[string]string{"echoed": "true"},
 		}, nil
@@ -72,7 +72,7 @@ func otelContext() context.Context {
 
 func TestInstrumentedExecuteFunctionActivity_WithOTelConfig_Success(t *testing.T) {
 	registry := fn.NewRegistry()
-	registry.Register("echo", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("echo", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return &fn.FunctionOutput{
 			Result: map[string]string{"echoed": "true"},
 		}, nil
@@ -98,7 +98,7 @@ func TestInstrumentedExecuteFunctionActivity_WithOTelConfig_Success(t *testing.T
 
 func TestInstrumentedExecuteFunctionActivity_WithOTelConfig_HandlerError(t *testing.T) {
 	registry := fn.NewRegistry()
-	registry.Register("fail", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
+	_ = registry.Register("fail", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
 		return nil, fmt.Errorf("handler failed")
 	})
 
