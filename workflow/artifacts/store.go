@@ -66,25 +66,36 @@ var safeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // ValidateMetadata checks that metadata fields are safe for use as path/key components.
 func ValidateMetadata(m ArtifactMetadata) error {
-	fields := map[string]string{
-		"WorkflowID": m.WorkflowID,
-		"RunID":      m.RunID,
-		"StepName":   m.StepName,
-		"Name":       m.Name,
+	fields := []struct{ name, value string }{
+		{"WorkflowID", m.WorkflowID},
+		{"RunID", m.RunID},
+		{"StepName", m.StepName},
+		{"Name", m.Name},
 	}
-	for name, value := range fields {
-		if value == "" {
-			return fmt.Errorf("invalid metadata: %s must not be empty", name)
+	for _, f := range fields {
+		if f.value == "" {
+			return fmt.Errorf("invalid metadata: %s must not be empty", f.name)
 		}
-		if strings.ContainsAny(value, "/\\\x00") {
-			return fmt.Errorf("invalid metadata: %s contains forbidden characters", name)
+		if strings.ContainsAny(f.value, "/\\\x00") {
+			return fmt.Errorf("invalid metadata: %s contains forbidden characters", f.name)
 		}
-		if strings.Contains(value, "..") {
-			return fmt.Errorf("invalid metadata: %s contains path traversal sequence", name)
+		if strings.Contains(f.value, "..") {
+			return fmt.Errorf("invalid metadata: %s contains path traversal sequence", f.name)
 		}
-		if !safeNamePattern.MatchString(value) {
-			return fmt.Errorf("invalid metadata: %s contains invalid characters", name)
+		if !safeNamePattern.MatchString(f.value) {
+			return fmt.Errorf("invalid metadata: %s contains invalid characters", f.name)
 		}
+	}
+	return nil
+}
+
+// ValidatePrefix checks that a list prefix is safe for use in path/key lookups.
+func ValidatePrefix(prefix string) error {
+	if strings.Contains(prefix, "..") {
+		return fmt.Errorf("invalid prefix: contains path traversal sequence")
+	}
+	if strings.ContainsAny(prefix, "\\\x00") {
+		return fmt.Errorf("invalid prefix: contains forbidden characters")
 	}
 	return nil
 }

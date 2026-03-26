@@ -262,6 +262,43 @@ func TestArtifactMetadata_StorageKey(t *testing.T) {
 	assert.Equal(t, expected, metadata.StorageKey())
 }
 
+func TestValidatePrefix(t *testing.T) {
+	tests := []struct {
+		name    string
+		prefix  string
+		wantErr bool
+	}{
+		{"valid prefix", "workflow-123/run-456/", false},
+		{"empty prefix", "", false},
+		{"path traversal", "../../etc/", true},
+		{"null byte", "prefix\x00evil", true},
+		{"backslash", "prefix\\evil", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidatePrefix(tt.prefix)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestLocalFileStore_ListPathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	_, err = store.List(ctx, "../../etc/")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid prefix")
+}
+
 func TestArchiveDirectory(t *testing.T) {
 	// Create temporary directory with test files
 	tmpDir := t.TempDir()

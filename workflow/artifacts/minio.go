@@ -170,6 +170,10 @@ func (s *MinioStore) Exists(ctx context.Context, metadata ArtifactMetadata) (boo
 
 // List returns all artifacts matching the given prefix.
 func (s *MinioStore) List(ctx context.Context, prefix string) ([]ArtifactMetadata, error) {
+	if err := ValidatePrefix(prefix); err != nil {
+		return nil, err
+	}
+
 	objectPrefix := s.prefix
 	if prefix != "" {
 		objectPrefix = s.prefix + prefix

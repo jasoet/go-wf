@@ -124,6 +124,10 @@ func (s *LocalFileStore) Exists(ctx context.Context, metadata ArtifactMetadata) 
 
 // List returns all artifacts matching the given prefix.
 func (s *LocalFileStore) List(ctx context.Context, prefix string) ([]ArtifactMetadata, error) {
+	if err := ValidatePrefix(prefix); err != nil {
+		return nil, err
+	}
+
 	searchPath := filepath.Join(s.BasePath, prefix)
 	var artifacts []ArtifactMetadata
 
