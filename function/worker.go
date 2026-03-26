@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"sync"
 
 	"go.temporal.io/sdk/activity"
 
@@ -12,15 +13,20 @@ import (
 // activityType is the function signature for the function execution activity.
 type activityType = func(context.Context, payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error)
 
-// instrumentActivity is a hook that function/activity can set to provide OTel instrumentation.
-// When non-nil, RegisterActivity uses it to wrap the activity function.
-var instrumentActivity func(activityType) activityType
+var (
+	// instrumentActivity is a hook that function/activity can set to provide OTel instrumentation.
+	// When non-nil, RegisterActivity uses it to wrap the activity function.
+	instrumentActivity func(activityType) activityType
 
-// SetActivityInstrumenter sets the function used to wrap activity functions with instrumentation.
-// This must only be called during package init(), not at runtime.
-// It is called by function/activity's init() to register OTel instrumentation.
+	setInstrumenterOnce sync.Once
+)
+
+// SetActivityInstrumenter sets the function that wraps activities with instrumentation.
+// This must only be called once during initialization; subsequent calls are ignored.
 func SetActivityInstrumenter(wrapper func(activityType) activityType) {
-	instrumentActivity = wrapper
+	setInstrumenterOnce.Do(func() {
+		instrumentActivity = wrapper
+	})
 }
 
 // WorkflowRegistrar is the interface for registering workflows and activities.
