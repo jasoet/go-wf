@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -199,7 +200,17 @@ func ArchiveDirectory(sourceDir string, writer io.Writer) (err error) {
 		}
 	}()
 
-	return filepath.Walk(sourceDir, func(file string, fi os.FileInfo, err error) error {
+	return filepath.WalkDir(sourceDir, func(file string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip symlinks to prevent including files outside source directory.
+		if d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+
+		fi, err := d.Info()
 		if err != nil {
 			return err
 		}

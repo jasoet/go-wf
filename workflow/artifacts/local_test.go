@@ -1064,3 +1064,34 @@ func TestLocalFileStore_ListSkipsShallowPaths(t *testing.T) {
 	assert.Len(t, listed, 1)
 	assert.Equal(t, "proper-file", listed[0].Name)
 }
+
+func TestArchiveDirectory_SkipsSymlinks(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a regular file
+	err := os.WriteFile(filepath.Join(tmpDir, "regular.txt"), []byte("content"), 0o644)
+	require.NoError(t, err)
+
+	// Create a symlink to something outside
+	symPath := filepath.Join(tmpDir, "link.txt")
+	err = os.Symlink("/etc/hostname", symPath)
+	require.NoError(t, err)
+
+	// Archive should succeed (skipping symlink)
+	var buf bytes.Buffer
+	err = ArchiveDirectory(tmpDir, &buf)
+	require.NoError(t, err)
+
+	// Extract and verify only regular.txt is present
+	destDir := t.TempDir()
+	err = ExtractArchive(&buf, destDir)
+	require.NoError(t, err)
+
+	// Regular file should exist
+	_, err = os.Stat(filepath.Join(destDir, "regular.txt"))
+	assert.NoError(t, err)
+
+	// Symlink target should NOT be in archive
+	_, err = os.Stat(filepath.Join(destDir, "link.txt"))
+	assert.True(t, os.IsNotExist(err))
+}
