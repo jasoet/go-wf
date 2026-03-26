@@ -206,6 +206,12 @@ func ExtractRegex(text, pattern string) (string, error) {
 	return matches[0], nil
 }
 
+// ShellEscape wraps a string in single quotes for safe shell interpolation.
+// Single quotes inside the string are escaped with the '\'' idiom.
+func ShellEscape(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // ReadFile reads a file and returns its contents as a string.
 func ReadFile(path string) (string, error) {
 	data, err := os.ReadFile(path) //#nosec G304 -- path comes from workflow configuration

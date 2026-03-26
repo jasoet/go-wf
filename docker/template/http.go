@@ -118,13 +118,13 @@ func (h *HTTP) ToInput() payload.ContainerExecutionInput {
 // buildValidationScript creates a shell script that makes the HTTP request
 // and validates the response status code.
 func (h *HTTP) buildValidationScript(curlArgs []string) string {
-	// Escape single quotes in curl arguments
-	escapedArgs := make([]string, len(curlArgs))
+	// Quote each curl argument in single quotes for safe shell interpolation.
+	quotedArgs := make([]string, len(curlArgs))
 	for i, arg := range curlArgs {
-		escapedArgs[i] = strings.ReplaceAll(arg, "'", "'\\''")
+		quotedArgs[i] = "'" + strings.ReplaceAll(arg, "'", "'\\''") + "'"
 	}
 
-	curlCmd := "curl " + strings.Join(escapedArgs, " ")
+	curlCmd := "curl " + strings.Join(quotedArgs, " ")
 
 	script := fmt.Sprintf(`
 OUTPUT=$(mktemp)

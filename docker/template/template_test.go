@@ -405,7 +405,7 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 				WithHTTPTimeout(45)),
 			expected: func(t *testing.T, input payload.ContainerExecutionInput) {
 				script := input.Command[len(input.Command)-1]
-				assert.Contains(t, script, "--max-time 45")
+				assert.Contains(t, script, "'--max-time' '45'")
 			},
 		},
 		{
@@ -479,6 +479,24 @@ func TestHTTPOptionsComprehensive(t *testing.T) {
 			tt.expected(t, input)
 		})
 	}
+}
+
+func TestHTTP_CurlArgsAreQuoted(t *testing.T) {
+	h := NewHTTP("injection-test",
+		WithHTTPURL("http://example.com"),
+		WithHTTPHeader("Authorization", "Bearer $(whoami)"),
+		WithHTTPBody(`{"key": "value"}`))
+
+	input := h.ToInput()
+
+	// The script (last element of Command) should have quoted arguments
+	script := input.Command[len(input.Command)-1]
+
+	// The malicious header value should be inside single quotes, not bare
+	// The full header arg "Authorization: Bearer $(whoami)" is quoted as a single arg
+	assert.Contains(t, script, "'Authorization: Bearer $(whoami)'")
+	// Verify it does NOT appear unquoted (bare argument without surrounding quotes)
+	assert.NotContains(t, script, " Authorization: Bearer $(whoami) ")
 }
 
 func TestContainerValidation(t *testing.T) {

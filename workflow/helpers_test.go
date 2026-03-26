@@ -275,6 +275,29 @@ func TestReadFile(t *testing.T) {
 	}
 }
 
+func TestShellEscape(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"simple string", "hello", "'hello'"},
+		{"string with spaces", "hello world", "'hello world'"},
+		{"string with single quotes", "it's here", "'it'\\''s here'"},
+		{"injection attempt", "; rm -rf /", "'; rm -rf /'"},
+		{"command substitution", "$(whoami)", "'$(whoami)'"},
+		{"backtick substitution", "`whoami`", "'`whoami`'"},
+		{"empty string", "", "''"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ShellEscape(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestDefaultActivityOptions(t *testing.T) {
 	opts := DefaultActivityOptions()
 	assert.Equal(t, 10*60_000_000_000, int(opts.StartToCloseTimeout.Nanoseconds()))
