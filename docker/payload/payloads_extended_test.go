@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDAGWorkflowInput_Validate(t *testing.T) {
@@ -82,6 +83,84 @@ func TestDAGWorkflowInput_Validate(t *testing.T) {
 			}
 			if tt.errMsg != "" && err != nil {
 				assert.Contains(t, err.Error(), tt.errMsg)
+			}
+		})
+	}
+}
+
+func TestDAGWorkflowInput_CycleDetection(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   DAGWorkflowInput
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "direct cycle A->B->A",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{Name: "A", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"B"}},
+					{Name: "B", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"A"}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "circular dependency",
+		},
+		{
+			name: "self-referencing node",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{Name: "A", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"A"}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "circular dependency",
+		},
+		{
+			name: "indirect cycle A->B->C->A",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{Name: "A", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"C"}},
+					{Name: "B", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"A"}},
+					{Name: "C", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"B"}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "circular dependency",
+		},
+		{
+			name: "duplicate node names",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{Name: "build", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}},
+					{Name: "build", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}},
+				},
+			},
+			wantErr: true,
+			errMsg:  "duplicate node name",
+		},
+		{
+			name: "valid diamond DAG",
+			input: DAGWorkflowInput{
+				Nodes: []DAGNode{
+					{Name: "A", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}},
+					{Name: "B", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"A"}},
+					{Name: "C", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"A"}},
+					{Name: "D", Container: ExtendedContainerInput{ContainerExecutionInput: ContainerExecutionInput{Image: "alpine"}}, Dependencies: []string{"B", "C"}},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.input.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

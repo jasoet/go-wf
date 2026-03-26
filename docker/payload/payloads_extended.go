@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jasoet/go-wf/workflow/artifacts"
@@ -183,22 +184,76 @@ type DAGWorkflowInput struct {
 	ArtifactStore artifacts.ArtifactStore `json:"-"`
 }
 
-// Validate validates DAG workflow input.
+// Validate validates DAG workflow input including cycle detection.
 func (i *DAGWorkflowInput) Validate() error {
 	if len(i.Nodes) == 0 {
 		return errors.ErrInvalidInput.Wrap("at least one node is required")
 	}
 
-	// Check for circular dependencies (simplified check)
-	nodeMap := make(map[string]bool)
+	// Check for duplicate node names.
+	nodeMap := make(map[string]bool, len(i.Nodes))
 	for _, node := range i.Nodes {
+		if nodeMap[node.Name] {
+			return errors.ErrInvalidInput.Wrap(fmt.Sprintf("duplicate node name: %s", node.Name))
+		}
 		nodeMap[node.Name] = true
 	}
 
+	// Check that all dependencies reference existing nodes.
 	for _, node := range i.Nodes {
 		for _, dep := range node.Dependencies {
 			if !nodeMap[dep] {
 				return errors.ErrInvalidInput.Wrap("dependency node not found: " + dep)
+			}
+		}
+	}
+
+	// DFS-based cycle detection.
+	if err := detectDAGCycles(i.Nodes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// detectDAGCycles uses DFS to find circular dependencies in the DAG.
+func detectDAGCycles(nodes []DAGNode) error {
+	deps := make(map[string][]string, len(nodes))
+	for _, node := range nodes {
+		deps[node.Name] = node.Dependencies
+	}
+
+	const (
+		unvisited = 0
+		visiting  = 1
+		visited   = 2
+	)
+
+	state := make(map[string]int, len(nodes))
+
+	var dfs func(name string) error
+	dfs = func(name string) error {
+		state[name] = visiting
+		for _, dep := range deps[name] {
+			switch state[dep] {
+			case visiting:
+				return errors.ErrInvalidInput.Wrap(
+					fmt.Sprintf("circular dependency detected involving node: %s", dep),
+				)
+			case unvisited:
+				if err := dfs(dep); err != nil {
+					return err
+				}
+			}
+		}
+		state[name] = visited
+		return nil
+	}
+
+	for _, node := range nodes {
+		if state[node.Name] == unvisited {
+			if err := dfs(node.Name); err != nil {
+				return err
 			}
 		}
 	}
