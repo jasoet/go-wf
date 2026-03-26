@@ -36,10 +36,10 @@
 
 ### Docker Refactor
 
-**`docker/payload/payloads_extended.go`**
+**`container/payload/payloads_extended.go`**
 - `ArtifactStore interface{}` → `ArtifactStore artifacts.ArtifactStore` (json:"-")
 
-**`docker/workflow/dag.go`**
+**`container/workflow/dag.go`**
 - Remove `store, ok := input.ArtifactStore.(artifacts.ArtifactStore)` type assertions
 - Use `input.ArtifactStore` directly
 

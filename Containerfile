@@ -5,9 +5,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-# Docker worker build
-FROM builder AS docker-worker-build
-RUN CGO_ENABLED=0 go build -tags example -o /docker-worker ./examples/docker/worker/
+# Container worker build
+FROM builder AS container-worker-build
+RUN CGO_ENABLED=0 go build -tags example -o /container-worker ./examples/container/worker/
 
 # Function worker build
 FROM builder AS function-worker-build
@@ -17,10 +17,10 @@ RUN CGO_ENABLED=0 go build -tags example -o /function-worker ./examples/function
 FROM builder AS trigger-build
 RUN CGO_ENABLED=0 go build -tags example -o /trigger ./examples/trigger/
 
-# Runtime: docker worker
-FROM gcr.io/distroless/static AS docker-worker
-COPY --from=docker-worker-build /docker-worker /docker-worker
-ENTRYPOINT ["/docker-worker"]
+# Runtime: container worker
+FROM gcr.io/distroless/static AS container-worker
+COPY --from=container-worker-build /container-worker /container-worker
+ENTRYPOINT ["/container-worker"]
 
 # Runtime: function worker
 FROM gcr.io/distroless/static AS function-worker

@@ -14,7 +14,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 - Always use `task <name>` to run commands — never run raw commands directly. Run `task --list` to discover tasks.
 - Python: always `uv` (never pip, conda, pipenv). No bash scripts.
 - Node.js: always `bun`/`bunx` (never node, npm, npx).
-- Containers: always `podman`/`podman-compose` (never docker/docker-compose).
+- Containers: always `podman`/`podman-compose` (never container/docker-compose).
 - Use brainstorming skill when user starts a new topic or plans something.
 - Check and update INSTRUCTION.md and README.md when making significant changes.
 - Conventional Commits: `<type>(<scope>): <description>`.

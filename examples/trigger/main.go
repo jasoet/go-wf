@@ -13,8 +13,8 @@ import (
 	pkgtemporal "github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
 
-	dockerpayload "github.com/jasoet/go-wf/docker/payload"
-	dockerwf "github.com/jasoet/go-wf/docker/workflow"
+	dockerpayload "github.com/jasoet/go-wf/container/payload"
+	dockerwf "github.com/jasoet/go-wf/container/workflow"
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
 	"github.com/jasoet/go-wf/workflow/artifacts"
@@ -80,7 +80,7 @@ func submit(ctx context.Context, c client.Client, workflowID, taskQueue string, 
 
 func runAll(ctx context.Context, c client.Client) error {
 	ts := time.Now().Format("20060102-150405")
-	dockerQueue := "docker-tasks"
+	dockerQueue := "container-tasks"
 	fnQueue := "function-tasks"
 	var failures int
 
@@ -360,7 +360,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-pipeline",
 			WorkflowFunc: dockerwf.ContainerPipelineWorkflow,
-			TaskQueue:    "docker-tasks",
+			TaskQueue:    "container-tasks",
 			Input: dockerpayload.PipelineInput{
 				StopOnError: true,
 				Containers: []dockerpayload.ContainerExecutionInput{
@@ -375,7 +375,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-parallel",
 			WorkflowFunc: dockerwf.ParallelContainersWorkflow,
-			TaskQueue:    "docker-tasks",
+			TaskQueue:    "container-tasks",
 			Input: dockerpayload.ParallelInput{
 				Containers: []dockerpayload.ContainerExecutionInput{
 					{Image: "alpine:latest", Command: []string{"echo", "Scheduled parallel A"}, AutoRemove: true, Name: "par-a"},
@@ -442,7 +442,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-loop",
 			WorkflowFunc: dockerwf.LoopWorkflow,
-			TaskQueue:    "docker-tasks",
+			TaskQueue:    "container-tasks",
 			Input: dockerpayload.LoopInput{
 				Items: []string{"item-1", "item-2", "item-3"},
 				Template: dockerpayload.ContainerExecutionInput{
@@ -457,7 +457,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-docker-dag",
 			WorkflowFunc: dockerwf.DAGWorkflow,
-			TaskQueue:    "docker-tasks",
+			TaskQueue:    "container-tasks",
 			Input: dockerpayload.DAGWorkflowInput{
 				Nodes: []dockerpayload.DAGNode{
 					{Name: "build", Container: dockerpayload.ExtendedContainerInput{

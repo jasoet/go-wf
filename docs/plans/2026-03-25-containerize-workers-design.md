@@ -37,7 +37,7 @@ Multi-stage build:
 
 ### Worker code changes
 
-- `examples/docker/worker/main.go` — read TEMPORAL_HOST_PORT from env
+- `examples/container/worker/main.go` — read TEMPORAL_HOST_PORT from env
 - `examples/function/worker/main.go` — read TEMPORAL_HOST_PORT, MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY from env
 - `examples/trigger/main.go` — read TEMPORAL_HOST_PORT from env, add `run-all` subcommand
 

@@ -292,6 +292,6 @@ input := payload.FunctionExecutionInput{Name: "my-func"}  // Must match
 ## Next Steps
 
 - Review the [function package source](../../function/) for implementation details
-- See the [docker examples](../docker/) for container orchestration patterns
+- See the [docker examples](../container/) for container orchestration patterns
 - Build custom handlers for your domain logic
 - Compose pipelines and parallel workflows using the builder API

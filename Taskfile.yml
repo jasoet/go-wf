@@ -193,17 +193,17 @@ tasks:
       - go test -race -count=1 -coverprofile=/tmp/pkg-coverage.out -covermode=atomic {{.CLI_ARGS}}
       - go tool cover -func=/tmp/pkg-coverage.out | grep total
 
-  example:docker:
-    desc: "Run a docker example (usage: task example:docker -- basic.go)"
+  example:container:
+    desc: "Run a container example (usage: task example:container -- basic.go)"
     silent: true
-    dir: examples/docker
+    dir: examples/container
     cmds:
       - go run -tags example {{.CLI_ARGS}}
 
-  example:docker:worker:
-    desc: Start the docker example worker (listens on docker-tasks queue)
+  example:container:worker:
+    desc: Start the container example worker (listens on container-tasks queue)
     silent: true
-    dir: examples/docker/worker
+    dir: examples/container/worker
     cmds:
       - go run -tags example main.go
 
@@ -219,12 +219,12 @@ tasks:
     silent: true
     cmds:
       - |
-        echo "Docker examples (task example:docker -- <file>):"
-        for f in examples/docker/*.go; do
+        echo "Container examples (task example:container -- <file>):"
+        for f in examples/container/*.go; do
           echo "  $(basename $f)"
         done
         echo ""
-        echo "Docker worker (task example:docker:worker):"
+        echo "Container worker (task example:container:worker):"
         echo "  worker/main.go"
         echo ""
         echo "Function examples (task example:function -- <file>):"
@@ -246,7 +246,7 @@ tasks:
         cleanup() {
           echo ""
           echo "🧹 Cleaning up..."
-          [ -n "$WORKER_PID" ] && kill $WORKER_PID 2>/dev/null && echo "  Stopped docker worker (PID $WORKER_PID)"
+          [ -n "$WORKER_PID" ] && kill $WORKER_PID 2>/dev/null && echo "  Stopped container worker (PID $WORKER_PID)"
           [ -n "$TEMPORAL_PID" ] && kill $TEMPORAL_PID 2>/dev/null && echo "  Stopped Temporal server (PID $TEMPORAL_PID)"
           exit 0
         }
@@ -275,9 +275,9 @@ tasks:
         echo "  📊 Temporal UI: http://localhost:8233"
         echo ""
 
-        # 2. Start docker worker
-        echo "🔧 Starting docker worker..."
-        cd examples/docker/worker && go run -tags example main.go > /dev/null 2>&1 &
+        # 2. Start container worker
+        echo "🔧 Starting container worker..."
+        cd examples/container/worker && go run -tags example main.go > /dev/null 2>&1 &
         WORKER_PID=$!
         cd - > /dev/null
         echo "  Worker PID: $WORKER_PID"
@@ -296,27 +296,27 @@ tasks:
           echo ""
         done
 
-        # 4. Run standalone docker examples (have embedded workers)
+        # 4. Run standalone container examples (have embedded workers)
         echo "═══════════════════════════════════════"
-        echo "  DOCKER EXAMPLES (standalone)"
+        echo "  CONTAINER EXAMPLES (standalone)"
         echo "═══════════════════════════════════════"
         for f in basic.go pipeline.go parallel.go builder.go; do
           echo ""
-          echo "▶ docker/$f"
+          echo "▶ container/$f"
           echo "---"
-          (cd examples/docker && go run -tags example "$f") || echo "  ⚠ $f exited with error"
+          (cd examples/container && go run -tags example "$f") || echo "  ⚠ $f exited with error"
           echo ""
         done
 
-        # 5. Run worker-dependent docker examples (use external worker)
+        # 5. Run worker-dependent container examples (use external worker)
         echo "═══════════════════════════════════════"
-        echo "  DOCKER EXAMPLES (worker-dependent)"
+        echo "  CONTAINER EXAMPLES (worker-dependent)"
         echo "═══════════════════════════════════════"
         for f in advanced.go builder-advanced.go dag.go data-passing.go loop.go operations.go patterns-demo.go; do
           echo ""
-          echo "▶ docker/$f"
+          echo "▶ container/$f"
           echo "---"
-          (cd examples/docker && go run -tags example "$f") || echo "  ⚠ $f exited with error"
+          (cd examples/container && go run -tags example "$f") || echo "  ⚠ $f exited with error"
           echo ""
         done
 
@@ -326,7 +326,7 @@ tasks:
         echo "═══════════════════════════════════════"
 
   demo:start:
-    desc: Start Temporal dev server + docker worker in background (use demo:stop to clean up)
+    desc: Start Temporal dev server + container worker in background (use demo:stop to clean up)
     silent: true
     env:
       DOCKER_HOST: '{{.CONTAINER_HOST}}'
@@ -363,9 +363,9 @@ tasks:
           sleep 1
         done
 
-        # 2. Start docker worker
-        echo "🔧 Starting docker worker..."
-        cd examples/docker/worker && go run -tags example main.go > /dev/null 2>&1 &
+        # 2. Start container worker
+        echo "🔧 Starting container worker..."
+        cd examples/container/worker && go run -tags example main.go > /dev/null 2>&1 &
         WORKER_PID=$!
         cd - > /dev/null
         echo "  Worker PID: $WORKER_PID"
@@ -380,13 +380,13 @@ tasks:
         echo ""
         echo "Run examples with:"
         echo "  task example:function -- basic.go"
-        echo "  task example:docker -- basic.go"
+        echo "  task example:container -- basic.go"
         echo "  task example:list"
         echo ""
         echo "Stop with: task demo:stop"
 
   demo:stop:
-    desc: Stop Temporal dev server + docker worker started by demo:start
+    desc: Stop Temporal dev server + container worker started by demo:start
     silent: true
     cmds:
       - |
@@ -400,7 +400,7 @@ tasks:
         read TEMPORAL_PID WORKER_PID < "$PIDFILE"
 
         echo "🧹 Stopping demo environment..."
-        [ -n "$WORKER_PID" ] && kill $WORKER_PID 2>/dev/null && echo "  Stopped docker worker (PID $WORKER_PID)"
+        [ -n "$WORKER_PID" ] && kill $WORKER_PID 2>/dev/null && echo "  Stopped container worker (PID $WORKER_PID)"
         [ -n "$TEMPORAL_PID" ] && kill $TEMPORAL_PID 2>/dev/null && echo "  Stopped Temporal server (PID $TEMPORAL_PID)"
 
         rm -f "$PIDFILE"
@@ -417,18 +417,18 @@ tasks:
         echo "  Temporal UI: http://localhost:8233"
         echo "  MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
         echo ""
-        echo "To also start docker worker: task local:up:all CONTAINER_SOCK=<socket-path>"
+        echo "To also start container worker: task local:up:all CONTAINER_SOCK=<socket-path>"
         echo "Use 'task local:logs' to follow logs"
         echo "Use 'task local:down' to stop"
 
   local:up:all:
-    desc: Start all services including docker worker (requires CONTAINER_SOCK env var)
+    desc: Start all services including container worker (requires CONTAINER_SOCK env var)
     silent: true
     cmds:
-      - podman-compose --profile docker up -d --build
+      - podman-compose --profile container up -d --build
       - |
         echo ""
-        echo "Local environment starting (with docker worker)..."
+        echo "Local environment starting (with container worker)..."
         echo "  Temporal UI: http://localhost:8233"
         echo "  MinIO Console: http://localhost:9001 (minioadmin/minioadmin)"
         echo ""
@@ -439,13 +439,13 @@ tasks:
     desc: Stop local environment
     silent: true
     cmds:
-      - podman-compose --profile docker down
+      - podman-compose --profile container down
 
   local:clean:
     desc: Stop local environment and remove volumes
     silent: true
     cmds:
-      - podman-compose --profile docker down -v
+      - podman-compose --profile container down -v
 
   local:build:
     desc: Build worker and trigger container images

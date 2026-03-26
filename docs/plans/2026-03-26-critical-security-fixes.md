@@ -4,7 +4,7 @@
 
 **Goal:** Fix the 5 critical security vulnerabilities (C1-C5) identified in the security review.
 
-**Architecture:** Each fix is isolated to a specific package. C1+C2 share a common validation function in `workflow/artifacts/`. C3 adds shell escaping to `workflow/helpers.go` and fixes HTTP template quoting. C4 ports DFS cycle detection from `function/payload/` to `docker/payload/`. C5 adds `recover()` in `function/activity/`.
+**Architecture:** Each fix is isolated to a specific package. C1+C2 share a common validation function in `workflow/artifacts/`. C3 adds shell escaping to `workflow/helpers.go` and fixes HTTP template quoting. C4 ports DFS cycle detection from `function/payload/` to `container/payload/`. C5 adds `recover()` in `function/activity/`.
 
 **Tech Stack:** Go 1.26+, testify (assert+require), Temporal SDK
 
@@ -225,9 +225,9 @@ Removes unjustified #nosec annotations."
 
 **Files:**
 - Modify: `workflow/helpers.go` (add `ShellEscape` function)
-- Modify: `docker/template/http.go` (quote curl arguments properly)
+- Modify: `container/template/http.go` (quote curl arguments properly)
 - Test: `workflow/helpers_test.go` (add shell escape tests)
-- Test: `docker/template/template_test.go` (add injection tests)
+- Test: `container/template/template_test.go` (add injection tests)
 
 **Step 1: Write failing tests for shell escaping**
 
@@ -282,7 +282,7 @@ Expected: PASS
 
 **Step 5: Write failing test for HTTP template quoting**
 
-Add to `docker/template/template_test.go`:
+Add to `container/template/template_test.go`:
 
 ```go
 func TestHTTP_CurlArgsAreQuoted(t *testing.T) {
@@ -304,7 +304,7 @@ func TestHTTP_CurlArgsAreQuoted(t *testing.T) {
 
 **Step 6: Fix HTTP template to quote curl arguments**
 
-In `docker/template/http.go`, update `buildValidationScript`:
+In `container/template/http.go`, update `buildValidationScript`:
 
 ```go
 func (h *HTTP) buildValidationScript(curlArgs []string) string {
@@ -321,7 +321,7 @@ func (h *HTTP) buildValidationScript(curlArgs []string) string {
 
 **Step 7: Run tests**
 
-Run: `task test:pkg -- ./docker/template/...`
+Run: `task test:pkg -- ./container/template/...`
 Expected: PASS
 
 **Step 8: Run full unit tests**
@@ -332,7 +332,7 @@ Expected: PASS
 **Step 9: Commit**
 
 ```
-git add workflow/helpers.go workflow/helpers_test.go docker/template/http.go docker/template/template_test.go
+git add workflow/helpers.go workflow/helpers_test.go container/template/http.go container/template/template_test.go
 git commit -m "fix(security): add shell escaping and fix HTTP template injection
 
 Add ShellEscape function for safe shell interpolation.
@@ -344,12 +344,12 @@ Quote all curl arguments in HTTP template to prevent injection."
 ### Task 3: C4 — DAG Cycle Detection in Docker Module
 
 **Files:**
-- Modify: `docker/payload/payloads_extended.go` (add cycle detection + duplicate check)
-- Test: `docker/payload/payloads_extended_test.go` (add cycle tests)
+- Modify: `container/payload/payloads_extended.go` (add cycle detection + duplicate check)
+- Test: `container/payload/payloads_extended_test.go` (add cycle tests)
 
 **Step 1: Write failing tests for cycle detection**
 
-Add to `docker/payload/payloads_extended_test.go`:
+Add to `container/payload/payloads_extended_test.go`:
 
 ```go
 func TestDAGWorkflowInput_CycleDetection(t *testing.T) {
@@ -433,12 +433,12 @@ func TestDAGWorkflowInput_CycleDetection(t *testing.T) {
 
 **Step 2: Run tests to verify failures**
 
-Run: `task test:pkg -- ./docker/payload/...`
+Run: `task test:pkg -- ./container/payload/...`
 Expected: FAIL — cycles and duplicates not detected
 
 **Step 3: Implement cycle detection (port from function module)**
 
-Replace `Validate()` in `docker/payload/payloads_extended.go`:
+Replace `Validate()` in `container/payload/payloads_extended.go`:
 
 ```go
 import "fmt"
@@ -523,7 +523,7 @@ func detectDAGCycles(nodes []DAGNode) error {
 
 **Step 4: Run tests to verify they pass**
 
-Run: `task test:pkg -- ./docker/payload/...`
+Run: `task test:pkg -- ./container/payload/...`
 Expected: PASS
 
 **Step 5: Run full unit tests**
@@ -534,7 +534,7 @@ Expected: PASS
 **Step 6: Commit**
 
 ```
-git add docker/payload/payloads_extended.go docker/payload/payloads_extended_test.go
+git add container/payload/payloads_extended.go container/payload/payloads_extended_test.go
 git commit -m "fix(docker): add DAG cycle detection and duplicate node validation
 
 Port DFS-based cycle detection from function module to docker module.

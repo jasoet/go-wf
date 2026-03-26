@@ -28,9 +28,9 @@ Generic workflow orchestration core using Go generics:
 - **Artifacts** — Pluggable artifact storage (local filesystem, MinIO/S3)
 - **Extensible** — Implement `TaskInput`/`TaskOutput` to add new activity types
 
-### [docker](./docker/)
+### [container](./container/)
 
-Temporal workflows for executing Docker containers with Argo Workflow-like capabilities:
+Temporal workflows for executing containers with Argo Workflow-like capabilities:
 
 **Core Workflows:**
 - **Single Container** - Execute individual containers with wait strategies
@@ -52,7 +52,7 @@ Temporal workflows for executing Docker containers with Argo Workflow-like capab
 - **Artifacts & Secrets** - Input/output artifacts and secret injection
 - **Workflow Parameters** - Template variables for reusable workflows
 
-See [docker/README.md](./docker/README.md) for detailed documentation and [examples/docker/](./examples/docker/) for runnable examples.
+See [container/README.md](./container/README.md) for detailed documentation and [examples/container/](./examples/container/) for runnable examples.
 
 ### [function](./function/)
 
@@ -106,7 +106,7 @@ go-wf includes built-in OpenTelemetry instrumentation via [`jasoet/pkg/v2/otel`]
 
 **What's instrumented:**
 - **Activity spans** — Docker container and function execution with attributes (image, function name, duration, exit code)
-- **Activity metrics** — `go_wf.docker.task.*` and `go_wf.function.task.*` (counters + histograms)
+- **Activity metrics** — `go_wf.container.task.*` and `go_wf.function.task.*` (counters + histograms)
 - **Artifact store spans** — Upload, download, delete, exists, list operations with `go_wf.artifact.operation.*` metrics
 - **Workflow logging** — Structured log events at pipeline/parallel/loop boundaries with step counts and durations
 
@@ -131,7 +131,7 @@ go get github.com/jasoet/go-wf
 
 ## Quick Start
 
-### Docker Workflow
+### Container Workflow
 
 ```go
 package main
@@ -140,9 +140,9 @@ import (
     "context"
     "log"
 
-    "github.com/jasoet/go-wf/docker"
-    "github.com/jasoet/go-wf/docker/payload"
-    "github.com/jasoet/go-wf/docker/workflow"
+    "github.com/jasoet/go-wf/container"
+    "github.com/jasoet/go-wf/container/payload"
+    "github.com/jasoet/go-wf/container/workflow"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/client"
     "go.temporal.io/sdk/worker"
@@ -160,8 +160,8 @@ func main() {
     }
 
     // Create and start worker
-    w := worker.New(c, "docker-tasks", worker.Options{})
-    docker.RegisterAll(w)
+    w := worker.New(c, "container-tasks", worker.Options{})
+    container.RegisterAll(w)
 
     go w.Run(nil)
     defer w.Stop()
@@ -179,7 +179,7 @@ func main() {
     we, _ := c.ExecuteWorkflow(context.Background(),
         client.StartWorkflowOptions{
             ID:        "postgres-setup",
-            TaskQueue: "docker-tasks",
+            TaskQueue: "container-tasks",
         },
         workflow.ExecuteContainerWorkflow,
         input,
@@ -264,7 +264,7 @@ go-wf/
 ├── workflow/         # Generic workflow core (interfaces, orchestration)
 │   ├── errors/       # Error types and handling
 │   └── artifacts/    # Artifact store (local + MinIO)
-├── docker/           # Docker container workflows (concrete implementation)
+├── container/           # Container workflows (concrete implementation)
 │   ├── activity/     # Temporal activities for container execution
 │   ├── builder/      # Fluent builder API
 │   ├── patterns/     # Pre-built patterns (CI/CD, loop, parallel)
@@ -276,7 +276,7 @@ go-wf/
 │   ├── builder/      # Fluent builder API
 │   ├── payload/      # Type-safe payload structs
 │   └── workflow/     # Workflow implementations
-├── examples/docker/    # Docker examples (see [README](./examples/docker/README.md))
+├── examples/container/    # Container examples (see [README](./examples/container/README.md))
 ├── examples/function/  # Function examples (see [README](./examples/function/README.md))
 ├── docs/plans/         # Implementation plans (archived/)
 ├── .github/          # GitHub Actions workflows
@@ -463,16 +463,16 @@ All examples require a running Temporal server. Use the built-in demo tasks:
 task demo
 
 # Or run examples interactively:
-task demo:start                         # Start Temporal + docker worker in background
+task demo:start                         # Start Temporal + container worker in background
 task example:function -- basic.go       # Run a function example
-task example:docker -- pipeline.go      # Run a docker example
+task example:container -- pipeline.go   # Run a container example
 task example:list                       # List all available examples
-task demo:stop                          # Stop Temporal + worker when done
+task demo:stop                         # Stop Temporal + worker when done
 ```
 
 Temporal Web UI is available at http://localhost:8233 to watch workflow executions.
 
-See [examples/docker/README.md](./examples/docker/README.md) and [examples/function/README.md](./examples/function/README.md) for detailed example descriptions.
+See [examples/container/README.md](./examples/container/README.md) and [examples/function/README.md](./examples/function/README.md) for detailed example descriptions.
 
 ### Code Quality
 

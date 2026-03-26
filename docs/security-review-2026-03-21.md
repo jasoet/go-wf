@@ -47,7 +47,7 @@ Same unsanitized `StorageKey()` used as S3 object key. An attacker controlling m
 
 ### C3. Shell Injection via Template Substitution
 
-**Files:** `docker/template/script.go:96`, `docker/template/http.go:120-128`, `workflow/helpers.go:38-54`
+**Files:** `container/template/script.go:96`, `container/template/http.go:120-128`, `workflow/helpers.go:38-54`
 
 `SubstituteTemplate` performs raw string replacement. When items are substituted into `sh -c` commands, attacker-controlled values can inject shell commands. Example: item `; rm -rf /` in `process.sh {{item}}` becomes `process.sh ; rm -rf /`.
 
@@ -59,7 +59,7 @@ The HTTP template's single-quote escaping is incomplete — arguments are not ac
 
 ### C4. DAG Cycle Detection Missing — Infinite Recursion
 
-**Files:** `docker/payload/payloads_extended.go:186-206`, `docker/workflow/dag.go:63-70`
+**Files:** `container/payload/payloads_extended.go:186-206`, `container/workflow/dag.go:63-70`
 
 `DAGWorkflowInput.Validate()` only checks that dependency names reference existing nodes — it does NOT detect cycles. A→B→A causes infinite recursion in `executeDAGNode` (stack overflow / worker crash).
 
@@ -81,7 +81,7 @@ A registered handler that panics crashes the entire Temporal worker, affecting a
 
 ### I1. Volume Mount Path Traversal
 
-**Files:** `docker/payload/payloads.go:30`, `docker/activity/container.go:51-53`
+**Files:** `container/payload/payloads.go:30`, `container/activity/container.go:51-53`
 
 Volume paths are passed through with zero validation. Attacker-controlled inputs can mount `/etc`, `/var/run/docker.sock`, or `/root/.ssh` into containers.
 
@@ -99,7 +99,7 @@ All futures are launched simultaneously regardless of `MaxConcurrency` value. 10
 
 ### I3. No Stdout/Stderr Size Limits
 
-**File:** `docker/activity/container.go:116-123`
+**File:** `container/activity/container.go:116-123`
 
 Container output is captured entirely into strings with no size limit. A container producing gigabytes of output causes OOM on the worker.
 
@@ -131,7 +131,7 @@ Container output is captured entirely into strings with no size limit. A contain
 
 ### I7. Predictable Workflow IDs
 
-**File:** `docker/operations.go:33`
+**File:** `container/operations.go:33`
 
 `fmt.Sprintf("docker-workflow-%d", time.Now().Unix())` — IDs are predictable (second precision) and collide if two workflows start in the same second.
 
@@ -139,7 +139,7 @@ Container output is captured entirely into strings with no size limit. A contain
 
 ### I8. ResourceLimits Never Applied to Containers
 
-**Files:** `docker/activity/container.go:26-67`, `docker/payload/payloads_extended.go:23-39`
+**Files:** `container/activity/container.go:26-67`, `container/payload/payloads_extended.go:23-39`
 
 `ResourceLimits` struct exists in payloads but is never wired into container execution. No CPU/memory limits, no `--no-new-privileges`, no capability dropping.
 
@@ -223,8 +223,8 @@ No `permissions:` block — gets default (potentially broad) repository permissi
 | S6 | Function | No validation on function name content (accepts `../`, null bytes) | `function/payload/payload.go:25` |
 | S7 | Function | Template substitution in Name field can redirect handler dispatch | `function/workflow/loop.go:23` |
 | S8 | Function | `BuildSingle` returns pointer to internal slice element | `function/builder/builder.go:152` |
-| S9 | Docker | `WatchWorkflow` goroutine leak if consumer stops reading | `docker/operations.go:172-196` |
-| S10 | Docker | Custom `replaceAll`/`indexOf` duplicate stdlib functions | `docker/workflow/dag.go:383-405` |
+| S9 | Docker | `WatchWorkflow` goroutine leak if consumer stops reading | `container/operations.go:172-196` |
+| S10 | Docker | Custom `replaceAll`/`indexOf` duplicate stdlib functions | `container/workflow/dag.go:383-405` |
 | S11 | Infra | `.gitignore` missing `.env` pattern | `.gitignore` |
 | S12 | Infra | No `SECURITY.md` for vulnerability reporting | Project root |
 

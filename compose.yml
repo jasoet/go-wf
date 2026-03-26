@@ -62,11 +62,11 @@ services:
       timeout: 5s
       retries: 5
 
-  docker-worker:
+  container-worker:
     build:
       context: .
       dockerfile: Containerfile
-      target: docker-worker
+      target: container-worker
     user: "0"
     security_opt:
       - label=disable
@@ -79,7 +79,7 @@ services:
       temporal:
         condition: service_healthy
     profiles:
-      - docker
+      - container
 
   function-worker:
     build:
