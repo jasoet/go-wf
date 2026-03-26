@@ -191,7 +191,12 @@ func WatchWorkflow(ctx context.Context, c client.Client, workflowID, runID strin
 				return err
 			}
 
-			updates <- status
+			// Send update, respecting context cancellation.
+			select {
+			case updates <- status:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 
 			// Stop watching if completed
 			if status.Status == statusCompleted || status.Status == "Failed" {

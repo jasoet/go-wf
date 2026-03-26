@@ -149,13 +149,13 @@ func (b *WorkflowBuilder) BuildSingle() (*payload.FunctionExecutionInput, error)
 		return nil, fmt.Errorf("single workflow requires at least one function")
 	}
 
-	input := &b.functions[0]
+	input := b.functions[0] // value copy to avoid pointer to internal slice element
 
 	if err := input.Validate(); err != nil {
 		return nil, fmt.Errorf("single function validation failed: %w", err)
 	}
 
-	return input, nil
+	return &input, nil
 }
 
 // Count returns the number of functions added to the builder.
