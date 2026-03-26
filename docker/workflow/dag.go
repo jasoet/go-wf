@@ -213,19 +213,33 @@ func applyInputMappings(logger interface{ Info(string, ...interface{}) }, contai
 	return nil
 }
 
+// findArtifactProducer returns the name of the node that produces the given artifact.
+// Falls back to empty string if no producer is found.
+func findArtifactProducer(artifactName string, allNodes []payload.DAGNode) string {
+	for i := range allNodes {
+		for _, out := range allNodes[i].Container.OutputArtifacts {
+			if out.Name == artifactName {
+				return allNodes[i].Name
+			}
+		}
+	}
+	return ""
+}
+
 func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...interface{}) }, input *payload.DAGWorkflowInput, node *payload.DAGNode) error {
 	if input.ArtifactStore == nil || len(node.Container.InputArtifacts) == 0 {
 		return nil
 	}
 
 	for _, artifact := range node.Container.InputArtifacts {
+		producerStep := findArtifactProducer(artifact.Name, input.Nodes)
 		metadata := artifacts.ArtifactMetadata{
 			Name:       artifact.Name,
 			Path:       artifact.Path,
 			Type:       artifact.Type,
 			WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
 			RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
-			StepName:   node.Name,
+			StepName:   producerStep,
 		}
 
 		downloadInput := artifacts.DownloadArtifactInput{

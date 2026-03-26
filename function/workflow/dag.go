@@ -121,7 +121,7 @@ func executeFnDAGNode(
 	}
 	applyFnDataMapping(&fnInput, node, state)
 
-	if err := downloadFnInputArtifacts(ctx, input.ArtifactStore, node, &fnInput); err != nil {
+	if err := downloadFnInputArtifacts(ctx, input.ArtifactStore, node, &fnInput, input.Nodes); err != nil {
 		return err
 	}
 
@@ -305,7 +305,20 @@ func recordFnNodeResult(
 	output.NodeResults = append(output.NodeResults, nodeResult)
 }
 
-func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, node *payload.FunctionDAGNode, fnInput *payload.FunctionExecutionInput) error {
+// findFnArtifactProducer returns the name of the node that produces the given artifact.
+// Falls back to empty string if no producer is found.
+func findFnArtifactProducer(artifactName string, allNodes []payload.FunctionDAGNode) string {
+	for i := range allNodes {
+		for _, out := range allNodes[i].OutputArtifacts {
+			if out.Name == artifactName {
+				return allNodes[i].Name
+			}
+		}
+	}
+	return ""
+}
+
+func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, node *payload.FunctionDAGNode, fnInput *payload.FunctionExecutionInput, allNodes []payload.FunctionDAGNode) error {
 	if store == nil || len(node.InputArtifacts) == 0 {
 		return nil
 	}
@@ -317,13 +330,14 @@ func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, nod
 	laCtx := wf.WithLocalActivityOptions(ctx, lao)
 
 	for _, ref := range node.InputArtifacts {
+		producerStep := findFnArtifactProducer(ref.Name, allNodes)
 		metadata := artifacts.ArtifactMetadata{
 			Name:       ref.Name,
 			Path:       ref.Path,
 			Type:       ref.Type,
 			WorkflowID: info.WorkflowExecution.ID,
 			RunID:      info.WorkflowExecution.RunID,
-			StepName:   node.Name,
+			StepName:   producerStep,
 		}
 
 		if ref.Type == "bytes" {

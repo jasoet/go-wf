@@ -67,6 +67,9 @@ services:
       context: .
       dockerfile: Containerfile
       target: docker-worker
+    user: "0"
+    security_opt:
+      - label=disable
     environment:
       TEMPORAL_HOST_PORT: temporal:7233
       DOCKER_HOST: unix:///var/run/docker.sock
