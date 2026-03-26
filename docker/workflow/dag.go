@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -338,7 +339,7 @@ func WorkflowWithParameters(ctx wf.Context, input payload.ContainerExecutionInpu
 	for key, value := range input.Env {
 		for paramName, paramValue := range paramMap {
 			placeholder := fmt.Sprintf("{{.%s}}", paramName)
-			value = replaceAll(value, placeholder, paramValue)
+			value = strings.ReplaceAll(value, placeholder, paramValue)
 		}
 		input.Env[key] = value
 	}
@@ -347,7 +348,7 @@ func WorkflowWithParameters(ctx wf.Context, input payload.ContainerExecutionInpu
 	for i, cmd := range input.Command {
 		for paramName, paramValue := range paramMap {
 			placeholder := fmt.Sprintf("{{.%s}}", paramName)
-			cmd = replaceAll(cmd, placeholder, paramValue)
+			cmd = strings.ReplaceAll(cmd, placeholder, paramValue)
 		}
 		input.Command[i] = cmd
 	}
@@ -381,29 +382,4 @@ func executeContainerInternal(ctx wf.Context, input payload.ContainerExecutionIn
 	err := wf.ExecuteActivity(ctx, input.ActivityName(), input).Get(ctx, &output)
 
 	return &output, err
-}
-
-// replaceAll replaces all occurrences of old with new in s.
-func replaceAll(s, old, new string) string {
-	result := ""
-	for {
-		i := indexOf(s, old)
-		if i == -1 {
-			result += s
-			break
-		}
-		result += s[:i] + new
-		s = s[i+len(old):]
-	}
-	return result
-}
-
-// indexOf returns the index of the first occurrence of substr in s, or -1 if not present.
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

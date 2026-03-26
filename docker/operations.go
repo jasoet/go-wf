@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -10,6 +11,12 @@ import (
 	"github.com/jasoet/go-wf/docker/payload"
 	wf "github.com/jasoet/go-wf/docker/workflow"
 )
+
+func generateWorkflowID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("docker-workflow-%x", b)
+}
 
 const statusCompleted = "Completed"
 
@@ -30,7 +37,7 @@ type WorkflowStatus struct {
 //
 //	status, err := docker.SubmitWorkflow(ctx, temporalClient, input, "docker-queue")
 func SubmitWorkflow(ctx context.Context, c client.Client, input interface{}, taskQueue string) (*WorkflowStatus, error) {
-	workflowID := fmt.Sprintf("docker-workflow-%d", time.Now().Unix())
+	workflowID := generateWorkflowID()
 
 	var workflowFunc interface{}
 	switch v := input.(type) {

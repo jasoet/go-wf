@@ -181,13 +181,16 @@ func CleanupWorkflowArtifacts(ctx context.Context, store ArtifactStore, workflow
 		return fmt.Errorf("failed to list artifacts: %w", err)
 	}
 
-	// Delete each artifact
+	// Delete each artifact, collecting errors to continue cleanup
+	var errs []error
 	for _, artifact := range artifacts {
 		if err := store.Delete(ctx, artifact); err != nil {
-			// Log error but continue cleanup
-			return fmt.Errorf("failed to delete artifact %s: %w", artifact.Name, err)
+			errs = append(errs, fmt.Errorf("failed to delete artifact %s: %w", artifact.Name, err))
 		}
 	}
 
+	if len(errs) > 0 {
+		return fmt.Errorf("cleanup completed with %d errors: %v", len(errs), errs[0])
+	}
 	return nil
 }

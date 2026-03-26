@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,16 +203,16 @@ func TestWorkflowWithParameters(t *testing.T) {
 
 func TestHelperFunctions(t *testing.T) {
 	t.Run("replaceAll", func(t *testing.T) {
-		result := replaceAll("Hello {{name}}, welcome to {{place}}", "{{name}}", "World")
+		result := strings.ReplaceAll("Hello {{name}}, welcome to {{place}}", "{{name}}", "World")
 		assert.Contains(t, result, "World")
 		assert.NotContains(t, result, "{{name}}")
 	})
 
 	t.Run("indexOf", func(t *testing.T) {
-		index := indexOf("hello world", "world")
+		index := strings.Index("hello world", "world")
 		assert.Equal(t, 6, index)
 
-		index = indexOf("hello world", "notfound")
+		index = strings.Index("hello world", "notfound")
 		assert.Equal(t, -1, index)
 	})
 }

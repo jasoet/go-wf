@@ -38,7 +38,10 @@ func ParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParallelI
 			output.TotalFailed++
 			if input.FailureStrategy == FailureStrategyFailFast {
 				output.TotalDuration = wf.Now(ctx).Sub(startTime)
-				return output, fmt.Errorf("parallel execution failed at task %d: %w", i, err)
+				if err != nil {
+					return output, fmt.Errorf("parallel execution failed at task %d: %w", i, err)
+				}
+				return output, fmt.Errorf("parallel execution failed at task %d: task reported failure", i)
 			}
 		} else {
 			output.TotalSuccess++

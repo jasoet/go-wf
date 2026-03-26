@@ -34,7 +34,10 @@ func PipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input PipelineI
 			logger.Error("Pipeline step failed", "step", i+1, "error", err)
 			if input.StopOnError {
 				output.TotalDuration = wf.Now(ctx).Sub(startTime)
-				return output, fmt.Errorf("pipeline stopped at step %d: %w", i+1, err)
+				if err != nil {
+					return output, fmt.Errorf("pipeline stopped at step %d: %w", i+1, err)
+				}
+				return output, fmt.Errorf("pipeline stopped at step %d: task reported failure", i+1)
 			}
 			continue
 		}
