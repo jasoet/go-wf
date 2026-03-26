@@ -16,7 +16,7 @@ import (
 
 // This example demonstrates artifact storage and retrieval in workflows.
 // It shows how to:
-// 1. Configure artifact storage (local or Minio)
+// 1. Configure artifact storage (local or S3-compatible)
 // 2. Upload artifacts from one step
 // 3. Download artifacts in dependent steps
 // 4. Use artifacts in build -> test -> deploy pipelines
@@ -41,9 +41,9 @@ func main() {
 	fmt.Println("\n=== Example 2: Build -> Test -> Deploy with Multiple Artifacts ===")
 	buildTestDeployPipeline(ctx, c)
 
-	// Example 3: Using Minio for artifact storage
-	fmt.Println("\n=== Example 3: Using Minio for Artifact Storage ===")
-	minioArtifactStorage(ctx, c)
+	// Example 3: Using S3-compatible storage for artifacts
+	fmt.Println("\n=== Example 3: Using S3-Compatible Artifact Storage ===")
+	s3ArtifactStorage(ctx, c)
 
 	// Example 4: Archive artifacts with cleanup config
 	fmt.Println("\n=== Example 4: Archive Artifacts & Cleanup Config ===")
@@ -283,22 +283,22 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 	}
 }
 
-func minioArtifactStorage(ctx context.Context, c client.Client) {
-	// Create Minio store for artifacts
+func s3ArtifactStorage(ctx context.Context, c client.Client) {
+	// Create S3 store for artifacts
 	// In production, these would come from configuration
-	minioConfig := artifacts.MinioConfig{
+	s3Config := artifacts.S3Config{
 		Endpoint:  "localhost:9000",
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "rustfsadmin",
+		SecretKey: "rustfsadmin",
 		Bucket:    "workflow-artifacts",
 		Prefix:    "workflows/",
 		UseSSL:    false,
 		Region:    "us-east-1",
 	}
 
-	store, err := artifacts.NewMinioStore(ctx, minioConfig)
+	store, err := artifacts.NewS3Store(ctx, s3Config)
 	if err != nil {
-		log.Fatalln("Failed to create Minio store", err)
+		log.Fatalln("Failed to create S3 store", err)
 	}
 	defer store.Close()
 
@@ -314,7 +314,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 							"/tmp/data": "/data",
 						},
 					},
-					// Upload processed data to Minio
+					// Upload processed data to S3
 					OutputArtifacts: []payload.Artifact{
 						{
 							Name: "processed-data",
@@ -334,7 +334,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 							"/tmp/analysis": "/analysis",
 						},
 					},
-					// Download processed data from Minio
+					// Download processed data from S3
 					InputArtifacts: []payload.Artifact{
 						{
 							Name: "processed-data",
@@ -351,7 +351,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 	}
 
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "minio-artifacts-example",
+		ID:        "s3-artifacts-example",
 		TaskQueue: "container-tasks",
 	}
 
@@ -368,7 +368,7 @@ func minioArtifactStorage(ctx context.Context, c client.Client) {
 		log.Fatalln("Unable to get workflow result", err)
 	}
 
-	fmt.Printf("Minio pipeline completed: Success=%d, Failed=%d\n",
+	fmt.Printf("S3 pipeline completed: Success=%d, Failed=%d\n",
 		result.TotalSuccess, result.TotalFailed)
 }
 

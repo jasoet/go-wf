@@ -12,7 +12,7 @@ go-wf — a Go library providing a generic workflow orchestration core with Dock
 
 **Repository Type:** Library (Go module)
 **Module:** `github.com/jasoet/go-wf`
-**Key Dependencies:** Temporal SDK, testcontainers-go, pkg/v2, validator/v10, minio-go
+**Key Dependencies:** Temporal SDK, testcontainers-go, pkg/v2, validator/v10, aws-sdk-go-v2
 
 ## ABSOLUTE RULE — Git Authorship
 
@@ -41,7 +41,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 |------|---------|
 | `workflow/` | Generic workflow core (interfaces, orchestration logic) |
 | `workflow/errors/` | Error types and handling |
-| `workflow/artifacts/` | Artifact store (local + MinIO) |
+| `workflow/artifacts/` | Artifact store (local + S3) |
 | `workflow/testutil/` | Shared test helpers (Temporal testcontainer) |
 | `container/` | Container workflows (concrete implementation) |
 | `container/activity/` | Temporal activities for container execution |
@@ -101,7 +101,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task demo` | Start Temporal, run all examples, watch at http://localhost:8233 |
 | `task demo:start` | Start Temporal + container worker in background for manual example running |
 | `task demo:stop` | Stop Temporal + container worker started by `demo:start` |
-| `task local:up` | Start local infrastructure (Temporal, PostgreSQL, MinIO) via podman-compose |
+| `task local:up` | Start local infrastructure (Temporal, PostgreSQL, RustFS) via podman-compose |
 | `task local:down` | Stop local infrastructure |
 | `task local:clean` | Stop infrastructure and remove volumes |
 | `task local:workers` | Start container and function workers in background |
@@ -121,7 +121,7 @@ Two-layer architecture organized as package-per-feature:
 - Defines `TaskInput` and `TaskOutput` interface constraints using Go generics
 - Provides generic orchestration: pipeline, parallel, loop, and single-task execution
 - Activity dispatch via `ActivityName()` (string-based, not function reference) for Temporal compatibility
-- Artifact storage abstraction (local filesystem, MinIO/S3)
+- Artifact storage abstraction (local filesystem, S3-compatible storage)
 - Error types shared across all implementations
 
 **Container Module (`container/`)** — concrete implementation

@@ -305,9 +305,9 @@ func runAll(ctx context.Context, c client.Client) error {
 			FailFast: true,
 		}))
 
-	// 9. DAG — Artifact demo (MinIO)
-	track(submit(ctx, c, fmt.Sprintf("demo-fn-dag-artifact-minio-%s", ts), fnQueue,
-		"ArtifactDAGWorkflow-MinIO",
+	// 9. DAG — Artifact demo (S3)
+	track(submit(ctx, c, fmt.Sprintf("demo-fn-dag-artifact-s3-%s", ts), fnQueue,
+		"ArtifactDAGWorkflow-S3",
 		fnpayload.DAGWorkflowInput{
 			Nodes: []fnpayload.FunctionDAGNode{
 				{
@@ -538,7 +538,7 @@ func createSchedules(ctx context.Context, c client.Client) {
 			ID:           "schedule-fn-dag-artifact",
 			Interval:     2 * time.Minute,
 			WorkflowID:   "scheduled-fn-dag-artifact",
-			WorkflowFunc: "ArtifactDAGWorkflow-MinIO",
+			WorkflowFunc: "ArtifactDAGWorkflow-S3",
 			TaskQueue:    "function-tasks",
 			Input: fnpayload.DAGWorkflowInput{
 				Nodes: []fnpayload.FunctionDAGNode{

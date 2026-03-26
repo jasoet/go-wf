@@ -10,7 +10,7 @@ import (
 
 // ArtifactStore is an interface for storing and retrieving artifacts.
 // Implementations include LocalFileStore for local filesystem storage
-// and MinioStore for S3-compatible object storage.
+// and S3Store for S3-compatible object storage.
 type ArtifactStore interface {
 	// Upload uploads an artifact to the store.
 	// The artifact metadata includes name, path, and type information.

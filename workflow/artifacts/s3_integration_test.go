@@ -16,20 +16,20 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-var testMinioConfig MinioConfig
+var testS3Config S3Config
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	req := testcontainers.ContainerRequest{
-		Image:        "minio/minio:latest",
+		Image:        "rustfs/rustfs:latest",
 		ExposedPorts: []string{"9000/tcp"},
 		Env: map[string]string{
-			"MINIO_ROOT_USER":     "minioadmin",
-			"MINIO_ROOT_PASSWORD": "minioadmin",
+			"RUSTFS_ACCESS_KEY": "rustfsadmin",
+			"RUSTFS_SECRET_KEY": "rustfsadmin",
 		},
-		Cmd:        []string{"server", "/data"},
-		WaitingFor: wait.ForHTTP("/minio/health/live").WithPort("9000").WithStartupTimeout(60 * time.Second),
+		Cmd:        []string{"/data"},
+		WaitingFor: wait.ForListeningPort("9000").WithStartupTimeout(60 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 		Started:          true,
 	})
 	if err != nil {
-		log.Fatalf("failed to start minio container: %v", err)
+		log.Fatalf("failed to start object store container: %v", err)
 	}
 
 	host, err := container.Host(ctx)
@@ -50,10 +50,10 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to get mapped port: %v", err)
 	}
 
-	testMinioConfig = MinioConfig{
+	testS3Config = S3Config{
 		Endpoint:  host + ":" + port.Port(),
-		AccessKey: "minioadmin",
-		SecretKey: "minioadmin",
+		AccessKey: "rustfsadmin",
+		SecretKey: "rustfsadmin",
 		Bucket:    "test-artifacts",
 		Prefix:    "workflows/",
 		UseSSL:    false,
@@ -69,11 +69,11 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestMinioStore_UploadDownload(t *testing.T) {
+func TestS3Store_UploadDownload(t *testing.T) {
 	ctx := context.Background()
 
-	// Create Minio store
-	store, err := NewMinioStore(ctx, testMinioConfig)
+	// Create S3 store
+	store, err := NewS3Store(ctx, testS3Config)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -87,7 +87,7 @@ func TestMinioStore_UploadDownload(t *testing.T) {
 		StepName:   "build",
 	}
 
-	content := []byte("test content for minio")
+	content := []byte("test content for s3")
 	err = store.Upload(ctx, metadata, bytes.NewReader(content))
 	require.NoError(t, err)
 
@@ -108,11 +108,11 @@ func TestMinioStore_UploadDownload(t *testing.T) {
 	assert.Equal(t, content, buf.Bytes())
 }
 
-func TestMinioStore_Delete(t *testing.T) {
+func TestS3Store_Delete(t *testing.T) {
 	ctx := context.Background()
 
-	// Create Minio store
-	store, err := NewMinioStore(ctx, testMinioConfig)
+	// Create S3 store
+	store, err := NewS3Store(ctx, testS3Config)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -139,11 +139,11 @@ func TestMinioStore_Delete(t *testing.T) {
 	assert.False(t, exists)
 }
 
-func TestMinioStore_List(t *testing.T) {
+func TestS3Store_List(t *testing.T) {
 	ctx := context.Background()
 
-	// Create Minio store
-	store, err := NewMinioStore(ctx, testMinioConfig)
+	// Create S3 store
+	store, err := NewS3Store(ctx, testS3Config)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -188,11 +188,11 @@ func TestMinioStore_List(t *testing.T) {
 	assert.Len(t, listed, 3)
 }
 
-func TestMinioStore_UploadDownloadActivities(t *testing.T) {
+func TestS3Store_UploadDownloadActivities(t *testing.T) {
 	ctx := context.Background()
 
-	// Create Minio store
-	store, err := NewMinioStore(ctx, testMinioConfig)
+	// Create S3 store
+	store, err := NewS3Store(ctx, testS3Config)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -236,11 +236,11 @@ func TestMinioStore_UploadDownloadActivities(t *testing.T) {
 	assert.Equal(t, content, downloaded)
 }
 
-func TestMinioStore_CleanupWorkflow(t *testing.T) {
+func TestS3Store_CleanupWorkflow(t *testing.T) {
 	ctx := context.Background()
 
-	// Create Minio store
-	store, err := NewMinioStore(ctx, testMinioConfig)
+	// Create S3 store
+	store, err := NewS3Store(ctx, testS3Config)
 	require.NoError(t, err)
 	defer store.Close()
 

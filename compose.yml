@@ -45,19 +45,19 @@ services:
       temporal:
         condition: service_healthy
 
-  minio:
-    image: minio/minio:latest
+  objectstore:
+    image: rustfs/rustfs:latest
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
+    command: /data
     volumes:
-      - minio-data:/data
+      - objectstore-data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,15 +88,15 @@ services:
       target: function-worker
     environment:
       TEMPORAL_HOST_PORT: temporal:7233
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      S3_ENDPOINT: objectstore:9000
+      S3_ACCESS_KEY: rustfsadmin
+      S3_SECRET_KEY: rustfsadmin
     volumes:
       - artifact-data:/tmp/go-wf-artifacts
     depends_on:
       temporal:
         condition: service_healthy
-      minio:
+      objectstore:
         condition: service_healthy
 
   trigger:
@@ -113,5 +113,5 @@ services:
 
 volumes:
   postgresql-data:
-  minio-data:
+  objectstore-data:
   artifact-data:

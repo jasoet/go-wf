@@ -54,7 +54,7 @@ func main() {
 		log.Printf("Warning: could not create local artifact store: %v", err)
 	}
 
-	minioStore := createMinioArtifactStore()
+	s3Store := createS3ArtifactStore()
 
 	// Register artifact-backed DAG workflows
 	if localStore != nil {
@@ -63,10 +63,10 @@ func main() {
 			wf.RegisterOptions{Name: "ArtifactDAGWorkflow-Local"},
 		)
 	}
-	if minioStore != nil {
+	if s3Store != nil {
 		w.RegisterWorkflowWithOptions(
-			newArtifactDAGWorkflow(minioStore),
-			wf.RegisterOptions{Name: "ArtifactDAGWorkflow-MinIO"},
+			newArtifactDAGWorkflow(s3Store),
+			wf.RegisterOptions{Name: "ArtifactDAGWorkflow-S3"},
 		)
 	}
 
@@ -84,8 +84,8 @@ func main() {
 	if localStore != nil {
 		log.Println("  - ArtifactDAGWorkflow-Local")
 	}
-	if minioStore != nil {
-		log.Println("  - ArtifactDAGWorkflow-MinIO")
+	if s3Store != nil {
+		log.Println("  - ArtifactDAGWorkflow-S3")
 	}
 	log.Println()
 	log.Println("Registered activities:")
@@ -400,24 +400,24 @@ func createLocalArtifactStore() (artifacts.ArtifactStore, error) {
 	return artifacts.NewLocalFileStore("/tmp/go-wf-artifacts")
 }
 
-func createMinioArtifactStore() artifacts.ArtifactStore {
+func createS3ArtifactStore() artifacts.ArtifactStore {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	endpoint := "localhost:9000"
-	if e := os.Getenv("MINIO_ENDPOINT"); e != "" {
+	if e := os.Getenv("S3_ENDPOINT"); e != "" {
 		endpoint = e
 	}
-	accessKey := "minioadmin"
-	if k := os.Getenv("MINIO_ACCESS_KEY"); k != "" {
+	accessKey := "rustfsadmin"
+	if k := os.Getenv("S3_ACCESS_KEY"); k != "" {
 		accessKey = k
 	}
-	secretKey := "minioadmin"
-	if k := os.Getenv("MINIO_SECRET_KEY"); k != "" {
+	secretKey := "rustfsadmin"
+	if k := os.Getenv("S3_SECRET_KEY"); k != "" {
 		secretKey = k
 	}
 
-	store, err := artifacts.NewMinioStore(ctx, artifacts.MinioConfig{
+	store, err := artifacts.NewS3Store(ctx, artifacts.S3Config{
 		Endpoint:  endpoint,
 		AccessKey: accessKey,
 		SecretKey: secretKey,
@@ -426,7 +426,7 @@ func createMinioArtifactStore() artifacts.ArtifactStore {
 		UseSSL:    false,
 	})
 	if err != nil {
-		log.Printf("Warning: MinIO not available, skipping MinIO artifact store: %v", err)
+		log.Printf("Warning: S3-compatible storage not available, skipping artifact store: %v", err)
 		return nil
 	}
 	return store

@@ -25,7 +25,7 @@ Generic workflow orchestration core using Go generics:
 - **Pipeline** — Sequential task execution with stop-on-error
 - **Parallel** — Concurrent task execution with fail-fast/continue
 - **Loop** — Iterate over items or parameter combinations
-- **Artifacts** — Pluggable artifact storage (local filesystem, MinIO/S3)
+- **Artifacts** — Pluggable artifact storage (local filesystem, S3-compatible storage)
 - **Extensible** — Implement `TaskInput`/`TaskOutput` to add new activity types
 
 ### [container](./container/)
@@ -263,7 +263,7 @@ func main() {
 go-wf/
 ├── workflow/         # Generic workflow core (interfaces, orchestration)
 │   ├── errors/       # Error types and handling
-│   └── artifacts/    # Artifact store (local + MinIO)
+│   └── artifacts/    # Artifact store (local + S3)
 ├── container/           # Container workflows (concrete implementation)
 │   ├── activity/     # Temporal activities for container execution
 │   ├── builder/      # Fluent builder API
@@ -436,7 +436,7 @@ task local:clean
 
 **Services:**
 - Temporal UI: http://localhost:8233
-- MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
+- RustFS Console: http://localhost:9001 (rustfsadmin/rustfsadmin)
 - Temporal gRPC: localhost:7233
 - PostgreSQL: localhost:5432 (temporal/temporal)
 

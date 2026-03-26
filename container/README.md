@@ -725,7 +725,7 @@ See [examples/container/](../examples/container/) directory for complete working
 - `dag.go` - Complex DAG workflow with dependencies (Argo DAG equivalent)
 - `loop.go` - Loop patterns: withItems, withParam, matrix builds, batch processing
 - `data-passing.go` - Explicit data passing between steps with JSONPath and regex extraction
-- `artifacts.go` - Artifact storage and retrieval (local and Minio/S3)
+- `artifacts.go` - Artifact storage and retrieval (local and S3-compatible storage)
 
 ### Builder & Templates
 - `builder.go` - Builder patterns with script templates and HTTP operations

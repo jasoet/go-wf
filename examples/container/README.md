@@ -257,7 +257,7 @@ go run -tags example data-passing.go
 
 **Features**:
 - Local file store for artifacts
-- Minio (S3-compatible) object storage integration
+- S3-compatible object storage integration (RustFS, AWS S3, MinIO)
 - File and directory artifact types
 - Artifact upload after step completion
 - Artifact download before step execution
@@ -267,18 +267,18 @@ go run -tags example data-passing.go
 **Examples Included**:
 1. **Build → Test Pipeline**: Upload binary from build, download in test
 2. **Build → Test → Deploy**: Multiple artifacts (binary, metadata, test results)
-3. **Minio Storage**: Using S3-compatible storage for artifacts with remote persistence
+3. **S3 Storage**: Using S3-compatible storage for artifacts with remote persistence
 
 **Run**:
 ```bash
 # Requires /tmp/workflow-artifacts directory
 mkdir -p /tmp/workflow-artifacts
 
-# For Minio example, start Minio first:
+# For S3 storage example, start RustFS first:
 docker run -d -p 9000:9000 -p 9001:9001 \
-  -e MINIO_ROOT_USER=minioadmin \
-  -e MINIO_ROOT_PASSWORD=minioadmin \
-  minio/minio server /data --console-address ":9001"
+  -e RUSTFS_ROOT_USER=rustfsadmin \
+  -e RUSTFS_ROOT_PASSWORD=rustfsadmin \
+  rustfs/rustfs server /data --console-address ":9001"
 
 go run -tags example artifacts.go
 ```
