@@ -2,6 +2,8 @@ package payload
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -15,14 +17,17 @@ var (
 	_ workflow.TaskOutput = FunctionExecutionOutput{}
 )
 
-// validate is a package-level validator instance to avoid repeated instantiation.
+// pkgValidator is a package-level validator instance to avoid repeated instantiation.
 var pkgValidator = validator.New()
+
+// safeFunctionName restricts function names to safe characters.
+var safeFunctionName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 const functionActivityName = "ExecuteFunctionActivity"
 
 // FunctionExecutionInput defines input for single function execution.
 type FunctionExecutionInput struct {
-	Name    string            `json:"name" validate:"required"`
+	Name    string            `json:"name" validate:"required,max=255"`
 	Args    map[string]string `json:"args,omitempty"`
 	Data    []byte            `json:"data,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
@@ -99,9 +104,17 @@ type LoopOutput struct {
 	ItemCount     int                       `json:"item_count"`
 }
 
-// Validate validates input using struct tags.
+// Validate validates input using struct tags and function name format.
 func (i *FunctionExecutionInput) Validate() error {
-	return pkgValidator.Struct(i)
+	if err := pkgValidator.Struct(i); err != nil {
+		return err
+	}
+	// Skip regex check for template names (containing {{...}} placeholders);
+	// the substituted name will be validated when the activity executes.
+	if !strings.Contains(i.Name, "{{") && !safeFunctionName.MatchString(i.Name) {
+		return fmt.Errorf("invalid function name: must match [a-zA-Z][a-zA-Z0-9_-]*")
+	}
+	return nil
 }
 
 // ActivityName returns the Temporal activity name for function execution.

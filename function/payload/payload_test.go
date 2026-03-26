@@ -34,6 +34,36 @@ func TestFunctionExecutionInput_Validate(t *testing.T) {
 			input:   FunctionExecutionInput{},
 			wantErr: true,
 		},
+		{
+			name:    "invalid - name starts with number",
+			input:   FunctionExecutionInput{Name: "1badname"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid - name with spaces",
+			input:   FunctionExecutionInput{Name: "bad name"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid - name with special chars",
+			input:   FunctionExecutionInput{Name: "bad;name"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid - name with path traversal",
+			input:   FunctionExecutionInput{Name: "../etc/passwd"},
+			wantErr: true,
+		},
+		{
+			name:    "valid - name with hyphens and underscores",
+			input:   FunctionExecutionInput{Name: "my-func_v2"},
+			wantErr: false,
+		},
+		{
+			name:    "valid - single letter name",
+			input:   FunctionExecutionInput{Name: "a"},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

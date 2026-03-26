@@ -7,6 +7,9 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// pkgValidator is a package-level validator instance to avoid repeated instantiation.
+var pkgValidator = validator.New()
+
 // PipelineInput defines sequential task execution.
 type PipelineInput[I TaskInput] struct {
 	Tasks       []I  `json:"tasks" validate:"required,min=1"`
@@ -16,8 +19,7 @@ type PipelineInput[I TaskInput] struct {
 
 // Validate validates pipeline input.
 func (i *PipelineInput[I]) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	for idx := range i.Tasks {
@@ -47,8 +49,7 @@ type ParallelInput[I TaskInput] struct {
 
 // Validate validates parallel input.
 func (i *ParallelInput[I]) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	for idx := range i.Tasks {
@@ -80,8 +81,7 @@ type LoopInput[I TaskInput] struct {
 
 // Validate validates loop input.
 func (i *LoopInput[I]) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	return i.Template.Validate()
@@ -100,8 +100,7 @@ type ParameterizedLoopInput[I TaskInput] struct {
 
 // Validate validates parameterized loop input.
 func (i *ParameterizedLoopInput[I]) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	for key, values := range i.Parameters {

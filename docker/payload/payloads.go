@@ -11,6 +11,9 @@ import (
 	"github.com/jasoet/go-wf/workflow"
 )
 
+// pkgValidator is a package-level validator instance to avoid repeated instantiation.
+var pkgValidator = validator.New()
+
 // sensitivePathPrefixes lists host paths that should never be mounted into containers.
 var sensitivePathPrefixes = []string{
 	"/etc",
@@ -134,8 +137,7 @@ type ParallelOutput struct {
 
 // Validate validates input using struct tags.
 func (i *ContainerExecutionInput) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	if len(i.Volumes) > 0 {
@@ -148,14 +150,12 @@ func (i *ContainerExecutionInput) Validate() error {
 
 // Validate validates pipeline input using struct tags.
 func (i *PipelineInput) Validate() error {
-	validate := validator.New()
-	return validate.Struct(i)
+	return pkgValidator.Struct(i)
 }
 
 // Validate validates parallel input using struct tags.
 func (i *ParallelInput) Validate() error {
-	validate := validator.New()
-	return validate.Struct(i)
+	return pkgValidator.Struct(i)
 }
 
 // LoopInput defines loop iteration over items (withItems pattern).
@@ -208,8 +208,7 @@ type LoopOutput struct {
 
 // Validate validates loop input using struct tags.
 func (i *LoopInput) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 	return i.Template.Validate()
@@ -217,8 +216,7 @@ func (i *LoopInput) Validate() error {
 
 // Validate validates parameterized loop input using struct tags.
 func (i *ParameterizedLoopInput) Validate() error {
-	validate := validator.New()
-	if err := validate.Struct(i); err != nil {
+	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
 
