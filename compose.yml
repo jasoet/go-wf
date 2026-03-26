@@ -57,7 +57,7 @@ services:
     volumes:
       - objectstore-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/health | grep -q ok"]
       interval: 10s
       timeout: 5s
       retries: 5
