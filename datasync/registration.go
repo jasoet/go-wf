@@ -14,7 +14,7 @@ type JobRegistration struct {
 }
 
 // BuildRegistration extracts type-erased registration info from a typed Job.
-func BuildRegistration[T any, U any](job Job[T, U], disabled bool) JobRegistration {
+func BuildRegistration[T, U any](job Job[T, U], disabled bool) JobRegistration {
 	return JobRegistration{
 		Name:       job.Name,
 		Schedule:   job.Schedule,

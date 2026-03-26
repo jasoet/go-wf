@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-go-wf — a Go library providing a generic workflow orchestration core with Docker container and Go function activity support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `container/` package is a concrete implementation that wires Docker container activities into the generic core. The `function/` package provides a function registry pattern where named Go handler functions are dispatched as Temporal activities. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
+go-wf — a Go library providing a generic workflow orchestration core with Docker container, Go function, and data synchronization activity support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `container/` package is a concrete implementation that wires Docker container activities into the generic core. The `function/` package provides a function registry pattern where named Go handler functions are dispatched as Temporal activities. The `datasync/` package provides generic `Source[T] -> Mapper[T,U] -> Sink[U]` data synchronization pipelines as Temporal workflows. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
 
 **Repository Type:** Library (Go module)
 **Module:** `github.com/jasoet/go-wf`
@@ -56,6 +56,11 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `function/patterns/` | Pre-built patterns (pipeline, parallel, loop, DAG) |
 | `function/payload/` | Type-safe payload structs for functions (including DAG) |
 | `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop, DAG) |
+| `datasync/` | Generic data sync core (Source, Sink, Mapper, Job, Runner) |
+| `datasync/activity/` | SyncData activity with OTel instrumentation |
+| `datasync/builder/` | Fluent builder for Job construction |
+| `datasync/payload/` | Temporal payload types (SyncExecutionInput/Output) |
+| `datasync/workflow/` | Sync workflow function, registration, scheduling helpers |
 | `workflow/otel.go` | Instrumented workflow orchestration wrappers |
 | `container/activity/otel.go` | Container activity OTel spans + metrics |
 | `function/activity/otel.go` | Function activity OTel spans + metrics |
@@ -115,7 +120,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 
 ## Architecture
 
-Two-layer architecture organized as package-per-feature:
+Multi-layer architecture organized as package-per-feature:
 
 **Generic Workflow Core (`workflow/`)**
 - Defines `TaskInput` and `TaskOutput` interface constraints using Go generics
@@ -140,8 +145,18 @@ Two-layer architecture organized as package-per-feature:
 - **Builder** provides a fluent API to compose function → pipeline → parallel → loop → DAG
 - **Patterns** are pre-built workflow compositions (ETL, fan-out/fan-in, batch processing, CI/CD DAG, etc.)
 
+**DataSync Module (`datasync/`)** — concrete implementation
+- **Core interfaces** (`Source[T]`, `Sink[U]`, `Mapper[T,U]`) define the generic data pipeline
+- **Helpers** (`RecordMapper`, `InsertIfAbsentSink`, `IdentityMapper`, `MapperFunc`) cover common patterns
+- **Job** bundles Source + Mapper + Sink + schedule into a deployable unit
+- **Runner** provides in-process test execution (no Temporal needed)
+- **Activity** runs the Source→Mapper→Sink pipeline with full OTel instrumentation (`go_wf.datasync.*` metrics)
+- **Workflow** wraps the activity in a Temporal workflow with scheduling support
+- **Builder** provides a fluent API for Job construction
+- **Payloads** (`SyncExecutionInput`/`SyncExecutionOutput`) implement `TaskInput`/`TaskOutput` for composition with Pipeline, Parallel, and DAG
+
 **Observability (`jasoet/pkg/v2/otel`)**
-- Activities get full OTel spans + metrics via `Layers.StartService` (container: `go_wf.container.task.*`, function: `go_wf.function.task.*`)
+- Activities get full OTel spans + metrics via `Layers.StartService` (container: `go_wf.container.task.*`, function: `go_wf.function.task.*`, datasync: `go_wf.datasync.*`)
 - Workflow orchestration has structured logging wrappers at pipeline/parallel/loop boundaries
 - Artifact store uses `InstrumentedStore` decorator with `Layers.StartRepository` (metrics: `go_wf.artifact.operation.*`)
 - All instrumentation is opt-in via `otel.ContextWithConfig()` — zero overhead when disabled

@@ -40,7 +40,7 @@ type Activities[T any, U any] struct {
 }
 
 // NewActivities creates a new Activities instance.
-func NewActivities[T any, U any](source datasync.Source[T], mapper datasync.Mapper[T, U], sink datasync.Sink[U]) *Activities[T, U] {
+func NewActivities[T, U any](source datasync.Source[T], mapper datasync.Mapper[T, U], sink datasync.Sink[U]) *Activities[T, U] {
 	return &Activities[T, U]{
 		source: source,
 		mapper: mapper,
@@ -70,7 +70,8 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 		pkgotel.F("source", input.SourceName))
 	records, err := a.source.Fetch(fetchLC.Context())
 	if err != nil {
-		_ = fetchLC.Error(err, "source fetch failed")
+		//nolint:errcheck,gosec // we return the original error, not lc.Error's return
+		fetchLC.Error(err, "source fetch failed")
 		fetchLC.End()
 		recordFailure(ctx, start, attrs)
 		return nil, fmt.Errorf("source %s fetch failed: %w", a.source.Name(), err)
@@ -94,7 +95,8 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 		pkgotel.F("records", len(records)))
 	mapped, err := a.mapper.Map(mapLC.Context(), records)
 	if err != nil {
-		_ = mapLC.Error(err, "mapper failed")
+		//nolint:errcheck,gosec // we return the original error, not lc.Error's return
+		mapLC.Error(err, "mapper failed")
 		mapLC.End()
 		recordFailure(ctx, start, attrs)
 		return nil, fmt.Errorf("mapper failed: %w", err)
@@ -109,7 +111,8 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 		pkgotel.F("records", len(mapped)))
 	wr, err := a.sink.Write(writeLC.Context(), mapped)
 	if err != nil {
-		_ = writeLC.Error(err, "sink write failed")
+		//nolint:errcheck,gosec // we return the original error, not lc.Error's return
+		writeLC.Error(err, "sink write failed")
 		writeLC.End()
 		recordFailure(ctx, start, attrs)
 		return nil, fmt.Errorf("sink %s write failed: %w", a.sink.Name(), err)

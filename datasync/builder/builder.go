@@ -26,7 +26,7 @@ type SyncJobBuilder[T any, U any] struct {
 }
 
 // NewSyncJobBuilder creates a new builder with the given job name.
-func NewSyncJobBuilder[T any, U any](name string) *SyncJobBuilder[T, U] {
+func NewSyncJobBuilder[T, U any](name string) *SyncJobBuilder[T, U] {
 	return &SyncJobBuilder[T, U]{name: name}
 }
 

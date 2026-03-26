@@ -35,7 +35,7 @@ type RecordMapper[T any, U any] struct {
 }
 
 // NewRecordMapper creates a RecordMapper with the given name and per-record function.
-func NewRecordMapper[T any, U any](name string, fn RecordMapFunc[T, U]) *RecordMapper[T, U] {
+func NewRecordMapper[T, U any](name string, fn RecordMapFunc[T, U]) *RecordMapper[T, U] {
 	return &RecordMapper[T, U]{
 		name: name,
 		fn:   fn,

@@ -44,5 +44,5 @@ type SyncExecutionOutput struct {
 	Error          string        `json:"error,omitempty"`
 }
 
-func (s SyncExecutionOutput) IsSuccess() bool { return s.Success }
+func (s SyncExecutionOutput) IsSuccess() bool  { return s.Success }
 func (s SyncExecutionOutput) GetError() string { return s.Error }

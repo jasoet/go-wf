@@ -10,6 +10,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 
 - **Docker Workflows** - Execute containers with Temporal orchestration
 - **Function Workflows** - Execute registered Go functions with Temporal orchestration
+- **DataSync Workflows** - Generic Source/Mapper/Sink data synchronization pipelines
 - **Type-Safe Payloads** - Validated input/output structures
 - **Production-Ready** - Built-in retries, timeouts, error handling
 - **Observable** - Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled
@@ -100,13 +101,54 @@ pipeline, _ := builder.NewWorkflowBuilder("my-pipeline").
 
 See [examples/function/](./examples/function/) for runnable examples.
 
+### [datasync](./datasync/)
+
+Generic data synchronization workflows using a `Source[T] -> Mapper[T,U] -> Sink[U]` pipeline:
+
+**Core Features:**
+- **Source/Sink/Mapper** - Type-safe generic interfaces for data extraction, transformation, and loading
+- **Job** - Bundles Source + Mapper + Sink + schedule into a deployable unit
+- **Runner** - In-process test helper (no Temporal needed)
+
+**Helpers:**
+- **RecordMapper** - Per-record conversion with automatic skip tracking
+- **InsertIfAbsentSink** - Check-then-insert deduplication pattern
+- **MapperFunc** - Adapter for simple mapping functions
+- **IdentityMapper** - No-op mapper when Source and Sink share a type
+
+**Temporal Integration:**
+- **Workflow** - Temporal workflow function with scheduling support
+- **Activity** - SyncData activity with full OTel instrumentation
+- **Builder** - Fluent builder API for Job construction
+
+**Usage:**
+```go
+// Build a sync job
+source := mySource{}
+mapper := datasync.NewRecordMapper[Raw, Entity]("convert", convertFn)
+sink := datasync.NewInsertIfAbsentSink[Entity, string]("db", getID, find, create)
+
+job, _ := builder.NewSyncJobBuilder[Raw, Entity]("my-sync").
+    WithSource(source).
+    WithMapper(mapper).
+    WithSink(sink).
+    WithSchedule(5 * time.Minute).
+    Build()
+
+// Register with Temporal worker
+w := worker.New(client, workflow.TaskQueue("my-sync"), worker.Options{})
+workflow.RegisterJob(w, job)
+```
+
+See [datasync/README.md](./datasync/README.md) for detailed documentation.
+
 ## Observability
 
 go-wf includes built-in OpenTelemetry instrumentation via [`jasoet/pkg/v2/otel`](https://github.com/jasoet/pkg). All instrumentation is opt-in — zero overhead when not configured.
 
 **What's instrumented:**
 - **Activity spans** — Docker container and function execution with attributes (image, function name, duration, exit code)
-- **Activity metrics** — `go_wf.container.task.*` and `go_wf.function.task.*` (counters + histograms)
+- **Activity metrics** — `go_wf.container.task.*`, `go_wf.function.task.*`, and `go_wf.datasync.*` (counters + histograms)
 - **Artifact store spans** — Upload, download, delete, exists, list operations with `go_wf.artifact.operation.*` metrics
 - **Workflow logging** — Structured log events at pipeline/parallel/loop boundaries with step counts and durations
 
@@ -276,6 +318,11 @@ go-wf/
 │   ├── builder/      # Fluent builder API
 │   ├── payload/      # Type-safe payload structs
 │   └── workflow/     # Workflow implementations
+├── datasync/         # Generic data sync (Source → Mapper → Sink)
+│   ├── activity/     # SyncData activity with OTel
+│   ├── builder/      # Fluent builder for Job construction
+│   ├── payload/      # Temporal payload types
+│   └── workflow/     # Workflow function and registration
 ├── examples/container/    # Container examples (see [README](./examples/container/README.md))
 ├── examples/function/  # Function examples (see [README](./examples/function/README.md))
 ├── docs/plans/         # Implementation plans (archived/)

@@ -14,7 +14,7 @@ type Runner[T any, U any] struct {
 	sink   Sink[U]
 }
 
-func NewRunner[T any, U any](source Source[T], mapper Mapper[T, U], sink Sink[U]) *Runner[T, U] {
+func NewRunner[T, U any](source Source[T], mapper Mapper[T, U], sink Sink[U]) *Runner[T, U] {
 	return &Runner[T, U]{source: source, mapper: mapper, sink: sink}
 }
 
