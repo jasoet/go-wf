@@ -38,8 +38,10 @@ type PipelineOutput[O TaskOutput] struct {
 
 // ParallelInput defines parallel task execution.
 type ParallelInput[I TaskInput] struct {
-	Tasks           []I    `json:"tasks" validate:"required,min=1"`
-	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
+	Tasks []I `json:"tasks" validate:"required,min=1"`
+	// MaxConcurrency is not currently enforced. Use Temporal worker-level
+	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
+	MaxConcurrency int `json:"max_concurrency,omitempty"`
 	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
@@ -69,8 +71,10 @@ type ParallelOutput[O TaskOutput] struct {
 type LoopInput[I TaskInput] struct {
 	Items           []string `json:"items" validate:"required,min=1"`
 	Template        I        `json:"template" validate:"required"`
-	Parallel        bool     `json:"parallel"`
-	MaxConcurrency  int      `json:"max_concurrency,omitempty"`
+	Parallel bool `json:"parallel"`
+	// MaxConcurrency is not currently enforced. Use Temporal worker-level
+	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
+	MaxConcurrency int `json:"max_concurrency,omitempty"`
 	FailureStrategy string   `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
@@ -87,8 +91,10 @@ func (i *LoopInput[I]) Validate() error {
 type ParameterizedLoopInput[I TaskInput] struct {
 	Parameters      map[string][]string `json:"parameters" validate:"required,min=1"`
 	Template        I                   `json:"template" validate:"required"`
-	Parallel        bool                `json:"parallel"`
-	MaxConcurrency  int                 `json:"max_concurrency,omitempty"`
+	Parallel bool `json:"parallel"`
+	// MaxConcurrency is not currently enforced. Use Temporal worker-level
+	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
+	MaxConcurrency int `json:"max_concurrency,omitempty"`
 	FailureStrategy string              `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
 }
 
