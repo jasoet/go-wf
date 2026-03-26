@@ -13,6 +13,115 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateMetadata(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata ArtifactMetadata
+		wantErr  bool
+	}{
+		{
+			name: "valid metadata",
+			metadata: ArtifactMetadata{
+				Name: "output.tar", WorkflowID: "wf-123", RunID: "run-456", StepName: "build",
+			},
+			wantErr: false,
+		},
+		{
+			name: "path traversal in WorkflowID",
+			metadata: ArtifactMetadata{
+				Name: "file", WorkflowID: "../../etc", RunID: "run", StepName: "step",
+			},
+			wantErr: true,
+		},
+		{
+			name: "path traversal in RunID",
+			metadata: ArtifactMetadata{
+				Name: "file", WorkflowID: "wf", RunID: "../..", StepName: "step",
+			},
+			wantErr: true,
+		},
+		{
+			name: "path traversal in StepName",
+			metadata: ArtifactMetadata{
+				Name: "file", WorkflowID: "wf", RunID: "run", StepName: "../../secret",
+			},
+			wantErr: true,
+		},
+		{
+			name: "path traversal in Name",
+			metadata: ArtifactMetadata{
+				Name: "../passwd", WorkflowID: "wf", RunID: "run", StepName: "step",
+			},
+			wantErr: true,
+		},
+		{
+			name: "null byte in Name",
+			metadata: ArtifactMetadata{
+				Name: "file\x00.txt", WorkflowID: "wf", RunID: "run", StepName: "step",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty WorkflowID",
+			metadata: ArtifactMetadata{
+				Name: "file", WorkflowID: "", RunID: "run", StepName: "step",
+			},
+			wantErr: true,
+		},
+		{
+			name: "dots and hyphens allowed",
+			metadata: ArtifactMetadata{
+				Name: "output-v1.0.tar.gz", WorkflowID: "wf-123", RunID: "run-456", StepName: "build-step",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateMetadata(tt.metadata)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestLocalFileStore_PathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalFileStore(tmpDir)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	malicious := ArtifactMetadata{
+		Name: "passwd", WorkflowID: "../../etc", RunID: "run", StepName: "step",
+	}
+
+	t.Run("upload rejects traversal", func(t *testing.T) {
+		err := store.Upload(ctx, malicious, bytes.NewReader([]byte("evil")))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid metadata")
+	})
+
+	t.Run("download rejects traversal", func(t *testing.T) {
+		_, err := store.Download(ctx, malicious)
+		assert.Error(t, err)
+	})
+
+	t.Run("delete rejects traversal", func(t *testing.T) {
+		err := store.Delete(ctx, malicious)
+		assert.Error(t, err)
+	})
+
+	t.Run("exists rejects traversal", func(t *testing.T) {
+		_, err := store.Exists(ctx, malicious)
+		assert.Error(t, err)
+	})
+}
+
 func TestNewLocalFileStore(t *testing.T) {
 	tmpDir := t.TempDir()
 

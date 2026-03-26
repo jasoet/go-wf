@@ -77,6 +77,10 @@ func NewMinioStore(ctx context.Context, config MinioConfig) (*MinioStore, error)
 
 // Upload uploads an artifact to Minio.
 func (s *MinioStore) Upload(ctx context.Context, metadata ArtifactMetadata, data io.Reader) error {
+	if err := ValidateMetadata(metadata); err != nil {
+		return err
+	}
+
 	objectName := s.objectName(metadata)
 
 	// Determine content type
@@ -104,6 +108,10 @@ func (s *MinioStore) Upload(ctx context.Context, metadata ArtifactMetadata, data
 
 // Download downloads an artifact from Minio.
 func (s *MinioStore) Download(ctx context.Context, metadata ArtifactMetadata) (io.ReadCloser, error) {
+	if err := ValidateMetadata(metadata); err != nil {
+		return nil, err
+	}
+
 	objectName := s.objectName(metadata)
 
 	object, err := s.client.GetObject(ctx, s.bucket, objectName, minio.GetObjectOptions{})
@@ -125,6 +133,10 @@ func (s *MinioStore) Download(ctx context.Context, metadata ArtifactMetadata) (i
 
 // Delete removes an artifact from Minio.
 func (s *MinioStore) Delete(ctx context.Context, metadata ArtifactMetadata) error {
+	if err := ValidateMetadata(metadata); err != nil {
+		return err
+	}
+
 	objectName := s.objectName(metadata)
 
 	err := s.client.RemoveObject(ctx, s.bucket, objectName, minio.RemoveObjectOptions{})
@@ -137,6 +149,10 @@ func (s *MinioStore) Delete(ctx context.Context, metadata ArtifactMetadata) erro
 
 // Exists checks if an artifact exists in Minio.
 func (s *MinioStore) Exists(ctx context.Context, metadata ArtifactMetadata) (bool, error) {
+	if err := ValidateMetadata(metadata); err != nil {
+		return false, err
+	}
+
 	objectName := s.objectName(metadata)
 
 	_, err := s.client.StatObject(ctx, s.bucket, objectName, minio.StatObjectOptions{})

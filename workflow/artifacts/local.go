@@ -31,6 +31,10 @@ func NewLocalFileStore(basePath string) (*LocalFileStore, error) {
 
 // Upload uploads an artifact to the local filesystem.
 func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, data io.Reader) error {
+	if err := ValidateMetadata(metadata); err != nil {
+		return err
+	}
+
 	// Build full path
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
@@ -40,7 +44,7 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 	}
 
 	// Create file
-	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //#nosec G304 -- path is built from validated metadata
+	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -64,9 +68,13 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 
 // Download downloads an artifact from the local filesystem.
 func (s *LocalFileStore) Download(ctx context.Context, metadata ArtifactMetadata) (io.ReadCloser, error) {
+	if err := ValidateMetadata(metadata); err != nil {
+		return nil, err
+	}
+
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
-	file, err := os.Open(fullPath) //#nosec G304 -- path is built from validated metadata
+	file, err := os.Open(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("artifact not found: %s", metadata.Name)
@@ -79,6 +87,10 @@ func (s *LocalFileStore) Download(ctx context.Context, metadata ArtifactMetadata
 
 // Delete removes an artifact from the local filesystem.
 func (s *LocalFileStore) Delete(ctx context.Context, metadata ArtifactMetadata) error {
+	if err := ValidateMetadata(metadata); err != nil {
+		return err
+	}
+
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
 	if err := os.Remove(fullPath); err != nil {
@@ -93,6 +105,10 @@ func (s *LocalFileStore) Delete(ctx context.Context, metadata ArtifactMetadata) 
 
 // Exists checks if an artifact exists in the local filesystem.
 func (s *LocalFileStore) Exists(ctx context.Context, metadata ArtifactMetadata) (bool, error) {
+	if err := ValidateMetadata(metadata); err != nil {
+		return false, err
+	}
+
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
 	_, err := os.Stat(fullPath)

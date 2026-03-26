@@ -2,7 +2,10 @@ package artifacts
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"regexp"
+	"strings"
 )
 
 // ArtifactStore is an interface for storing and retrieving artifacts.
@@ -56,6 +59,34 @@ type ArtifactMetadata struct {
 
 	// Size is the artifact size in bytes
 	Size int64 `json:"size,omitempty"`
+}
+
+// safeNamePattern allows alphanumeric, hyphens, underscores, dots.
+var safeNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+// ValidateMetadata checks that metadata fields are safe for use as path/key components.
+func ValidateMetadata(m ArtifactMetadata) error {
+	fields := map[string]string{
+		"WorkflowID": m.WorkflowID,
+		"RunID":      m.RunID,
+		"StepName":   m.StepName,
+		"Name":       m.Name,
+	}
+	for name, value := range fields {
+		if value == "" {
+			return fmt.Errorf("invalid metadata: %s must not be empty", name)
+		}
+		if strings.ContainsAny(value, "/\\\x00") {
+			return fmt.Errorf("invalid metadata: %s contains forbidden characters", name)
+		}
+		if strings.Contains(value, "..") {
+			return fmt.Errorf("invalid metadata: %s contains path traversal sequence", name)
+		}
+		if !safeNamePattern.MatchString(value) {
+			return fmt.Errorf("invalid metadata: %s contains invalid characters", name)
+		}
+	}
+	return nil
 }
 
 // StorageKey generates a storage key for an artifact,
