@@ -44,7 +44,7 @@ func (s *LocalFileStore) Upload(ctx context.Context, metadata ArtifactMetadata, 
 	}
 
 	// Create file
-	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	file, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //#nosec G304 -- path validated by ValidateMetadata
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -74,7 +74,7 @@ func (s *LocalFileStore) Download(ctx context.Context, metadata ArtifactMetadata
 
 	fullPath := filepath.Join(s.BasePath, metadata.StorageKey())
 
-	file, err := os.Open(fullPath)
+	file, err := os.Open(fullPath) //#nosec G304 -- path validated by ValidateMetadata
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("artifact not found: %s", metadata.Name)

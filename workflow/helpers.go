@@ -207,7 +207,7 @@ func ExtractRegex(text, pattern string) (string, error) {
 }
 
 // ShellEscape wraps a string in single quotes for safe shell interpolation.
-// Single quotes inside the string are escaped with the '\'' idiom.
+// Single quotes inside the string are escaped with the '\” idiom.
 func ShellEscape(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
