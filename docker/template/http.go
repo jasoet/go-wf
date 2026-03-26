@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jasoet/go-wf/docker/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // HTTP is a WorkflowSource that creates an HTTP request using a container.
@@ -118,10 +119,10 @@ func (h *HTTP) ToInput() payload.ContainerExecutionInput {
 // buildValidationScript creates a shell script that makes the HTTP request
 // and validates the response status code.
 func (h *HTTP) buildValidationScript(curlArgs []string) string {
-	// Quote each curl argument in single quotes for safe shell interpolation.
+	// Quote each curl argument for safe shell interpolation.
 	quotedArgs := make([]string, len(curlArgs))
 	for i, arg := range curlArgs {
-		quotedArgs[i] = "'" + strings.ReplaceAll(arg, "'", "'\\''") + "'"
+		quotedArgs[i] = generic.ShellEscape(arg)
 	}
 
 	curlCmd := "curl " + strings.Join(quotedArgs, " ")
