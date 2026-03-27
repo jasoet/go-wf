@@ -5,6 +5,7 @@ import (
 
 	"github.com/jasoet/go-wf/function/builder"
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow"
 )
 
 // BatchProcess creates a parallel loop workflow for batch processing items.
@@ -16,19 +17,19 @@ import (
 //	input, err := patterns.BatchProcess(
 //	    []string{"file1.csv", "file2.csv", "file3.csv"},
 //	    "process-file")
-func BatchProcess(items []string, functionName string) (*payload.LoopInput, error) {
+func BatchProcess(items []string, functionName string) (*workflow.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	if len(items) == 0 {
 		return nil, fmt.Errorf("at least one item is required")
 	}
 
-	template := payload.FunctionExecutionInput{
+	template := &payload.FunctionExecutionInput{
 		Name: functionName,
 		Args: map[string]string{
 			"file": "{{item}}",
 		},
 	}
 
-	input, err := builder.NewLoopBuilder(items).
+	input, err := builder.NewFunctionLoopBuilder(items).
 		WithTemplate(template).
 		Parallel(true).
 		FailFast(false).
@@ -48,19 +49,19 @@ func BatchProcess(items []string, functionName string) (*payload.LoopInput, erro
 //
 //	input, err := patterns.SequentialMigration(
 //	    []string{"001_create_users.sql", "002_add_index.sql"})
-func SequentialMigration(migrations []string) (*payload.LoopInput, error) {
+func SequentialMigration(migrations []string) (*workflow.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	if len(migrations) == 0 {
 		return nil, fmt.Errorf("at least one migration is required")
 	}
 
-	template := payload.FunctionExecutionInput{
+	template := &payload.FunctionExecutionInput{
 		Name: "run-migration",
 		Args: map[string]string{
 			"migration": "{{item}}",
 		},
 	}
 
-	input, err := builder.NewLoopBuilder(migrations).
+	input, err := builder.NewFunctionLoopBuilder(migrations).
 		WithTemplate(template).
 		Parallel(false).
 		FailFast(true).
@@ -81,7 +82,7 @@ func SequentialMigration(migrations []string) (*payload.LoopInput, error) {
 //	    []string{"dev", "staging", "prod"},
 //	    []string{"us-west", "us-east", "eu-central"},
 //	    "v1.2.3")
-func MultiRegionDeploy(environments, regions []string, version string) (*payload.ParameterizedLoopInput, error) {
+func MultiRegionDeploy(environments, regions []string, version string) (*workflow.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	if len(environments) == 0 {
 		return nil, fmt.Errorf("at least one environment is required")
 	}
@@ -89,7 +90,7 @@ func MultiRegionDeploy(environments, regions []string, version string) (*payload
 		return nil, fmt.Errorf("at least one region is required")
 	}
 
-	template := payload.FunctionExecutionInput{
+	template := &payload.FunctionExecutionInput{
 		Name: "deploy-service",
 		Args: map[string]string{
 			"version":     version,
@@ -103,7 +104,7 @@ func MultiRegionDeploy(environments, regions []string, version string) (*payload
 		"region":      regions,
 	}
 
-	input, err := builder.NewParameterizedLoopBuilder(params).
+	input, err := builder.NewFunctionParameterizedLoopBuilder(params).
 		WithTemplate(template).
 		Parallel(true).
 		FailFast(true).
@@ -128,21 +129,22 @@ func MultiRegionDeploy(environments, regions []string, version string) (*payload
 //	    },
 //	    "train-model",
 //	    5)
-func ParameterSweep(params map[string][]string, functionName string, maxConcurrency int) (*payload.ParameterizedLoopInput, error) {
+func ParameterSweep(params map[string][]string, functionName string, maxConcurrency int) (*workflow.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	if len(params) == 0 {
 		return nil, fmt.Errorf("at least one parameter is required")
 	}
 
-	template := payload.FunctionExecutionInput{
-		Name: functionName,
-		Args: make(map[string]string),
-	}
-
+	args := make(map[string]string)
 	for key := range params {
-		template.Args[key] = fmt.Sprintf("{{.%s}}", key)
+		args[key] = fmt.Sprintf("{{.%s}}", key)
 	}
 
-	input, err := builder.NewParameterizedLoopBuilder(params).
+	template := &payload.FunctionExecutionInput{
+		Name: functionName,
+		Args: args,
+	}
+
+	input, err := builder.NewFunctionParameterizedLoopBuilder(params).
 		WithTemplate(template).
 		Parallel(true).
 		MaxConcurrency(maxConcurrency).

@@ -10,7 +10,7 @@ import (
 type DAGBuilder struct {
 	name        string
 	nodes       []payload.FunctionDAGNode
-	nodeIndex   map[string]int // name → index in nodes slice
+	nodeIndex   map[string]int // name -> index in nodes slice
 	failFast    bool
 	maxParallel int
 	errors      []error

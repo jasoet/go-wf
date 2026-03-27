@@ -10,8 +10,8 @@ import (
 )
 
 func TestLoopBuilder_BuildLoop(t *testing.T) {
-	input, err := NewLoopBuilder([]string{"a", "b", "c"}).
-		WithTemplate(payload.FunctionExecutionInput{Name: "process-{{item}}"}).
+	input, err := NewFunctionLoopBuilder([]string{"a", "b", "c"}).
+		WithTemplate(&payload.FunctionExecutionInput{Name: "process-{{item}}"}).
 		Parallel(true).
 		FailFast(true).
 		MaxConcurrency(2).
@@ -27,11 +27,11 @@ func TestLoopBuilder_BuildLoop(t *testing.T) {
 }
 
 func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
-	input, err := NewParameterizedLoopBuilder(map[string][]string{
+	input, err := NewFunctionParameterizedLoopBuilder(map[string][]string{
 		"env":    {"dev", "prod"},
 		"region": {"us", "eu"},
 	}).
-		WithTemplate(payload.FunctionExecutionInput{
+		WithTemplate(&payload.FunctionExecutionInput{
 			Name: "deploy",
 			Args: map[string]string{"target": "{{.env}}-{{.region}}"},
 		}).
@@ -45,15 +45,15 @@ func TestLoopBuilder_BuildParameterizedLoop(t *testing.T) {
 }
 
 func TestLoopBuilder_EmptyItemsError(t *testing.T) {
-	_, err := NewLoopBuilder([]string{}).
-		WithTemplate(payload.FunctionExecutionInput{Name: "test"}).
+	_, err := NewFunctionLoopBuilder([]string{}).
+		WithTemplate(&payload.FunctionExecutionInput{Name: "test"}).
 		BuildLoop()
 	assert.Error(t, err)
 }
 
 func TestLoopBuilder_EmptyParametersError(t *testing.T) {
-	_, err := NewParameterizedLoopBuilder(map[string][]string{}).
-		WithTemplate(payload.FunctionExecutionInput{Name: "test"}).
+	_, err := NewFunctionParameterizedLoopBuilder(map[string][]string{}).
+		WithTemplate(&payload.FunctionExecutionInput{Name: "test"}).
 		BuildParameterizedLoop()
 	assert.Error(t, err)
 }
@@ -75,17 +75,11 @@ func TestForEachParam(t *testing.T) {
 	assert.Len(t, input.Parameters, 1)
 }
 
-func TestLoopBuilder_NilSourceError(t *testing.T) {
-	_, err := NewLoopBuilder([]string{"a"}).
-		WithSource(nil).
-		BuildLoop()
-	assert.Error(t, err)
-}
-
 func TestLoopBuilder_WithSource(t *testing.T) {
 	source := NewFunctionSource(payload.FunctionExecutionInput{Name: "from-source"})
-	input, err := NewLoopBuilder([]string{"a"}).
-		WithSource(source).
+	tmpl := source.ToInput()
+	input, err := NewFunctionLoopBuilder([]string{"a"}).
+		WithTemplate(&tmpl).
 		BuildLoop()
 
 	require.NoError(t, err)

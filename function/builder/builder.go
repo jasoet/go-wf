@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow"
 )
 
 const (
@@ -13,10 +14,10 @@ const (
 	FailureStrategyFailFast = "fail_fast"
 )
 
-// WorkflowBuilder provides a fluent API for constructing function workflow inputs.
-type WorkflowBuilder struct {
+// WorkflowBuilder provides a fluent API for constructing generic workflow inputs.
+type WorkflowBuilder[I workflow.TaskInput, O workflow.TaskOutput] struct {
 	name           string
-	functions      []payload.FunctionExecutionInput
+	inputs         []I
 	stopOnError    bool
 	parallelMode   bool
 	failFast       bool
@@ -24,75 +25,63 @@ type WorkflowBuilder struct {
 	errors         []error
 }
 
-// NewWorkflowBuilder creates a new workflow builder with the specified name.
-func NewWorkflowBuilder(name string, opts ...BuilderOption) *WorkflowBuilder {
-	b := &WorkflowBuilder{
+// NewWorkflowBuilder creates a new generic workflow builder with the specified name.
+func NewWorkflowBuilder[I workflow.TaskInput, O workflow.TaskOutput](name string) *WorkflowBuilder[I, O] {
+	b := &WorkflowBuilder[I, O]{
 		name:        name,
-		functions:   make([]payload.FunctionExecutionInput, 0),
+		inputs:      make([]I, 0),
 		stopOnError: true,
 	}
-
-	for _, opt := range opts {
-		opt(b)
-	}
-
 	return b
 }
 
-// Add adds a workflow source to the builder.
-func (b *WorkflowBuilder) Add(source WorkflowSource) *WorkflowBuilder {
-	if source == nil {
-		b.errors = append(b.errors, fmt.Errorf("cannot add nil source"))
-		return b
-	}
-
-	input := source.ToInput()
-	b.functions = append(b.functions, input)
-	return b
+// NewFunctionBuilder creates a new workflow builder specialized for function execution.
+func NewFunctionBuilder(name string) *WorkflowBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput] {
+	return NewWorkflowBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](name)
 }
 
-// AddInput adds a function execution input directly to the builder.
-func (b *WorkflowBuilder) AddInput(input payload.FunctionExecutionInput) *WorkflowBuilder {
-	b.functions = append(b.functions, input)
+// Add adds an input to the builder.
+func (b *WorkflowBuilder[I, O]) Add(input I) *WorkflowBuilder[I, O] {
+	b.inputs = append(b.inputs, input)
 	return b
 }
 
 // StopOnError configures whether the workflow should stop on first error.
-func (b *WorkflowBuilder) StopOnError(stop bool) *WorkflowBuilder {
+func (b *WorkflowBuilder[I, O]) StopOnError(stop bool) *WorkflowBuilder[I, O] {
 	b.stopOnError = stop
 	return b
 }
 
 // Parallel configures the builder to create a parallel execution workflow.
-func (b *WorkflowBuilder) Parallel(parallel bool) *WorkflowBuilder {
+func (b *WorkflowBuilder[I, O]) Parallel(parallel bool) *WorkflowBuilder[I, O] {
 	b.parallelMode = parallel
 	return b
 }
 
 // FailFast configures fail-fast behavior for parallel workflows.
-func (b *WorkflowBuilder) FailFast(failFast bool) *WorkflowBuilder {
+func (b *WorkflowBuilder[I, O]) FailFast(failFast bool) *WorkflowBuilder[I, O] {
 	b.failFast = failFast
 	return b
 }
 
-// MaxConcurrency sets the maximum number of concurrent functions for parallel workflows.
-func (b *WorkflowBuilder) MaxConcurrency(max int) *WorkflowBuilder {
+// MaxConcurrency sets the maximum number of concurrent tasks for parallel workflows.
+func (b *WorkflowBuilder[I, O]) MaxConcurrency(max int) *WorkflowBuilder[I, O] {
 	b.maxConcurrency = max
 	return b
 }
 
 // BuildPipeline creates a pipeline workflow configuration.
-func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
+func (b *WorkflowBuilder[I, O]) BuildPipeline() (*workflow.PipelineInput[I, O], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
 
-	if len(b.functions) == 0 {
+	if len(b.inputs) == 0 {
 		return nil, fmt.Errorf("pipeline workflow requires at least one function")
 	}
 
-	input := &payload.PipelineInput{
-		Functions:   b.functions,
+	input := &workflow.PipelineInput[I, O]{
+		Tasks:       b.inputs,
 		StopOnError: b.stopOnError,
 	}
 
@@ -104,12 +93,12 @@ func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
 }
 
 // BuildParallel creates a parallel workflow configuration.
-func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
+func (b *WorkflowBuilder[I, O]) BuildParallel() (*workflow.ParallelInput[I, O], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
 
-	if len(b.functions) == 0 {
+	if len(b.inputs) == 0 {
 		return nil, fmt.Errorf("parallel workflow requires at least one function")
 	}
 
@@ -118,8 +107,8 @@ func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
 		failureStrategy = FailureStrategyFailFast
 	}
 
-	input := &payload.ParallelInput{
-		Functions:       b.functions,
+	input := &workflow.ParallelInput[I, O]{
+		Tasks:           b.inputs,
 		MaxConcurrency:  b.maxConcurrency,
 		FailureStrategy: failureStrategy,
 	}
@@ -132,24 +121,24 @@ func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
 }
 
 // Build creates the appropriate workflow configuration based on the builder's mode.
-func (b *WorkflowBuilder) Build() (interface{}, error) {
+func (b *WorkflowBuilder[I, O]) Build() (interface{}, error) {
 	if b.parallelMode {
 		return b.BuildParallel()
 	}
 	return b.BuildPipeline()
 }
 
-// BuildSingle creates a single function execution workflow.
-func (b *WorkflowBuilder) BuildSingle() (*payload.FunctionExecutionInput, error) {
+// BuildSingle creates a single task execution workflow.
+func (b *WorkflowBuilder[I, O]) BuildSingle() (*I, error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
 
-	if len(b.functions) == 0 {
+	if len(b.inputs) == 0 {
 		return nil, fmt.Errorf("single workflow requires at least one function")
 	}
 
-	input := b.functions[0] // value copy to avoid pointer to internal slice element
+	input := b.inputs[0] // value copy to avoid pointer to internal slice element
 
 	if err := input.Validate(); err != nil {
 		return nil, fmt.Errorf("single function validation failed: %w", err)
@@ -158,77 +147,77 @@ func (b *WorkflowBuilder) BuildSingle() (*payload.FunctionExecutionInput, error)
 	return &input, nil
 }
 
-// Count returns the number of functions added to the builder.
-func (b *WorkflowBuilder) Count() int {
-	return len(b.functions)
+// Count returns the number of inputs added to the builder.
+func (b *WorkflowBuilder[I, O]) Count() int {
+	return len(b.inputs)
 }
 
 // Errors returns all errors accumulated during building.
-func (b *WorkflowBuilder) Errors() []error {
+func (b *WorkflowBuilder[I, O]) Errors() []error {
 	return b.errors
 }
 
 // LoopBuilder provides a fluent API for constructing loop workflow inputs.
-type LoopBuilder struct {
+type LoopBuilder[I workflow.TaskInput, O workflow.TaskOutput] struct {
 	items          []string
 	parameters     map[string][]string
-	template       payload.FunctionExecutionInput
+	template       I
 	parallel       bool
 	maxConcurrency int
 	failFast       bool
 	errors         []error
 }
 
-// NewLoopBuilder creates a new loop builder with the specified items.
-func NewLoopBuilder(items []string) *LoopBuilder {
-	return &LoopBuilder{
+// NewLoopBuilder creates a new generic loop builder with the specified items.
+func NewLoopBuilder[I workflow.TaskInput, O workflow.TaskOutput](items []string) *LoopBuilder[I, O] {
+	return &LoopBuilder[I, O]{
 		items: items,
 	}
 }
 
-// NewParameterizedLoopBuilder creates a new parameterized loop builder.
-func NewParameterizedLoopBuilder(parameters map[string][]string) *LoopBuilder {
-	return &LoopBuilder{
+// NewParameterizedLoopBuilder creates a new generic parameterized loop builder.
+func NewParameterizedLoopBuilder[I workflow.TaskInput, O workflow.TaskOutput](parameters map[string][]string) *LoopBuilder[I, O] {
+	return &LoopBuilder[I, O]{
 		parameters: parameters,
 	}
 }
 
-// WithTemplate sets the function template for the loop.
-func (lb *LoopBuilder) WithTemplate(template payload.FunctionExecutionInput) *LoopBuilder {
+// NewFunctionLoopBuilder creates a new loop builder specialized for function execution.
+func NewFunctionLoopBuilder(items []string) *LoopBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput] {
+	return NewLoopBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](items)
+}
+
+// NewFunctionParameterizedLoopBuilder creates a new parameterized loop builder specialized for function execution.
+func NewFunctionParameterizedLoopBuilder(parameters map[string][]string) *LoopBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput] {
+	return NewParameterizedLoopBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](parameters)
+}
+
+// WithTemplate sets the template for the loop.
+func (lb *LoopBuilder[I, O]) WithTemplate(template I) *LoopBuilder[I, O] {
 	lb.template = template
 	return lb
 }
 
-// WithSource sets the function template from a workflow source.
-func (lb *LoopBuilder) WithSource(source WorkflowSource) *LoopBuilder {
-	if source == nil {
-		lb.errors = append(lb.errors, fmt.Errorf("cannot use nil source"))
-		return lb
-	}
-	lb.template = source.ToInput()
-	return lb
-}
-
 // Parallel configures the loop to execute in parallel.
-func (lb *LoopBuilder) Parallel(parallel bool) *LoopBuilder {
+func (lb *LoopBuilder[I, O]) Parallel(parallel bool) *LoopBuilder[I, O] {
 	lb.parallel = parallel
 	return lb
 }
 
 // MaxConcurrency sets the maximum number of concurrent iterations.
-func (lb *LoopBuilder) MaxConcurrency(max int) *LoopBuilder {
+func (lb *LoopBuilder[I, O]) MaxConcurrency(max int) *LoopBuilder[I, O] {
 	lb.maxConcurrency = max
 	return lb
 }
 
 // FailFast configures fail-fast behavior.
-func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
+func (lb *LoopBuilder[I, O]) FailFast(failFast bool) *LoopBuilder[I, O] {
 	lb.failFast = failFast
 	return lb
 }
 
 // checkAndStrategy validates the builder state and returns the resolved failure strategy.
-func (lb *LoopBuilder) checkAndStrategy() (string, error) {
+func (lb *LoopBuilder[I, O]) checkAndStrategy() (string, error) {
 	if len(lb.errors) > 0 {
 		return "", lb.errors[0]
 	}
@@ -241,9 +230,7 @@ func (lb *LoopBuilder) checkAndStrategy() (string, error) {
 }
 
 // BuildLoop creates a loop workflow configuration for simple item iteration.
-//
-//nolint:dupl // BuildLoop and BuildParameterizedLoop construct different types with the same pattern.
-func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
+func (lb *LoopBuilder[I, O]) BuildLoop() (*workflow.LoopInput[I, O], error) {
 	failureStrategy, err := lb.checkAndStrategy()
 	if err != nil {
 		return nil, err
@@ -253,7 +240,7 @@ func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
 		return nil, fmt.Errorf("loop requires at least one item")
 	}
 
-	input := &payload.LoopInput{
+	input := &workflow.LoopInput[I, O]{
 		Items:           lb.items,
 		Template:        lb.template,
 		Parallel:        lb.parallel,
@@ -269,9 +256,7 @@ func (lb *LoopBuilder) BuildLoop() (*payload.LoopInput, error) {
 }
 
 // BuildParameterizedLoop creates a parameterized loop workflow configuration.
-//
-//nolint:dupl // BuildParameterizedLoop and BuildLoop construct different types with the same pattern.
-func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput, error) {
+func (lb *LoopBuilder[I, O]) BuildParameterizedLoop() (*workflow.ParameterizedLoopInput[I, O], error) {
 	failureStrategy, err := lb.checkAndStrategy()
 	if err != nil {
 		return nil, err
@@ -281,7 +266,7 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput
 		return nil, fmt.Errorf("parameterized loop requires at least one parameter")
 	}
 
-	input := &payload.ParameterizedLoopInput{
+	input := &workflow.ParameterizedLoopInput[I, O]{
 		Parameters:      lb.parameters,
 		Template:        lb.template,
 		Parallel:        lb.parallel,
@@ -296,12 +281,12 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput
 	return input, nil
 }
 
-// ForEach creates a loop builder for iterating over items.
-func ForEach(items []string, template payload.FunctionExecutionInput) *LoopBuilder {
-	return NewLoopBuilder(items).WithTemplate(template)
+// ForEach creates a function-specific loop builder for iterating over items.
+func ForEach(items []string, template payload.FunctionExecutionInput) *LoopBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput] {
+	return NewFunctionLoopBuilder(items).WithTemplate(&template)
 }
 
-// ForEachParam creates a parameterized loop builder.
-func ForEachParam(parameters map[string][]string, template payload.FunctionExecutionInput) *LoopBuilder {
-	return NewParameterizedLoopBuilder(parameters).WithTemplate(template)
+// ForEachParam creates a function-specific parameterized loop builder.
+func ForEachParam(parameters map[string][]string, template payload.FunctionExecutionInput) *LoopBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput] {
+	return NewFunctionParameterizedLoopBuilder(parameters).WithTemplate(&template)
 }
