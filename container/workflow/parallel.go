@@ -19,3 +19,12 @@ func ParallelContainersWorkflow(ctx wf.Context, input payload.ParallelInput) (*p
 
 	return toParallelOutput(genericOutput, err)
 }
+
+// GenericParallelContainersWorkflow executes multiple containers in parallel using generic types directly.
+// This is the preferred entry point for new code.
+func GenericParallelContainersWorkflow(
+	ctx wf.Context,
+	input generic.ParallelInput[*payload.ContainerExecutionInput],
+) (*generic.ParallelOutput[payload.ContainerExecutionOutput], error) {
+	return generic.InstrumentedParallelWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, input)
+}

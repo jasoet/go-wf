@@ -19,3 +19,12 @@ func ContainerPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*pa
 
 	return toPipelineOutput(genericOutput, err)
 }
+
+// GenericContainerPipelineWorkflow executes containers sequentially using generic types directly.
+// This is the preferred entry point for new code.
+func GenericContainerPipelineWorkflow(
+	ctx wf.Context,
+	input generic.PipelineInput[*payload.ContainerExecutionInput],
+) (*generic.PipelineOutput[payload.ContainerExecutionOutput], error) {
+	return generic.InstrumentedPipelineWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, input)
+}
