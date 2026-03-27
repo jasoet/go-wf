@@ -15,6 +15,7 @@ import (
 
 	containerpayload "github.com/jasoet/go-wf/container/payload"
 	containerwf "github.com/jasoet/go-wf/container/workflow"
+	dspayload "github.com/jasoet/go-wf/datasync/payload"
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
 	"github.com/jasoet/go-wf/workflow/artifacts"
@@ -333,6 +334,33 @@ func runAll(ctx context.Context, c client.Client) error {
 		}))
 
 	log.Println()
+	log.Println("=== Submitting DataSync Workflows ===")
+
+	// 10. Basic sync — user sync
+	track(submit(ctx, c, fmt.Sprintf("demo-ds-user-sync-%s", ts), "sync-user-sync",
+		"user-sync", dspayload.SyncExecutionInput{
+			JobName:    "user-sync",
+			SourceName: "user-source",
+			SinkName:   "user-sink",
+		}))
+
+	// 11. Product sync
+	track(submit(ctx, c, fmt.Sprintf("demo-ds-product-sync-%s", ts), "sync-product-sync",
+		"product-sync", dspayload.SyncExecutionInput{
+			JobName:    "product-sync",
+			SourceName: "product-source",
+			SinkName:   "product-sink",
+		}))
+
+	// 12. Order sync
+	track(submit(ctx, c, fmt.Sprintf("demo-ds-order-sync-%s", ts), "sync-order-sync",
+		"order-sync", dspayload.SyncExecutionInput{
+			JobName:    "order-sync",
+			SourceName: "order-source",
+			SinkName:   "order-sink",
+		}))
+
+	log.Println()
 	if failures > 0 {
 		log.Printf("%d workflow(s) failed to submit", failures)
 		return fmt.Errorf("%d workflow(s) failed to submit", failures)
@@ -564,6 +592,42 @@ func createSchedules(ctx context.Context, c client.Client) {
 				FailFast: true,
 			},
 		},
+		{
+			ID:           "schedule-ds-user-sync",
+			Interval:     2 * time.Minute,
+			WorkflowID:   "scheduled-ds-user-sync",
+			WorkflowFunc: "user-sync",
+			TaskQueue:    "sync-user-sync",
+			Input: dspayload.SyncExecutionInput{
+				JobName:    "user-sync",
+				SourceName: "user-source",
+				SinkName:   "user-sink",
+			},
+		},
+		{
+			ID:           "schedule-ds-product-sync",
+			Interval:     2 * time.Minute,
+			WorkflowID:   "scheduled-ds-product-sync",
+			WorkflowFunc: "product-sync",
+			TaskQueue:    "sync-product-sync",
+			Input: dspayload.SyncExecutionInput{
+				JobName:    "product-sync",
+				SourceName: "product-source",
+				SinkName:   "product-sink",
+			},
+		},
+		{
+			ID:           "schedule-ds-order-sync",
+			Interval:     2 * time.Minute,
+			WorkflowID:   "scheduled-ds-order-sync",
+			WorkflowFunc: "order-sync",
+			TaskQueue:    "sync-order-sync",
+			Input: dspayload.SyncExecutionInput{
+				JobName:    "order-sync",
+				SourceName: "order-source",
+				SinkName:   "order-sink",
+			},
+		},
 	}
 
 	for _, s := range schedules {
@@ -612,6 +676,9 @@ func cleanSchedules(ctx context.Context, c client.Client) {
 		"schedule-fn-paramloop",
 		"schedule-fn-dag-etl",
 		"schedule-fn-dag-artifact",
+		"schedule-ds-user-sync",
+		"schedule-ds-product-sync",
+		"schedule-ds-order-sync",
 	}
 
 	for _, id := range scheduleIDs {

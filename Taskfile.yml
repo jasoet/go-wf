@@ -429,13 +429,13 @@ tasks:
         echo "✅ Demo environment stopped."
 
   local:up:
-    desc: Start local environment (infrastructure + function worker + trigger)
+    desc: Start local environment (infrastructure + function worker + datasync worker + trigger)
     silent: true
     cmds:
       - podman-compose up -d --build
       - |
         echo ""
-        echo "Local environment starting..."
+        echo "Local environment starting (with function worker and datasync worker)..."
         echo "  Temporal UI: http://localhost:8233"
         echo "  RustFS Console: http://localhost:9001 (rustfsadmin/rustfsadmin)"
         echo ""

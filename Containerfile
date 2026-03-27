@@ -27,6 +27,15 @@ FROM gcr.io/distroless/static AS function-worker
 COPY --from=function-worker-build /function-worker /function-worker
 ENTRYPOINT ["/function-worker"]
 
+# DataSync worker build
+FROM builder AS datasync-worker-build
+RUN CGO_ENABLED=0 go build -tags example -o /datasync-worker ./examples/datasync/worker/
+
+# Runtime: datasync worker
+FROM gcr.io/distroless/static AS datasync-worker
+COPY --from=datasync-worker-build /datasync-worker /datasync-worker
+ENTRYPOINT ["/datasync-worker"]
+
 # Runtime: trigger
 FROM gcr.io/distroless/static AS trigger
 COPY --from=trigger-build /trigger /trigger
