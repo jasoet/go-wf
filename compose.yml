@@ -74,12 +74,10 @@ services:
       TEMPORAL_HOST_PORT: temporal:7233
       DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
-      - ${CONTAINER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${CONTAINER_SOCK:-/run/podman/podman.sock}:/var/run/docker.sock
     depends_on:
       temporal:
         condition: service_healthy
-    profiles:
-      - container
 
   function-worker:
     build:
@@ -119,6 +117,8 @@ services:
     environment:
       TEMPORAL_HOST_PORT: temporal:7233
     depends_on:
+      container-worker:
+        condition: service_started
       function-worker:
         condition: service_started
       datasync-worker:

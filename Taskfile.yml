@@ -447,7 +447,7 @@ tasks:
     desc: Start all services including container worker (requires CONTAINER_SOCK env var)
     silent: true
     cmds:
-      - podman-compose --profile container up -d --build
+      - podman-compose up -d --build
       - |
         echo ""
         echo "Local environment starting (with container worker)..."
@@ -461,13 +461,13 @@ tasks:
     desc: Stop local environment
     silent: true
     cmds:
-      - podman-compose --profile container down
+      - podman-compose down
 
   local:clean:
     desc: Stop local environment and remove volumes
     silent: true
     cmds:
-      - podman-compose --profile container down -v
+      - podman-compose down -v
 
   local:build:
     desc: Build worker and trigger container images
