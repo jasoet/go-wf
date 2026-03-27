@@ -49,12 +49,14 @@ type FunctionExecutionOutput struct {
 }
 
 // PipelineInput defines sequential function execution.
+// Deprecated: Use workflow.PipelineInput[I, O] directly.
 type PipelineInput struct {
 	Functions   []FunctionExecutionInput `json:"functions" validate:"required,min=1"`
 	StopOnError bool                     `json:"stop_on_error"`
 }
 
 // PipelineOutput defines pipeline execution results.
+// Deprecated: Use workflow.PipelineOutput[O] directly.
 type PipelineOutput struct {
 	Results       []FunctionExecutionOutput `json:"results"`
 	TotalSuccess  int                       `json:"total_success"`
@@ -63,6 +65,7 @@ type PipelineOutput struct {
 }
 
 // ParallelInput defines parallel function execution.
+// Deprecated: Use workflow.ParallelInput[I, O] directly.
 type ParallelInput struct {
 	Functions       []FunctionExecutionInput `json:"functions" validate:"required,min=1"`
 	MaxConcurrency  int                      `json:"max_concurrency,omitempty"`
@@ -70,6 +73,7 @@ type ParallelInput struct {
 }
 
 // ParallelOutput defines parallel execution results.
+// Deprecated: Use workflow.ParallelOutput[O] directly.
 type ParallelOutput struct {
 	Results       []FunctionExecutionOutput `json:"results"`
 	TotalSuccess  int                       `json:"total_success"`
