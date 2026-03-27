@@ -8,13 +8,10 @@ import (
 )
 
 // FunctionPipelineWorkflow executes functions sequentially.
-func FunctionPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*payload.PipelineOutput, error) {
-	genericInput := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
-		Tasks:       toTaskPtrs(input.Functions),
-		StopOnError: input.StopOnError,
-	}
-
-	genericOutput, err := generic.InstrumentedPipelineWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput)
-
-	return toPipelineOutput(genericOutput, err)
+// Accepts the generic PipelineInput directly.
+func FunctionPipelineWorkflow(
+	ctx wf.Context,
+	input generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput],
+) (*generic.PipelineOutput[payload.FunctionExecutionOutput], error) {
+	return generic.InstrumentedPipelineWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, input)
 }

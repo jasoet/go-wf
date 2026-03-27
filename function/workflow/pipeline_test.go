@@ -12,6 +12,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/function/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 func TestFunctionPipelineWorkflow_Success(t *testing.T) {
@@ -19,8 +20,8 @@ func TestFunctionPipelineWorkflow_Success(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "step1"},
 			{Name: "step2"},
 		},
@@ -37,7 +38,7 @@ func TestFunctionPipelineWorkflow_Success(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -50,14 +51,14 @@ func TestFunctionPipelineWorkflow_InvalidInput(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{},
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{},
 	}
 
 	env.ExecuteWorkflow(FunctionPipelineWorkflow, input)
 
 	require.True(t, env.IsWorkflowCompleted())
-	assert.Error(t, env.GetWorkflowError(), "Expected validation error for empty functions")
+	assert.Error(t, env.GetWorkflowError(), "Expected validation error for empty tasks")
 }
 
 func TestFunctionPipelineWorkflow_StopOnError(t *testing.T) {
@@ -65,18 +66,18 @@ func TestFunctionPipelineWorkflow_StopOnError(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "step1"},
 			{Name: "step2"},
 		},
 		StopOnError: true,
 	}
 
-	env.OnActivity("ExecuteFunctionActivity", mock.Anything, input.Functions[0]).Return(
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, *input.Tasks[0]).Return(
 		&payload.FunctionExecutionOutput{Success: true}, nil).Once()
 
-	env.OnActivity("ExecuteFunctionActivity", mock.Anything, input.Functions[1]).Return(
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, *input.Tasks[1]).Return(
 		&payload.FunctionExecutionOutput{Success: false, Error: "step2 failed"}, fmt.Errorf("activity failed")).Once()
 
 	env.ExecuteWorkflow(FunctionPipelineWorkflow, input)
@@ -90,8 +91,8 @@ func TestFunctionPipelineWorkflow_ContinueOnError(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "step1"},
 			{Name: "step2"},
 			{Name: "step3"},
@@ -99,13 +100,13 @@ func TestFunctionPipelineWorkflow_ContinueOnError(t *testing.T) {
 		StopOnError: false,
 	}
 
-	env.OnActivity("ExecuteFunctionActivity", mock.Anything, input.Functions[0]).Return(
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, *input.Tasks[0]).Return(
 		&payload.FunctionExecutionOutput{Success: true}, nil).Once()
 
-	env.OnActivity("ExecuteFunctionActivity", mock.Anything, input.Functions[1]).Return(
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, *input.Tasks[1]).Return(
 		&payload.FunctionExecutionOutput{Success: false, Error: "step2 failed"}, nil).Once()
 
-	env.OnActivity("ExecuteFunctionActivity", mock.Anything, input.Functions[2]).Return(
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, *input.Tasks[2]).Return(
 		&payload.FunctionExecutionOutput{Success: true}, nil).Once()
 
 	env.ExecuteWorkflow(FunctionPipelineWorkflow, input)
@@ -113,7 +114,7 @@ func TestFunctionPipelineWorkflow_ContinueOnError(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError(), "Workflow should not error when StopOnError is false")
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.TotalSuccess, "Expected 2 successful")
 	assert.Equal(t, 1, result.TotalFailed, "Expected 1 failed")
@@ -124,8 +125,8 @@ func TestFunctionPipelineWorkflow_AllFail(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "step1"},
 			{Name: "step2"},
 			{Name: "step3"},
@@ -141,7 +142,7 @@ func TestFunctionPipelineWorkflow_AllFail(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError(), "Workflow should not error when StopOnError is false")
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 3, result.TotalFailed, "Expected 3 failed")
 	assert.Equal(t, 0, result.TotalSuccess, "Expected 0 successful")
@@ -153,8 +154,8 @@ func TestFunctionPipelineWorkflow_StopOnErrorFirstStep(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "step1"},
 			{Name: "step2"},
 			{Name: "step3"},
@@ -162,7 +163,7 @@ func TestFunctionPipelineWorkflow_StopOnErrorFirstStep(t *testing.T) {
 		StopOnError: true,
 	}
 
-	env.OnActivity("ExecuteFunctionActivity", mock.Anything, input.Functions[0]).Return(
+	env.OnActivity("ExecuteFunctionActivity", mock.Anything, *input.Tasks[0]).Return(
 		nil, fmt.Errorf("function crashed")).Once()
 
 	env.ExecuteWorkflow(FunctionPipelineWorkflow, input)
@@ -176,8 +177,8 @@ func TestFunctionPipelineWorkflow_SingleFunction(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "only-step"},
 		},
 		StopOnError: true,
@@ -191,7 +192,7 @@ func TestFunctionPipelineWorkflow_SingleFunction(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 1, result.TotalSuccess, "Expected 1 successful")
 	assert.Len(t, result.Results, 1, "Expected 1 result")
@@ -202,8 +203,8 @@ func TestFunctionPipelineWorkflow_ResultTracking(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "build"},
 			{Name: "test"},
 			{Name: "deploy"},
@@ -227,7 +228,7 @@ func TestFunctionPipelineWorkflow_ResultTracking(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 3, result.TotalSuccess, "Expected 3 successful")
 	require.Len(t, result.Results, 3, "Expected 3 results")

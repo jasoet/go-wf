@@ -12,6 +12,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/function/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 func TestLoopWorkflow_Success(t *testing.T) {
@@ -19,9 +20,9 @@ func TestLoopWorkflow_Success(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:    []string{"a", "b", "c"},
-		Template: payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template: &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 	}
 
 	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(&payload.FunctionExecutionOutput{
@@ -34,7 +35,7 @@ func TestLoopWorkflow_Success(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 
 	assert.Equal(t, 3, result.TotalSuccess)
@@ -46,11 +47,11 @@ func TestParameterizedLoopWorkflow_Success(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	input := payload.ParameterizedLoopInput{
+	input := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters: map[string][]string{
 			"env": {"dev", "prod"},
 		},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "deploy",
 			Args: map[string]string{"target": "{{.env}}"},
 		},
@@ -66,7 +67,7 @@ func TestParameterizedLoopWorkflow_Success(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -81,9 +82,9 @@ func TestLoopWorkflow_Sequential(t *testing.T) {
 	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
 		&payload.FunctionExecutionOutput{Success: true, Duration: 1 * time.Second}, nil)
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"step1", "step2"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        false,
 		FailureStrategy: "fail_fast",
 	}
@@ -93,7 +94,7 @@ func TestLoopWorkflow_Sequential(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.ItemCount)
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -114,9 +115,9 @@ func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
 			return &payload.FunctionExecutionOutput{Success: true}, nil
 		})
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"a", "b", "c"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        false,
 		FailureStrategy: "fail_fast",
 	}
@@ -143,9 +144,9 @@ func TestLoopWorkflow_SequentialContinueOnFailure(t *testing.T) {
 			return &payload.FunctionExecutionOutput{Success: true}, nil
 		})
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"a", "b", "c"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        false,
 		FailureStrategy: "continue",
 	}
@@ -155,7 +156,7 @@ func TestLoopWorkflow_SequentialContinueOnFailure(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.TotalSuccess)
 	assert.Equal(t, 1, result.TotalFailed)
@@ -177,9 +178,9 @@ func TestLoopWorkflow_ParallelFailFast(t *testing.T) {
 			return &payload.FunctionExecutionOutput{Success: true}, nil
 		})
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"a", "b", "c"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        true,
 		FailureStrategy: "fail_fast",
 	}
@@ -205,9 +206,9 @@ func TestLoopWorkflow_ParallelContinueMultipleFailures(t *testing.T) {
 			return &payload.FunctionExecutionOutput{Success: true}, nil
 		})
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"a", "b", "c", "d"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        true,
 		FailureStrategy: "continue",
 	}
@@ -217,7 +218,7 @@ func TestLoopWorkflow_ParallelContinueMultipleFailures(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.TotalSuccess)
 	assert.Equal(t, 2, result.TotalFailed)
@@ -232,9 +233,9 @@ func TestLoopWorkflow_AllFailContinue(t *testing.T) {
 	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
 		&payload.FunctionExecutionOutput{Success: false, Error: "failed"}, nil)
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"a", "b", "c"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        false,
 		FailureStrategy: "continue",
 	}
@@ -244,7 +245,7 @@ func TestLoopWorkflow_AllFailContinue(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 3, result.TotalFailed)
 	assert.Equal(t, 0, result.TotalSuccess)
@@ -258,9 +259,9 @@ func TestLoopWorkflow_SingleItem(t *testing.T) {
 	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
 		&payload.FunctionExecutionOutput{Success: true}, nil)
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           []string{"only"},
-		Template:        payload.FunctionExecutionInput{Name: "process-{{item}}"},
+		Template:        &payload.FunctionExecutionInput{Name: "process-{{item}}"},
 		Parallel:        false,
 		FailureStrategy: "continue",
 	}
@@ -270,7 +271,7 @@ func TestLoopWorkflow_SingleItem(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 1, result.ItemCount)
 	assert.Equal(t, 1, result.TotalSuccess)
@@ -284,11 +285,11 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
 		&payload.FunctionExecutionOutput{Success: true, Duration: 1 * time.Second}, nil)
 
-	input := payload.ParameterizedLoopInput{
+	input := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters: map[string][]string{
 			"version": {"1.0", "2.0"},
 		},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "build",
 			Args: map[string]string{"version": "{{.version}}"},
 		},
@@ -301,7 +302,7 @@ func TestParameterizedLoopWorkflow_Sequential(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.ItemCount)
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -322,11 +323,11 @@ func TestParameterizedLoopWorkflow_FailFast(t *testing.T) {
 			return &payload.FunctionExecutionOutput{Success: true}, nil
 		})
 
-	input := payload.ParameterizedLoopInput{
+	input := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters: map[string][]string{
 			"env": {"dev", "prod"},
 		},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "deploy",
 			Args: map[string]string{"target": "{{.env}}"},
 		},
@@ -355,12 +356,12 @@ func TestParameterizedLoopWorkflow_ContinueWithFailures(t *testing.T) {
 			return &payload.FunctionExecutionOutput{Success: true}, nil
 		})
 
-	input := payload.ParameterizedLoopInput{
+	input := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters: map[string][]string{
 			"env":    {"dev", "prod"},
 			"region": {"us", "eu"},
 		},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "deploy",
 			Args: map[string]string{"target": "{{.env}}", "region": "{{.region}}"},
 		},
@@ -373,7 +374,7 @@ func TestParameterizedLoopWorkflow_ContinueWithFailures(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 4, result.ItemCount)
 	assert.Equal(t, 2, result.TotalSuccess)

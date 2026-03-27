@@ -19,6 +19,7 @@ import (
 	fnactivity "github.com/jasoet/go-wf/function/activity"
 	"github.com/jasoet/go-wf/function/payload"
 	fnworkflow "github.com/jasoet/go-wf/function/workflow"
+	generic "github.com/jasoet/go-wf/workflow"
 	"github.com/jasoet/go-wf/workflow/testutil"
 )
 
@@ -165,8 +166,8 @@ func TestIntegration_ExecuteFunction_HandlerError(t *testing.T) {
 func TestIntegration_FunctionPipeline(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "echo", Args: map[string]string{"step": "1"}},
 			{Name: "echo", Args: map[string]string{"step": "2"}},
 			{Name: "echo", Args: map[string]string{"step": "3"}},
@@ -184,7 +185,7 @@ func TestIntegration_FunctionPipeline(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 3, result.TotalSuccess)
@@ -195,8 +196,8 @@ func TestIntegration_FunctionPipeline(t *testing.T) {
 func TestIntegration_FunctionPipeline_StopOnError(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "echo", Args: map[string]string{"step": "1"}},
 			{Name: "fail", Args: map[string]string{"message": "pipeline failure"}},
 			{Name: "echo", Args: map[string]string{"step": "3"}},
@@ -214,7 +215,7 @@ func TestIntegration_FunctionPipeline_StopOnError(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	err = we.Get(ctx, &result)
 
 	assert.Error(t, err)
@@ -223,8 +224,8 @@ func TestIntegration_FunctionPipeline_StopOnError(t *testing.T) {
 func TestIntegration_FunctionPipeline_ContinueOnError(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.PipelineInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "echo", Args: map[string]string{"step": "1"}},
 			{Name: "fail", Args: map[string]string{"message": "pipeline failure"}},
 			{Name: "echo", Args: map[string]string{"step": "3"}},
@@ -242,7 +243,7 @@ func TestIntegration_FunctionPipeline_ContinueOnError(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -255,8 +256,8 @@ func TestIntegration_FunctionPipeline_ContinueOnError(t *testing.T) {
 func TestIntegration_ParallelFunctions(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.ParallelInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "echo", Args: map[string]string{"task": "1"}},
 			{Name: "echo", Args: map[string]string{"task": "2"}},
 			{Name: "echo", Args: map[string]string{"task": "3"}},
@@ -274,7 +275,7 @@ func TestIntegration_ParallelFunctions(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.ParallelOutput
+	var result generic.ParallelOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 3, result.TotalSuccess)
@@ -285,8 +286,8 @@ func TestIntegration_ParallelFunctions(t *testing.T) {
 func TestIntegration_ParallelFunctions_FailFast(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.ParallelInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "slow"},
 			{Name: "fail", Args: map[string]string{"message": "parallel failure"}},
 			{Name: "slow"},
@@ -304,7 +305,7 @@ func TestIntegration_ParallelFunctions_FailFast(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.ParallelOutput
+	var result generic.ParallelOutput[payload.FunctionExecutionOutput]
 	err = we.Get(ctx, &result)
 
 	assert.Error(t, err)
@@ -313,8 +314,8 @@ func TestIntegration_ParallelFunctions_FailFast(t *testing.T) {
 func TestIntegration_ParallelFunctions_ContinueWithFailure(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.ParallelInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "echo", Args: map[string]string{"task": "1"}},
 			{Name: "fail", Args: map[string]string{"message": "parallel failure"}},
 			{Name: "echo", Args: map[string]string{"task": "3"}},
@@ -332,7 +333,7 @@ func TestIntegration_ParallelFunctions_ContinueWithFailure(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.ParallelOutput
+	var result generic.ParallelOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -343,8 +344,8 @@ func TestIntegration_ParallelFunctions_ContinueWithFailure(t *testing.T) {
 func TestIntegration_ParallelFunctions_MaxConcurrency(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.ParallelInput{
-		Functions: []payload.FunctionExecutionInput{
+	input := generic.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
 			{Name: "echo", Args: map[string]string{"task": "1"}},
 			{Name: "echo", Args: map[string]string{"task": "2"}},
 			{Name: "echo", Args: map[string]string{"task": "3"}},
@@ -364,7 +365,7 @@ func TestIntegration_ParallelFunctions_MaxConcurrency(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.ParallelOutput
+	var result generic.ParallelOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 4, result.TotalSuccess)
@@ -377,9 +378,9 @@ func TestIntegration_ParallelFunctions_MaxConcurrency(t *testing.T) {
 func TestIntegration_LoopSequential(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items: []string{"alpha", "beta", "gamma"},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "concat",
 			Args: map[string]string{"item": "{{item}}", "index": "{{index}}"},
 		},
@@ -397,7 +398,7 @@ func TestIntegration_LoopSequential(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 3, result.TotalSuccess)
@@ -409,9 +410,9 @@ func TestIntegration_LoopSequential(t *testing.T) {
 func TestIntegration_LoopParallel(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items: []string{"one", "two", "three"},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "echo",
 			Args: map[string]string{"value": "{{item}}"},
 		},
@@ -430,7 +431,7 @@ func TestIntegration_LoopParallel(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 3, result.TotalSuccess)
@@ -442,11 +443,9 @@ func TestIntegration_LoopParallel(t *testing.T) {
 func TestIntegration_LoopSequentialFailFast(t *testing.T) {
 	ctx := context.Background()
 
-	// Uses "maybe-fail" handler: fails when item == "bad", succeeds otherwise.
-	// With fail_fast, the loop should stop at "bad" and skip "skip".
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items: []string{"ok", "bad", "skip"},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "maybe-fail",
 			Args: map[string]string{"item": "{{item}}"},
 		},
@@ -464,7 +463,7 @@ func TestIntegration_LoopSequentialFailFast(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	err = we.Get(ctx, &result)
 
 	assert.Error(t, err)
@@ -473,11 +472,9 @@ func TestIntegration_LoopSequentialFailFast(t *testing.T) {
 func TestIntegration_LoopParallelContinue(t *testing.T) {
 	ctx := context.Background()
 
-	// Uses "maybe-fail" handler: fails when item == "bad", succeeds otherwise.
-	// With continue strategy, all items should be processed even if some fail.
-	input := payload.LoopInput{
+	input := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items: []string{"ok1", "bad", "ok2"},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "maybe-fail",
 			Args: map[string]string{"item": "{{item}}"},
 		},
@@ -495,7 +492,7 @@ func TestIntegration_LoopParallelContinue(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 2, result.TotalSuccess)
@@ -509,12 +506,12 @@ func TestIntegration_LoopParallelContinue(t *testing.T) {
 func TestIntegration_ParameterizedLoop(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.ParameterizedLoopInput{
+	input := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters: map[string][]string{
 			"env":    {"dev", "prod"},
 			"region": {"us", "eu"},
 		},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "echo",
 			Args: map[string]string{"env": "{{.env}}", "region": "{{.region}}"},
 		},
@@ -532,7 +529,7 @@ func TestIntegration_ParameterizedLoop(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 4, result.TotalSuccess)
@@ -544,11 +541,11 @@ func TestIntegration_ParameterizedLoop(t *testing.T) {
 func TestIntegration_ParameterizedLoopParallel(t *testing.T) {
 	ctx := context.Background()
 
-	input := payload.ParameterizedLoopInput{
+	input := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters: map[string][]string{
 			"size": {"small", "medium", "large"},
 		},
-		Template: payload.FunctionExecutionInput{
+		Template: &payload.FunctionExecutionInput{
 			Name: "echo",
 			Args: map[string]string{"size": "{{.size}}"},
 		},
@@ -567,7 +564,7 @@ func TestIntegration_ParameterizedLoopParallel(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	var result payload.LoopOutput
+	var result generic.LoopOutput[payload.FunctionExecutionOutput]
 	require.NoError(t, we.Get(ctx, &result))
 
 	assert.Equal(t, 3, result.TotalSuccess)
