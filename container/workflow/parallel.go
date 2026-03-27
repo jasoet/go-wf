@@ -9,7 +9,7 @@ import (
 
 // ParallelContainersWorkflow executes multiple containers in parallel.
 func ParallelContainersWorkflow(ctx wf.Context, input payload.ParallelInput) (*payload.ParallelOutput, error) {
-	genericInput := generic.ParallelInput[*payload.ContainerExecutionInput]{
+	genericInput := generic.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput]{
 		Tasks:           toTaskPtrs(input.Containers),
 		MaxConcurrency:  input.MaxConcurrency,
 		FailureStrategy: input.FailureStrategy,

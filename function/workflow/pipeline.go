@@ -9,7 +9,7 @@ import (
 
 // FunctionPipelineWorkflow executes functions sequentially.
 func FunctionPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*payload.PipelineOutput, error) {
-	genericInput := generic.PipelineInput[*payload.FunctionExecutionInput]{
+	genericInput := generic.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Tasks:       toTaskPtrs(input.Functions),
 		StopOnError: input.StopOnError,
 	}

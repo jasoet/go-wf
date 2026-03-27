@@ -10,7 +10,7 @@ import (
 type Substitutor[I TaskInput] func(template I, item string, index int, params map[string]string) I
 
 // LoopWorkflow executes a task template for each item.
-func LoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I], substitutor Substitutor[I]) (*LoopOutput[O], error) {
+func LoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I, O], substitutor Substitutor[I]) (*LoopOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("Starting loop workflow", "items", len(input.Items), "parallel", input.Parallel)
 
@@ -41,7 +41,7 @@ func LoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I],
 	return output, nil
 }
 
-func executeParallelLoop[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I], substitutor Substitutor[I], output *LoopOutput[O]) {
+func executeParallelLoop[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I, O], substitutor Substitutor[I], output *LoopOutput[O]) {
 	futures := make([]wf.Future, len(input.Items))
 	for i, item := range input.Items {
 		taskInput := substitutor(input.Template, item, i, nil)
@@ -63,7 +63,7 @@ func executeParallelLoop[I TaskInput, O TaskOutput](ctx wf.Context, input LoopIn
 	}
 }
 
-func executeSequentialLoop[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I], substitutor Substitutor[I], output *LoopOutput[O]) {
+func executeSequentialLoop[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I, O], substitutor Substitutor[I], output *LoopOutput[O]) {
 	for i, item := range input.Items {
 		taskInput := substitutor(input.Template, item, i, nil)
 		var result O
@@ -81,7 +81,7 @@ func executeSequentialLoop[I TaskInput, O TaskOutput](ctx wf.Context, input Loop
 }
 
 // ParameterizedLoopWorkflow executes a task template for each parameter combination.
-func ParameterizedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParameterizedLoopInput[I], substitutor Substitutor[I]) (*LoopOutput[O], error) {
+func ParameterizedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParameterizedLoopInput[I, O], substitutor Substitutor[I]) (*LoopOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("Starting parameterized loop workflow", "parameters", len(input.Parameters))
 

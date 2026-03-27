@@ -11,7 +11,7 @@ import (
 )
 
 // parallelWrapper is a non-generic workflow wrapper for testing.
-func parallelWrapper(ctx wf.Context, input ParallelInput[testInput]) (*ParallelOutput[testOutput], error) {
+func parallelWrapper(ctx wf.Context, input ParallelInput[testInput, testOutput]) (*ParallelOutput[testOutput], error) {
 	return ParallelWorkflow[testInput, testOutput](ctx, input)
 }
 
@@ -20,7 +20,7 @@ func TestParallelWorkflow_AllSuccess(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParallelInput[testInput]{
+	input := ParallelInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "task1", Value: "a", Activity: "TestActivity"},
 			{Name: "task2", Value: "b", Activity: "TestActivity"},
@@ -49,7 +49,7 @@ func TestParallelWorkflow_FailFast(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParallelInput[testInput]{
+	input := ParallelInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "task1", Value: "a", Activity: "TestActivity"},
 			{Name: "task2", Value: "b", Activity: "TestActivity"},
@@ -82,7 +82,7 @@ func TestParallelWorkflow_ContinueOnFailure(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParallelInput[testInput]{
+	input := ParallelInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "task1", Value: "a", Activity: "TestActivity"},
 			{Name: "task2", Value: "b", Activity: "TestActivity"},
@@ -119,7 +119,7 @@ func TestParallelWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := ParallelInput[testInput]{
+	input := ParallelInput[testInput, testOutput]{
 		Tasks: []testInput{},
 	}
 

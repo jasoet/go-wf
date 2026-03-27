@@ -31,7 +31,7 @@ func toLoopOutput(g *generic.LoopOutput[payload.ContainerExecutionOutput], err e
 
 // LoopWorkflow executes containers in a loop over items (withItems pattern).
 func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput, error) {
-	genericInput := generic.LoopInput[*payload.ContainerExecutionInput]{
+	genericInput := generic.LoopInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput]{
 		Items:           input.Items,
 		Template:        &input.Template,
 		Parallel:        input.Parallel,
@@ -46,7 +46,7 @@ func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput,
 
 // ParameterizedLoopWorkflow executes containers with parameterized loops (withParam pattern).
 func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopInput) (*payload.LoopOutput, error) {
-	genericInput := generic.ParameterizedLoopInput[*payload.ContainerExecutionInput]{
+	genericInput := generic.ParameterizedLoopInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput]{
 		Parameters:      input.Parameters,
 		Template:        &input.Template,
 		Parallel:        input.Parallel,

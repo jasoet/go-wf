@@ -7,7 +7,7 @@ import (
 )
 
 // ParallelWorkflow executes tasks in parallel.
-func ParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParallelInput[I]) (*ParallelOutput[O], error) {
+func ParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParallelInput[I, O]) (*ParallelOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("Starting parallel workflow", "tasks", len(input.Tasks))
 

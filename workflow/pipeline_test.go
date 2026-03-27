@@ -11,7 +11,7 @@ import (
 )
 
 // pipelineWrapper is a non-generic workflow wrapper for testing.
-func pipelineWrapper(ctx wf.Context, input PipelineInput[testInput]) (*PipelineOutput[testOutput], error) {
+func pipelineWrapper(ctx wf.Context, input PipelineInput[testInput, testOutput]) (*PipelineOutput[testOutput], error) {
 	return PipelineWorkflow[testInput, testOutput](ctx, input)
 }
 
@@ -20,7 +20,7 @@ func TestPipelineWorkflow_AllSuccess(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := PipelineInput[testInput]{
+	input := PipelineInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "step1", Value: "a", Activity: "TestActivity"},
 			{Name: "step2", Value: "b", Activity: "TestActivity"},
@@ -49,7 +49,7 @@ func TestPipelineWorkflow_StopOnError(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := PipelineInput[testInput]{
+	input := PipelineInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "step1", Value: "a", Activity: "TestActivity"},
 			{Name: "step2", Value: "b", Activity: "TestActivity"},
@@ -78,7 +78,7 @@ func TestPipelineWorkflow_ContinueOnError(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := PipelineInput[testInput]{
+	input := PipelineInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "step1", Value: "a", Activity: "TestActivity"},
 			{Name: "step2", Value: "b", Activity: "TestActivity"},
@@ -115,7 +115,7 @@ func TestPipelineWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := PipelineInput[testInput]{
+	input := PipelineInput[testInput, testOutput]{
 		Tasks: []testInput{},
 	}
 

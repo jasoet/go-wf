@@ -66,7 +66,7 @@ func toLoopOutput(g *generic.LoopOutput[payload.FunctionExecutionOutput], err er
 
 // LoopWorkflow executes functions in a loop over items.
 func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput, error) {
-	genericInput := generic.LoopInput[*payload.FunctionExecutionInput]{
+	genericInput := generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Items:           input.Items,
 		Template:        &input.Template,
 		Parallel:        input.Parallel,
@@ -81,7 +81,7 @@ func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput,
 
 // ParameterizedLoopWorkflow executes functions with parameterized loops.
 func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopInput) (*payload.LoopOutput, error) {
-	genericInput := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput]{
+	genericInput := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
 		Parameters:      input.Parameters,
 		Template:        &input.Template,
 		Parallel:        input.Parallel,

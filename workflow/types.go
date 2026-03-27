@@ -11,14 +11,14 @@ import (
 var pkgValidator = validator.New()
 
 // PipelineInput defines sequential task execution.
-type PipelineInput[I TaskInput] struct {
+type PipelineInput[I TaskInput, O TaskOutput] struct {
 	Tasks       []I  `json:"tasks" validate:"required,min=1"`
 	StopOnError bool `json:"stop_on_error"`
 	Cleanup     bool `json:"cleanup"`
 }
 
 // Validate validates pipeline input.
-func (i *PipelineInput[I]) Validate() error {
+func (i *PipelineInput[I, O]) Validate() error {
 	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ type PipelineOutput[O TaskOutput] struct {
 }
 
 // ParallelInput defines parallel task execution.
-type ParallelInput[I TaskInput] struct {
+type ParallelInput[I TaskInput, O TaskOutput] struct {
 	Tasks []I `json:"tasks" validate:"required,min=1"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
@@ -48,7 +48,7 @@ type ParallelInput[I TaskInput] struct {
 }
 
 // Validate validates parallel input.
-func (i *ParallelInput[I]) Validate() error {
+func (i *ParallelInput[I, O]) Validate() error {
 	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ type ParallelOutput[O TaskOutput] struct {
 }
 
 // LoopInput defines loop iteration over items.
-type LoopInput[I TaskInput] struct {
+type LoopInput[I TaskInput, O TaskOutput] struct {
 	Items    []string `json:"items" validate:"required,min=1"`
 	Template I        `json:"template" validate:"required"`
 	Parallel bool     `json:"parallel"`
@@ -80,7 +80,7 @@ type LoopInput[I TaskInput] struct {
 }
 
 // Validate validates loop input.
-func (i *LoopInput[I]) Validate() error {
+func (i *LoopInput[I, O]) Validate() error {
 	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (i *LoopInput[I]) Validate() error {
 }
 
 // ParameterizedLoopInput defines loop with multiple parameters.
-type ParameterizedLoopInput[I TaskInput] struct {
+type ParameterizedLoopInput[I TaskInput, O TaskOutput] struct {
 	Parameters map[string][]string `json:"parameters" validate:"required,min=1"`
 	Template   I                   `json:"template" validate:"required"`
 	Parallel   bool                `json:"parallel"`
@@ -99,7 +99,7 @@ type ParameterizedLoopInput[I TaskInput] struct {
 }
 
 // Validate validates parameterized loop input.
-func (i *ParameterizedLoopInput[I]) Validate() error {
+func (i *ParameterizedLoopInput[I, O]) Validate() error {
 	if err := pkgValidator.Struct(i); err != nil {
 		return err
 	}
