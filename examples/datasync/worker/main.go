@@ -132,15 +132,15 @@ func main() {
 
 	// Define sync jobs
 	userJob := datasync.Job[User, User]{
-		Name: "sync-users", Source: &UserSource{},
+		Name: "user-sync", Source: &UserSource{},
 		Mapper: datasync.IdentityMapper[User](), Sink: &UserSink{},
 	}
 	productJob := datasync.Job[Product, Product]{
-		Name: "sync-products", Source: &ProductSource{},
+		Name: "product-sync", Source: &ProductSource{},
 		Mapper: datasync.IdentityMapper[Product](), Sink: &ProductSink{},
 	}
 	orderJob := datasync.Job[Order, Order]{
-		Name: "sync-orders", Source: &OrderSource{},
+		Name: "order-sync", Source: &OrderSource{},
 		Mapper: datasync.IdentityMapper[Order](), Sink: &OrderSink{},
 	}
 
