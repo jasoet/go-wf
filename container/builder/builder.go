@@ -67,7 +67,7 @@ func (b *GenericBuilder[I, O]) MaxConcurrency(max int) *GenericBuilder[I, O] {
 }
 
 // BuildPipeline creates a generic pipeline input.
-func (b *GenericBuilder[I, O]) BuildPipeline() (*workflow.PipelineInput[I], error) {
+func (b *GenericBuilder[I, O]) BuildPipeline() (*workflow.PipelineInput[I, O], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -75,7 +75,7 @@ func (b *GenericBuilder[I, O]) BuildPipeline() (*workflow.PipelineInput[I], erro
 		return nil, fmt.Errorf("pipeline requires at least one input")
 	}
 
-	input := &workflow.PipelineInput[I]{
+	input := &workflow.PipelineInput[I, O]{
 		Tasks:       b.inputs,
 		StopOnError: b.stopOnError,
 		Cleanup:     b.cleanup,
@@ -87,7 +87,7 @@ func (b *GenericBuilder[I, O]) BuildPipeline() (*workflow.PipelineInput[I], erro
 }
 
 // BuildParallel creates a generic parallel input.
-func (b *GenericBuilder[I, O]) BuildParallel() (*workflow.ParallelInput[I], error) {
+func (b *GenericBuilder[I, O]) BuildParallel() (*workflow.ParallelInput[I, O], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -100,7 +100,7 @@ func (b *GenericBuilder[I, O]) BuildParallel() (*workflow.ParallelInput[I], erro
 		failureStrategy = FailureStrategyFailFast
 	}
 
-	input := &workflow.ParallelInput[I]{
+	input := &workflow.ParallelInput[I, O]{
 		Tasks:           b.inputs,
 		MaxConcurrency:  b.maxConcurrency,
 		FailureStrategy: failureStrategy,
@@ -278,7 +278,7 @@ func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
 }
 
 // BuildGenericPipeline creates a generic pipeline input using workflow.PipelineInput.
-func (b *WorkflowBuilder) BuildGenericPipeline() (*workflow.PipelineInput[*payload.ContainerExecutionInput], error) {
+func (b *WorkflowBuilder) BuildGenericPipeline() (*workflow.PipelineInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -293,7 +293,7 @@ func (b *WorkflowBuilder) BuildGenericPipeline() (*workflow.PipelineInput[*paylo
 		ptrs[i] = &b.containers[i]
 	}
 
-	input := &workflow.PipelineInput[*payload.ContainerExecutionInput]{
+	input := &workflow.PipelineInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput]{
 		Tasks:       ptrs,
 		StopOnError: b.stopOnError,
 		Cleanup:     b.cleanup,
@@ -335,7 +335,7 @@ func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
 }
 
 // BuildGenericParallel creates a generic parallel input using workflow.ParallelInput.
-func (b *WorkflowBuilder) BuildGenericParallel() (*workflow.ParallelInput[*payload.ContainerExecutionInput], error) {
+func (b *WorkflowBuilder) BuildGenericParallel() (*workflow.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -355,7 +355,7 @@ func (b *WorkflowBuilder) BuildGenericParallel() (*workflow.ParallelInput[*paylo
 		ptrs[i] = &b.containers[i]
 	}
 
-	input := &workflow.ParallelInput[*payload.ContainerExecutionInput]{
+	input := &workflow.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput]{
 		Tasks:           ptrs,
 		MaxConcurrency:  b.maxConcurrency,
 		FailureStrategy: failureStrategy,

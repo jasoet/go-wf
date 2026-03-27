@@ -24,7 +24,7 @@ func ContainerPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*pa
 // This is the preferred entry point for new code.
 func GenericContainerPipelineWorkflow(
 	ctx wf.Context,
-	input generic.PipelineInput[*payload.ContainerExecutionInput],
+	input generic.PipelineInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput],
 ) (*generic.PipelineOutput[payload.ContainerExecutionOutput], error) {
 	return generic.InstrumentedPipelineWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, input)
 }

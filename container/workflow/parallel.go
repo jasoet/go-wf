@@ -24,7 +24,7 @@ func ParallelContainersWorkflow(ctx wf.Context, input payload.ParallelInput) (*p
 // This is the preferred entry point for new code.
 func GenericParallelContainersWorkflow(
 	ctx wf.Context,
-	input generic.ParallelInput[*payload.ContainerExecutionInput],
+	input generic.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput],
 ) (*generic.ParallelOutput[payload.ContainerExecutionOutput], error) {
 	return generic.InstrumentedParallelWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, input)
 }
