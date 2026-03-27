@@ -214,6 +214,20 @@ tasks:
     cmds:
       - go run -tags example {{.CLI_ARGS}}
 
+  example:datasync:
+    desc: "Run a datasync example (usage: task example:datasync -- basic.go)"
+    silent: true
+    dir: examples/datasync
+    cmds:
+      - go run -tags example {{.CLI_ARGS}}
+
+  example:datasync:worker:
+    desc: Start the datasync example worker (listens on sync-* task queues)
+    silent: true
+    dir: examples/datasync/worker
+    cmds:
+      - go run -tags example main.go
+
   example:list:
     desc: List all available example files
     silent: true
@@ -231,6 +245,14 @@ tasks:
         for f in examples/function/*.go; do
           echo "  $(basename $f)"
         done
+        echo ""
+        echo "DataSync examples (task example:datasync -- <file>):"
+        for f in examples/datasync/*.go; do
+          echo "  $(basename $f)"
+        done
+        echo ""
+        echo "DataSync worker (task example:datasync:worker):"
+        echo "  worker/main.go"
 
   demo:
     desc: Start Temporal, run all examples, watch at http://localhost:8233
