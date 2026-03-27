@@ -1,6 +1,16 @@
 package builder
 
-import "github.com/jasoet/go-wf/container/payload"
+import (
+	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/workflow"
+)
+
+// GenericSource is a generic interface for composable workflow components.
+// It can generate any type of task input.
+type GenericSource[I workflow.TaskInput] interface {
+	// ToTaskInput converts the source into a task input
+	ToTaskInput() I
+}
 
 // WorkflowSource represents a composable workflow component that can generate
 // container execution inputs. This allows building complex workflows from reusable parts.
@@ -50,4 +60,27 @@ func NewContainerSource(input payload.ContainerExecutionInput) *ContainerSource 
 // ToInput implements WorkflowSource interface.
 func (c *ContainerSource) ToInput() payload.ContainerExecutionInput {
 	return c.input
+}
+
+// GenericSourceFunc is a generic function adapter for GenericSource.
+type GenericSourceFunc[I workflow.TaskInput] func() I
+
+// ToTaskInput implements GenericSource interface.
+func (f GenericSourceFunc[I]) ToTaskInput() I {
+	return f()
+}
+
+// TaskInputSource wraps any value as a GenericSource.
+type TaskInputSource[I workflow.TaskInput] struct {
+	input I
+}
+
+// NewTaskInputSource creates a new generic source from a task input.
+func NewTaskInputSource[I workflow.TaskInput](input I) *TaskInputSource[I] {
+	return &TaskInputSource[I]{input: input}
+}
+
+// ToTaskInput implements GenericSource interface.
+func (s *TaskInputSource[I]) ToTaskInput() I {
+	return s.input
 }
