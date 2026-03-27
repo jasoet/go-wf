@@ -17,10 +17,11 @@ import (
 	"github.com/jasoet/go-wf/function/builder"
 	"github.com/jasoet/go-wf/function/payload"
 	"github.com/jasoet/go-wf/function/workflow"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // This example demonstrates the Builder API for constructing function workflows:
-// 1. Pipeline via builder with AddInput and BuildPipeline
+// 1. Pipeline via builder with Add and BuildPipeline
 // 2. Parallel via builder with Parallel, MaxConcurrency, FailFast
 // 3. Using FunctionSource as a WorkflowSource
 // 4. Using WorkflowSourceFunc for dynamic input generation
@@ -103,7 +104,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Example 1: Pipeline via builder with AddInput
+	// Example 1: Pipeline via builder with Add
 	fmt.Println("\n=== Example 1: ETL Pipeline via Builder ===")
 	runETLPipeline(ctx, c)
 
@@ -126,24 +127,24 @@ func main() {
 	runWorkflowSourceFuncExample(ctx, c)
 }
 
-// Example 1: ETL Pipeline using AddInput for direct payload construction
+// Example 1: ETL Pipeline using Add for direct payload construction
 func runETLPipeline(ctx context.Context, c client.Client) {
-	pipelineInput, err := builder.NewWorkflowBuilder("etl-pipeline").
-		AddInput(payload.FunctionExecutionInput{
+	pipelineInput, err := builder.NewFunctionBuilder("etl-pipeline").
+		Add(&payload.FunctionExecutionInput{
 			Name: "extract",
 			Args: map[string]string{
 				"source": "s3://data-lake/raw/2024-01",
 				"format": "parquet",
 			},
 		}).
-		AddInput(payload.FunctionExecutionInput{
+		Add(&payload.FunctionExecutionInput{
 			Name: "transform",
 			Args: map[string]string{
 				"format":  "json",
 				"filters": "active=true",
 			},
 		}).
-		AddInput(payload.FunctionExecutionInput{
+		Add(&payload.FunctionExecutionInput{
 			Name: "load",
 			Args: map[string]string{
 				"target": "postgresql://analytics/warehouse",
@@ -170,7 +171,7 @@ func runETLPipeline(ctx context.Context, c client.Client) {
 		return
 	}
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	if err := we.Get(ctx, &result); err != nil {
 		log.Printf("Pipeline failed: %v", err)
 		return
@@ -186,20 +187,20 @@ func runETLPipeline(ctx context.Context, c client.Client) {
 
 // Example 2: Parallel pre-flight checks with concurrency control
 func runParallelChecks(ctx context.Context, c client.Client) {
-	parallelInput, err := builder.NewWorkflowBuilder("pre-flight-checks").
-		AddInput(payload.FunctionExecutionInput{
+	parallelInput, err := builder.NewFunctionBuilder("pre-flight-checks").
+		Add(&payload.FunctionExecutionInput{
 			Name: "validate-config",
 			Args: map[string]string{"env": "production"},
 		}).
-		AddInput(payload.FunctionExecutionInput{
+		Add(&payload.FunctionExecutionInput{
 			Name: "check-deps",
 			Args: map[string]string{"service": "api-gateway"},
 		}).
-		AddInput(payload.FunctionExecutionInput{
+		Add(&payload.FunctionExecutionInput{
 			Name: "check-deps",
 			Args: map[string]string{"service": "auth-service"},
 		}).
-		AddInput(payload.FunctionExecutionInput{
+		Add(&payload.FunctionExecutionInput{
 			Name: "run-smoke-tests",
 			Args: map[string]string{"target": "https://staging.example.com"},
 		}).
@@ -225,7 +226,7 @@ func runParallelChecks(ctx context.Context, c client.Client) {
 		return
 	}
 
-	var result payload.ParallelOutput
+	var result generic.ParallelOutput[payload.FunctionExecutionOutput]
 	if err := we.Get(ctx, &result); err != nil {
 		log.Printf("Parallel checks failed: %v", err)
 		return
@@ -242,34 +243,34 @@ func runParallelChecks(ctx context.Context, c client.Client) {
 // Example 3: Using FunctionSource to wrap inputs as WorkflowSource
 func runFunctionSourceExample(ctx context.Context, c client.Client) {
 	// Create reusable FunctionSource components
-	extractSource := builder.NewFunctionSource(payload.FunctionExecutionInput{
+	extractInput := payload.FunctionExecutionInput{
 		Name: "extract",
 		Args: map[string]string{
 			"source": "api://crm/contacts",
 			"format": "csv",
 		},
-	})
+	}
 
-	transformSource := builder.NewFunctionSource(payload.FunctionExecutionInput{
+	transformInput := payload.FunctionExecutionInput{
 		Name: "transform",
 		Args: map[string]string{
 			"format": "json",
 		},
-	})
+	}
 
-	loadSource := builder.NewFunctionSource(payload.FunctionExecutionInput{
+	loadInput := payload.FunctionExecutionInput{
 		Name: "load",
 		Args: map[string]string{
 			"target": "elasticsearch://search/contacts",
 			"mode":   "replace",
 		},
-	})
+	}
 
-	// Compose pipeline from reusable sources
-	pipelineInput, err := builder.NewWorkflowBuilder("crm-sync").
-		Add(extractSource).
-		Add(transformSource).
-		Add(loadSource).
+	// Compose pipeline from reusable inputs
+	pipelineInput, err := builder.NewFunctionBuilder("crm-sync").
+		Add(&extractInput).
+		Add(&transformInput).
+		Add(&loadInput).
 		StopOnError(true).
 		BuildPipeline()
 	if err != nil {
@@ -290,7 +291,7 @@ func runFunctionSourceExample(ctx context.Context, c client.Client) {
 		return
 	}
 
-	var result payload.PipelineOutput
+	var result generic.PipelineOutput[payload.FunctionExecutionOutput]
 	if err := we.Get(ctx, &result); err != nil {
 		log.Printf("CRM sync failed: %v", err)
 		return
@@ -302,25 +303,24 @@ func runFunctionSourceExample(ctx context.Context, c client.Client) {
 
 // Example 4: Using WorkflowSourceFunc for dynamic input generation
 func runWorkflowSourceFuncExample(ctx context.Context, c client.Client) {
-	// WorkflowSourceFunc lets you generate inputs dynamically at build time
+	// Generate inputs dynamically at build time
 	environments := []string{"staging", "production"}
 
-	wb := builder.NewWorkflowBuilder("dynamic-validation").
+	wb := builder.NewFunctionBuilder("dynamic-validation").
 		Parallel(true).
 		MaxConcurrency(3).
 		FailFast(false)
 
 	for _, env := range environments {
 		env := env // capture loop variable
-		wb.Add(builder.WorkflowSourceFunc(func() payload.FunctionExecutionInput {
-			return payload.FunctionExecutionInput{
-				Name: "validate-config",
-				Args: map[string]string{
-					"env":       env,
-					"timestamp": time.Now().Format(time.RFC3339),
-				},
-			}
-		}))
+		input := payload.FunctionExecutionInput{
+			Name: "validate-config",
+			Args: map[string]string{
+				"env":       env,
+				"timestamp": time.Now().Format(time.RFC3339),
+			},
+		}
+		wb.Add(&input)
 	}
 
 	parallelInput, err := wb.BuildParallel()
@@ -342,7 +342,7 @@ func runWorkflowSourceFuncExample(ctx context.Context, c client.Client) {
 		return
 	}
 
-	var result payload.ParallelOutput
+	var result generic.ParallelOutput[payload.FunctionExecutionOutput]
 	if err := we.Get(ctx, &result); err != nil {
 		log.Printf("Dynamic validation failed: %v", err)
 		return

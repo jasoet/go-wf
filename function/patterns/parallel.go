@@ -5,6 +5,7 @@ import (
 
 	"github.com/jasoet/go-wf/function/builder"
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow"
 )
 
 // FanOutFanIn creates a parallel workflow that executes one function per name concurrently.
@@ -12,15 +13,15 @@ import (
 // Example:
 //
 //	input, err := patterns.FanOutFanIn([]string{"task-1", "task-2", "task-3"})
-func FanOutFanIn(functionNames []string) (*payload.ParallelInput, error) {
+func FanOutFanIn(functionNames []string) (*workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	if len(functionNames) == 0 {
 		return nil, fmt.Errorf("at least one function name is required")
 	}
 
-	wb := builder.NewWorkflowBuilder("fan-out-fan-in").Parallel(true)
+	wb := builder.NewFunctionBuilder("fan-out-fan-in").Parallel(true)
 
 	for _, name := range functionNames {
-		wb.AddInput(payload.FunctionExecutionInput{
+		wb.Add(&payload.FunctionExecutionInput{
 			Name: name,
 		})
 	}
@@ -34,7 +35,7 @@ func FanOutFanIn(functionNames []string) (*payload.ParallelInput, error) {
 // Example:
 //
 //	input, err := patterns.ParallelDataFetch()
-func ParallelDataFetch() (*payload.ParallelInput, error) {
+func ParallelDataFetch() (*workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	return FanOutFanIn([]string{"fetch-users", "fetch-orders", "fetch-inventory"})
 }
 
@@ -46,17 +47,17 @@ func ParallelDataFetch() (*payload.ParallelInput, error) {
 //
 //	input, err := patterns.ParallelHealthCheck(
 //	    []string{"api", "database", "cache"}, "production")
-func ParallelHealthCheck(services []string, env string) (*payload.ParallelInput, error) {
+func ParallelHealthCheck(services []string, env string) (*workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
 	if len(services) == 0 {
 		return nil, fmt.Errorf("at least one service is required")
 	}
 
-	wb := builder.NewWorkflowBuilder("health-check").
+	wb := builder.NewFunctionBuilder("health-check").
 		Parallel(true).
 		FailFast(true)
 
 	for _, service := range services {
-		wb.AddInput(payload.FunctionExecutionInput{
+		wb.Add(&payload.FunctionExecutionInput{
 			Name: "health-check",
 			Args: map[string]string{
 				"service":     service,

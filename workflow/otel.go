@@ -5,7 +5,7 @@ import (
 )
 
 // InstrumentedPipelineWorkflow wraps PipelineWorkflow with structured logging at boundaries.
-func InstrumentedPipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input PipelineInput[I]) (*PipelineOutput[O], error) {
+func InstrumentedPipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input PipelineInput[I, O]) (*PipelineOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("pipeline.start",
 		"step_count", len(input.Tasks),
@@ -36,7 +36,7 @@ func InstrumentedPipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, inp
 }
 
 // InstrumentedParallelWorkflow wraps ParallelWorkflow with structured logging at boundaries.
-func InstrumentedParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParallelInput[I]) (*ParallelOutput[O], error) {
+func InstrumentedParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParallelInput[I, O]) (*ParallelOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("parallel.start",
 		"task_count", len(input.Tasks),
@@ -68,7 +68,7 @@ func InstrumentedParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, inp
 }
 
 // InstrumentedLoopWorkflow wraps LoopWorkflow with structured logging at boundaries.
-func InstrumentedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I], substitutor Substitutor[I]) (*LoopOutput[O], error) {
+func InstrumentedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I, O], substitutor Substitutor[I]) (*LoopOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("loop.start",
 		"item_count", len(input.Items),
@@ -100,7 +100,7 @@ func InstrumentedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input L
 }
 
 // InstrumentedParameterizedLoopWorkflow wraps ParameterizedLoopWorkflow with structured logging at boundaries.
-func InstrumentedParameterizedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParameterizedLoopInput[I], substitutor Substitutor[I]) (*LoopOutput[O], error) {
+func InstrumentedParameterizedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParameterizedLoopInput[I, O], substitutor Substitutor[I]) (*LoopOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	combinationCount := len(GenerateParameterCombinations(input.Parameters))
 	logger.Info("parameterized_loop.start",

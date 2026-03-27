@@ -3,7 +3,7 @@ package datasync
 import (
 	"time"
 
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 // Job defines a complete sync pipeline: source -> mapper -> sink.
@@ -21,6 +21,6 @@ type Job[T any, U any] struct {
 	RetryBackoffCoefficient float64
 	RetryMaxInterval        time.Duration
 
-	Metadata       any
-	ArtifactConfig *artifacts.ArtifactConfig
+	Metadata any
+	Store    store.RawStore
 }

@@ -22,17 +22,17 @@ func TestOtelWorkflowTestSuite(t *testing.T) {
 }
 
 // instrumentedPipelineWrapper is a non-generic workflow wrapper for testing.
-func instrumentedPipelineWrapper(ctx wf.Context, input PipelineInput[testInput]) (*PipelineOutput[testOutput], error) {
+func instrumentedPipelineWrapper(ctx wf.Context, input PipelineInput[testInput, testOutput]) (*PipelineOutput[testOutput], error) {
 	return InstrumentedPipelineWorkflow[testInput, testOutput](ctx, input)
 }
 
 // instrumentedParallelWrapper is a non-generic workflow wrapper for testing.
-func instrumentedParallelWrapper(ctx wf.Context, input ParallelInput[testInput]) (*ParallelOutput[testOutput], error) {
+func instrumentedParallelWrapper(ctx wf.Context, input ParallelInput[testInput, testOutput]) (*ParallelOutput[testOutput], error) {
 	return InstrumentedParallelWorkflow[testInput, testOutput](ctx, input)
 }
 
 // instrumentedLoopWrapper is a non-generic workflow wrapper for testing.
-func instrumentedLoopWrapper(ctx wf.Context, input LoopInput[testInput]) (*LoopOutput[testOutput], error) {
+func instrumentedLoopWrapper(ctx wf.Context, input LoopInput[testInput, testOutput]) (*LoopOutput[testOutput], error) {
 	substitutor := func(template testInput, item string, index int, params map[string]string) testInput {
 		return testInput{
 			Name:     fmt.Sprintf("%s-%s", template.Name, item),
@@ -44,7 +44,7 @@ func instrumentedLoopWrapper(ctx wf.Context, input LoopInput[testInput]) (*LoopO
 }
 
 // instrumentedParameterizedLoopWrapper is a non-generic workflow wrapper for testing.
-func instrumentedParameterizedLoopWrapper(ctx wf.Context, input ParameterizedLoopInput[testInput]) (*LoopOutput[testOutput], error) {
+func instrumentedParameterizedLoopWrapper(ctx wf.Context, input ParameterizedLoopInput[testInput, testOutput]) (*LoopOutput[testOutput], error) {
 	substitutor := func(template testInput, _ string, _ int, params map[string]string) testInput {
 		value := template.Value
 		for k, v := range params {
@@ -63,7 +63,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedPipelineWorkflow_AllSuccess() {
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := PipelineInput[testInput]{
+	input := PipelineInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "step1", Value: "a", Activity: "TestActivity"},
 			{Name: "step2", Value: "b", Activity: "TestActivity"},
@@ -90,7 +90,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedPipelineWorkflow_StopOnError() {
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := PipelineInput[testInput]{
+	input := PipelineInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "step1", Value: "a", Activity: "TestActivity"},
 			{Name: "step2", Value: "b", Activity: "TestActivity"},
@@ -114,7 +114,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedParallelWorkflow_AllSuccess() {
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParallelInput[testInput]{
+	input := ParallelInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "task1", Value: "x", Activity: "TestActivity"},
 			{Name: "task2", Value: "y", Activity: "TestActivity"},
@@ -141,7 +141,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedParallelWorkflow_FailFast() {
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParallelInput[testInput]{
+	input := ParallelInput[testInput, testOutput]{
 		Tasks: []testInput{
 			{Name: "task1", Value: "x", Activity: "TestActivity"},
 			{Name: "task2", Value: "y", Activity: "TestActivity"},
@@ -165,7 +165,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedLoopWorkflow_Sequential_Success(
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items:    []string{"a", "b", "c"},
 		Template: testInput{Name: "step", Value: "template", Activity: "TestActivity"},
 		Parallel: false,
@@ -190,7 +190,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedLoopWorkflow_Parallel_Success() 
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items:    []string{"x", "y"},
 		Template: testInput{Name: "task", Value: "template", Activity: "TestActivity"},
 		Parallel: true,
@@ -214,7 +214,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedLoopWorkflow_FailFast() {
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items:           []string{"a", "b"},
 		Template:        testInput{Name: "step", Value: "template", Activity: "TestActivity"},
 		Parallel:        false,
@@ -234,7 +234,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedParameterizedLoopWorkflow_Succes
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParameterizedLoopInput[testInput]{
+	input := ParameterizedLoopInput[testInput, testOutput]{
 		Parameters: map[string][]string{
 			"env":  {"dev", "prod"},
 			"arch": {"amd64"},
@@ -261,7 +261,7 @@ func (s *OtelWorkflowTestSuite) TestInstrumentedParameterizedLoopWorkflow_FailFa
 	env := s.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParameterizedLoopInput[testInput]{
+	input := ParameterizedLoopInput[testInput, testOutput]{
 		Parameters: map[string][]string{
 			"env": {"dev", "prod"},
 		},

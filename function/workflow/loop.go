@@ -50,46 +50,20 @@ func substituteFunctionInput(template payload.FunctionExecutionInput, item strin
 	return result
 }
 
-// toLoopOutput converts a generic loop output to a function-specific loop output.
-func toLoopOutput(g *generic.LoopOutput[payload.FunctionExecutionOutput], err error) (*payload.LoopOutput, error) {
-	if g == nil {
-		return nil, err
-	}
-	return &payload.LoopOutput{
-		Results:       g.Results,
-		TotalSuccess:  g.TotalSuccess,
-		TotalFailed:   g.TotalFailed,
-		TotalDuration: g.TotalDuration,
-		ItemCount:     g.ItemCount,
-	}, err
-}
-
 // LoopWorkflow executes functions in a loop over items.
-func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput, error) {
-	genericInput := generic.LoopInput[*payload.FunctionExecutionInput]{
-		Items:           input.Items,
-		Template:        &input.Template,
-		Parallel:        input.Parallel,
-		MaxConcurrency:  input.MaxConcurrency,
-		FailureStrategy: input.FailureStrategy,
-	}
-
-	return toLoopOutput(
-		generic.InstrumentedLoopWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput, functionSubstitutor()),
-	)
+// Accepts the generic LoopInput directly.
+func LoopWorkflow(
+	ctx wf.Context,
+	input generic.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput],
+) (*generic.LoopOutput[payload.FunctionExecutionOutput], error) {
+	return generic.InstrumentedLoopWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, input, functionSubstitutor())
 }
 
 // ParameterizedLoopWorkflow executes functions with parameterized loops.
-func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopInput) (*payload.LoopOutput, error) {
-	genericInput := generic.ParameterizedLoopInput[*payload.FunctionExecutionInput]{
-		Parameters:      input.Parameters,
-		Template:        &input.Template,
-		Parallel:        input.Parallel,
-		MaxConcurrency:  input.MaxConcurrency,
-		FailureStrategy: input.FailureStrategy,
-	}
-
-	return toLoopOutput(
-		generic.InstrumentedParameterizedLoopWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput, functionSubstitutor()),
-	)
+// Accepts the generic ParameterizedLoopInput directly.
+func ParameterizedLoopWorkflow(
+	ctx wf.Context,
+	input generic.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput],
+) (*generic.LoopOutput[payload.FunctionExecutionOutput], error) {
+	return generic.InstrumentedParameterizedLoopWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, input, functionSubstitutor())
 }

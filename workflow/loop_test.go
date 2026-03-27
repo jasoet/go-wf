@@ -21,12 +21,12 @@ func testSubstitutor(template testInput, item string, index int, params map[stri
 }
 
 // loopWrapper is a non-generic workflow wrapper for testing.
-func loopWrapper(ctx wf.Context, input LoopInput[testInput]) (*LoopOutput[testOutput], error) {
+func loopWrapper(ctx wf.Context, input LoopInput[testInput, testOutput]) (*LoopOutput[testOutput], error) {
 	return LoopWorkflow[testInput, testOutput](ctx, input, testSubstitutor)
 }
 
 // parameterizedLoopWrapper is a non-generic workflow wrapper for testing.
-func parameterizedLoopWrapper(ctx wf.Context, input ParameterizedLoopInput[testInput]) (*LoopOutput[testOutput], error) {
+func parameterizedLoopWrapper(ctx wf.Context, input ParameterizedLoopInput[testInput, testOutput]) (*LoopOutput[testOutput], error) {
 	return ParameterizedLoopWorkflow[testInput, testOutput](ctx, input, testSubstitutor)
 }
 
@@ -35,7 +35,7 @@ func TestLoopWorkflow_SequentialSuccess(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items: []string{"item1", "item2", "item3"},
 		Template: testInput{
 			Value:    "process-{{item}}",
@@ -65,7 +65,7 @@ func TestLoopWorkflow_ParallelSuccess(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items: []string{"a", "b", "c"},
 		Template: testInput{
 			Value:    "process-{{item}}",
@@ -95,7 +95,7 @@ func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items: []string{"a", "b", "c"},
 		Template: testInput{
 			Value:    "process-{{item}}",
@@ -125,7 +125,7 @@ func TestLoopWorkflow_ContinueOnFailure(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items: []string{"a", "b", "c"},
 		Template: testInput{
 			Value:    "process-{{item}}",
@@ -163,7 +163,7 @@ func TestLoopWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := LoopInput[testInput]{
+	input := LoopInput[testInput, testOutput]{
 		Items: []string{},
 		Template: testInput{
 			Value:    "test",
@@ -182,7 +182,7 @@ func TestParameterizedLoopWorkflow_Success(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParameterizedLoopInput[testInput]{
+	input := ParameterizedLoopInput[testInput, testOutput]{
 		Parameters: map[string][]string{
 			"env": {"dev", "prod"},
 		},
@@ -214,7 +214,7 @@ func TestParameterizedLoopWorkflow_ParallelSuccess(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerTestActivity(env)
 
-	input := ParameterizedLoopInput[testInput]{
+	input := ParameterizedLoopInput[testInput, testOutput]{
 		Parameters: map[string][]string{
 			"env":    {"dev", "prod"},
 			"region": {"us", "eu"},
@@ -245,7 +245,7 @@ func TestParameterizedLoopWorkflow_InvalidInput(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	input := ParameterizedLoopInput[testInput]{
+	input := ParameterizedLoopInput[testInput, testOutput]{
 		Parameters: map[string][]string{},
 		Template: testInput{
 			Value:    "test",

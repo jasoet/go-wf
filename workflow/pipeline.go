@@ -7,7 +7,7 @@ import (
 )
 
 // PipelineWorkflow executes tasks sequentially.
-func PipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input PipelineInput[I]) (*PipelineOutput[O], error) {
+func PipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input PipelineInput[I, O]) (*PipelineOutput[O], error) {
 	logger := wf.GetLogger(ctx)
 	logger.Info("Starting pipeline workflow", "steps", len(input.Tasks))
 

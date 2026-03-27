@@ -41,7 +41,8 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 |------|---------|
 | `workflow/` | Generic workflow core (interfaces, orchestration logic) |
 | `workflow/errors/` | Error types and handling |
-| `workflow/artifacts/` | Artifact store (local + S3) |
+| `workflow/store/` | Generic typed store (RawStore, Store[T], Codec[T]) |
+| `workflow/artifacts/` | Artifact store (local + S3) — used by DAG workflows |
 | `workflow/testutil/` | Shared test helpers (Temporal testcontainer) |
 | `container/` | Container workflows (concrete implementation) |
 | `container/activity/` | Temporal activities for container execution |
@@ -126,14 +127,16 @@ Multi-layer architecture organized as package-per-feature:
 - Defines `TaskInput` and `TaskOutput` interface constraints using Go generics
 - Provides generic orchestration: pipeline, parallel, loop, and single-task execution
 - Activity dispatch via `ActivityName()` (string-based, not function reference) for Temporal compatibility
-- Artifact storage abstraction (local filesystem, S3-compatible storage)
+- Generic store package (`workflow/store/`): `RawStore` (byte-level), `Store[T]` (typed with `Codec[T]`), with local filesystem and S3 implementations
+- Orchestration input types carry both `I` (input) and `O` (output) type parameters for type-safe pipeline composition
+- Legacy artifact storage (`workflow/artifacts/`) still used by DAG workflows
 - Error types shared across all implementations
 
 **Container Module (`container/`)** — concrete implementation
 - **Activities** wrap `github.com/jasoet/pkg/v2/docker` for container execution
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs (`go-playground/validator`)
 - **Workflows** register with Temporal workers via `container.RegisterAll(w)`, using generic core for orchestration
-- **Builder** provides a fluent API to compose container → pipeline → parallel → DAG
+- **Builder** provides a fluent API to compose container → pipeline → parallel → DAG; generic builder alternative available
 - **Templates** (container, script, HTTP) generate payload structs from higher-level config
 - **Patterns** are pre-built workflow compositions (CI/CD pipelines, fan-out/fan-in, etc.)
 
@@ -142,7 +145,7 @@ Multi-layer architecture organized as package-per-feature:
 - **Activity** dispatches to registered handlers via closure over the registry
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs
 - **Workflows** register with Temporal workers, using generic core for orchestration (pipeline, parallel, loop, DAG)
-- **Builder** provides a fluent API to compose function → pipeline → parallel → loop → DAG
+- **Builder** provides a fluent API to compose function → pipeline → parallel → loop → DAG; generic builder alternative available
 - **Patterns** are pre-built workflow compositions (ETL, fan-out/fan-in, batch processing, CI/CD DAG, etc.)
 
 **DataSync Module (`datasync/`)** — concrete implementation

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 // SyncJobBuilder provides a fluent API for constructing Job[T, U].
@@ -22,7 +22,7 @@ type SyncJobBuilder[T any, U any] struct {
 	retryInitialInterval    time.Duration
 	retryBackoffCoefficient float64
 	retryMaxInterval        time.Duration
-	artifactConfig          *artifacts.ArtifactConfig
+	store                   store.RawStore
 }
 
 // NewSyncJobBuilder creates a new builder with the given job name.
@@ -96,9 +96,9 @@ func (b *SyncJobBuilder[T, U]) WithRetryMaxInterval(interval time.Duration) *Syn
 	return b
 }
 
-// WithArtifactConfig sets the artifact storage configuration.
-func (b *SyncJobBuilder[T, U]) WithArtifactConfig(config *artifacts.ArtifactConfig) *SyncJobBuilder[T, U] {
-	b.artifactConfig = config
+// WithStore sets the raw store for data persistence.
+func (b *SyncJobBuilder[T, U]) WithStore(s store.RawStore) *SyncJobBuilder[T, U] {
+	b.store = s
 	return b
 }
 
@@ -133,6 +133,6 @@ func (b *SyncJobBuilder[T, U]) Build() (datasync.Job[T, U], error) {
 		RetryInitialInterval:    b.retryInitialInterval,
 		RetryBackoffCoefficient: b.retryBackoffCoefficient,
 		RetryMaxInterval:        b.retryMaxInterval,
-		ArtifactConfig:          b.artifactConfig,
+		Store:                   b.store,
 	}, nil
 }

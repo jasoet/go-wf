@@ -6,12 +6,11 @@ import (
 
 	"go.temporal.io/sdk/activity"
 
-	"github.com/jasoet/go-wf/function/payload"
 	wf "github.com/jasoet/go-wf/function/workflow"
 )
 
 // activityType is the function signature for the function execution activity.
-type activityType = func(context.Context, payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error)
+type activityType = func(context.Context, FunctionExecutionInput) (*FunctionExecutionOutput, error)
 
 var (
 	// instrumentActivity is a hook that function/activity can set to provide OTel instrumentation.
@@ -48,7 +47,7 @@ func RegisterWorkflows(w WorkflowRegistrar) {
 // RegisterActivity registers a function execution activity.
 // Create the activity with activity.NewExecuteFunctionActivity(registry).
 func RegisterActivity(w WorkflowRegistrar, activityFn interface{}) {
-	if typed, ok := activityFn.(func(context.Context, payload.FunctionExecutionInput) (*payload.FunctionExecutionOutput, error)); ok {
+	if typed, ok := activityFn.(func(context.Context, FunctionExecutionInput) (*FunctionExecutionOutput, error)); ok {
 		if instrumentActivity != nil {
 			activityFn = instrumentActivity(typed)
 		}

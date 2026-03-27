@@ -8,14 +8,10 @@ import (
 )
 
 // ParallelFunctionsWorkflow executes multiple functions in parallel.
-func ParallelFunctionsWorkflow(ctx wf.Context, input payload.ParallelInput) (*payload.ParallelOutput, error) {
-	genericInput := generic.ParallelInput[*payload.FunctionExecutionInput]{
-		Tasks:           toTaskPtrs(input.Functions),
-		MaxConcurrency:  input.MaxConcurrency,
-		FailureStrategy: input.FailureStrategy,
-	}
-
-	genericOutput, err := generic.InstrumentedParallelWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, genericInput)
-
-	return toParallelOutput(genericOutput, err)
+// Accepts the generic ParallelInput directly.
+func ParallelFunctionsWorkflow(
+	ctx wf.Context,
+	input generic.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput],
+) (*generic.ParallelOutput[payload.FunctionExecutionOutput], error) {
+	return generic.InstrumentedParallelWorkflow[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](ctx, input)
 }
