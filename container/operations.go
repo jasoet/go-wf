@@ -257,3 +257,63 @@ func GetWorkflowHistory(ctx context.Context, c client.Client, workflowID, runID 
 
 	return nil, fmt.Errorf("get workflow history not implemented - use Temporal history API directly")
 }
+
+// SubmitTypedWorkflow submits a typed workflow for execution.
+// Unlike SubmitWorkflow which uses interface{} and a type switch, this function
+// accepts a concrete workflow function and input, providing compile-time type safety.
+//
+// Example:
+//
+//	status, err := container.SubmitTypedWorkflow(ctx, temporalClient, workflow.ExecuteContainerWorkflow, input, "container-queue")
+func SubmitTypedWorkflow[I any](ctx context.Context, c client.Client, workflowFunc interface{}, input I, taskQueue string) (*WorkflowStatus, error) {
+	workflowID := generateWorkflowID()
+
+	options := client.StartWorkflowOptions{
+		ID:        workflowID,
+		TaskQueue: taskQueue,
+	}
+
+	we, err := c.ExecuteWorkflow(ctx, options, workflowFunc, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start workflow: %w", err)
+	}
+
+	return &WorkflowStatus{
+		WorkflowID: we.GetID(),
+		RunID:      we.GetRunID(),
+		Status:     "Running",
+		StartTime:  time.Now(),
+	}, nil
+}
+
+// SubmitAndWaitTyped submits a workflow and waits for a typed result.
+//
+// Example:
+//
+//	status, result, err := container.SubmitAndWaitTyped[payload.ContainerExecutionOutput](
+//	    ctx, temporalClient, workflow.ExecuteContainerWorkflow, input, "container-queue", 10*time.Minute)
+func SubmitAndWaitTyped[O any](ctx context.Context, c client.Client, workflowFunc interface{}, input interface{}, taskQueue string, timeout time.Duration) (*WorkflowStatus, *O, error) {
+	status, err := SubmitTypedWorkflow(ctx, c, workflowFunc, input, taskQueue)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	we := c.GetWorkflow(timeoutCtx, status.WorkflowID, status.RunID)
+
+	var result O
+	err = we.Get(timeoutCtx, &result)
+
+	status.CloseTime = timePtr(time.Now())
+
+	if err != nil {
+		status.Status = "Failed"
+		status.Error = err
+		return status, nil, err
+	}
+
+	status.Status = statusCompleted
+	return status, &result, nil
+}
