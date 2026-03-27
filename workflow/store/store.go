@@ -88,7 +88,7 @@ func (s *TypedStore[T]) Load(ctx context.Context, key string) (T, error) {
 	if err != nil {
 		return zero, err
 	}
-	defer rc.Close()
+	defer rc.Close() //nolint:errcheck // best-effort close after read
 	return s.codec.Decode(rc)
 }
 

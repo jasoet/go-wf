@@ -18,7 +18,10 @@ func generateWorkflowID() string {
 	return fmt.Sprintf("container-workflow-%x", b)
 }
 
-const statusCompleted = "Completed"
+const (
+	statusCompleted = "Completed"
+	statusFailed    = "Failed"
+)
 
 // WorkflowStatus represents the status of a workflow execution.
 type WorkflowStatus struct {
@@ -99,7 +102,7 @@ func SubmitAndWait(ctx context.Context, c client.Client, input interface{}, task
 	status.Result = result
 
 	if err != nil {
-		status.Status = "Failed"
+		status.Status = statusFailed
 		status.Error = err
 		return status, err
 	}
@@ -200,7 +203,7 @@ func WatchWorkflow(ctx context.Context, c client.Client, workflowID, runID strin
 			}
 
 			// Stop watching if completed
-			if status.Status == statusCompleted || status.Status == "Failed" {
+			if status.Status == statusCompleted || status.Status == statusFailed {
 				return nil
 			}
 		}
@@ -292,7 +295,10 @@ func SubmitTypedWorkflow[I any](ctx context.Context, c client.Client, workflowFu
 //
 //	status, result, err := container.SubmitAndWaitTyped[payload.ContainerExecutionOutput](
 //	    ctx, temporalClient, workflow.ExecuteContainerWorkflow, input, "container-queue", 10*time.Minute)
-func SubmitAndWaitTyped[O any](ctx context.Context, c client.Client, workflowFunc interface{}, input interface{}, taskQueue string, timeout time.Duration) (*WorkflowStatus, *O, error) {
+func SubmitAndWaitTyped[O any](
+	ctx context.Context, c client.Client, workflowFunc interface{},
+	input interface{}, taskQueue string, timeout time.Duration,
+) (*WorkflowStatus, *O, error) {
 	status, err := SubmitTypedWorkflow(ctx, c, workflowFunc, input, taskQueue)
 	if err != nil {
 		return nil, nil, err
@@ -309,7 +315,7 @@ func SubmitAndWaitTyped[O any](ctx context.Context, c client.Client, workflowFun
 	status.CloseTime = timePtr(time.Now())
 
 	if err != nil {
-		status.Status = "Failed"
+		status.Status = statusFailed
 		status.Error = err
 		return status, nil, err
 	}

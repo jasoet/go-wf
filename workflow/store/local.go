@@ -99,7 +99,7 @@ func (s *LocalStore) Upload(_ context.Context, key string, data io.Reader) error
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck // best-effort close; write errors caught by io.Copy
 
 	limitedData := io.LimitReader(data, MaxUploadSize)
 	if _, err := io.Copy(file, limitedData); err != nil {
@@ -108,7 +108,7 @@ func (s *LocalStore) Upload(_ context.Context, key string, data io.Reader) error
 
 	// Check if data was truncated by attempting to read one more byte.
 	var extra [1]byte
-	if n, _ := data.Read(extra[:]); n > 0 {
+	if n, _ := data.Read(extra[:]); n > 0 { //nolint:errcheck // intentionally ignore; only checking for excess data
 		return fmt.Errorf("data exceeds maximum upload size of 1GB")
 	}
 

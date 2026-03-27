@@ -22,7 +22,6 @@ type GenericBuilder[I workflow.TaskInput, O workflow.TaskOutput] struct {
 	inputs         []I
 	stopOnError    bool
 	cleanup        bool
-	parallelMode   bool
 	failFast       bool
 	maxConcurrency int
 	errors         []error

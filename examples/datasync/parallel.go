@@ -137,10 +137,10 @@ func main() {
 
 	// Register each job on its own task queue and worker
 	type jobWorker struct {
-		w         worker.Worker
-		queue     string
-		name      string
-		wfInput   payload.SyncExecutionInput
+		w       worker.Worker
+		queue   string
+		name    string
+		wfInput payload.SyncExecutionInput
 	}
 
 	jobs := []jobWorker{

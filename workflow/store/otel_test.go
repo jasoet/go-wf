@@ -127,5 +127,5 @@ func TestInstrumentedStore_ImplementsRawStore(t *testing.T) {
 	local, err := NewLocalStore(dir)
 	require.NoError(t, err)
 
-	var _ RawStore = NewInstrumentedStore(local)
+	var _ RawStore = NewInstrumentedStore(local) //nolint:staticcheck // compile-time interface check
 }

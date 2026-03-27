@@ -13,7 +13,6 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/container"
 	"github.com/jasoet/go-wf/container/payload"
 	"github.com/jasoet/go-wf/container/workflow"
 	"github.com/jasoet/go-wf/workflow/testutil"
