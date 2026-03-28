@@ -18,6 +18,7 @@ import (
 	dspayload "github.com/jasoet/go-wf/datasync/payload"
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
+	wftype "github.com/jasoet/go-wf/workflow"
 	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
@@ -191,9 +192,9 @@ func runAll(ctx context.Context, c client.Client) error {
 	// 2. Pipeline
 	track(submit(ctx, c, fmt.Sprintf("demo-fn-pipeline-%s", ts), fnQueue,
 		fnwf.FunctionPipelineWorkflow,
-		fnpayload.PipelineInput{
+		wftype.PipelineInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
 			StopOnError: true,
-			Functions: []fnpayload.FunctionExecutionInput{
+			Tasks: []*fnpayload.FunctionExecutionInput{
 				{Name: "validate", Args: map[string]string{"email": "user@example.com", "name": "Demo"}},
 				{Name: "transform", Args: map[string]string{"name": "Demo", "email": "user@example.com"}},
 				{Name: "notify", Args: map[string]string{"name": "Demo", "channel": "slack"}},
@@ -203,8 +204,8 @@ func runAll(ctx context.Context, c client.Client) error {
 	// 3. Parallel
 	track(submit(ctx, c, fmt.Sprintf("demo-fn-parallel-%s", ts), fnQueue,
 		fnwf.ParallelFunctionsWorkflow,
-		fnpayload.ParallelInput{
-			Functions: []fnpayload.FunctionExecutionInput{
+		wftype.ParallelInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
+			Tasks: []*fnpayload.FunctionExecutionInput{
 				{Name: "fetch-users"},
 				{Name: "fetch-orders"},
 				{Name: "fetch-inventory"},
@@ -214,9 +215,9 @@ func runAll(ctx context.Context, c client.Client) error {
 	// 4. Loop
 	track(submit(ctx, c, fmt.Sprintf("demo-fn-loop-%s", ts), fnQueue,
 		fnwf.LoopWorkflow,
-		fnpayload.LoopInput{
+		wftype.LoopInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
 			Items: []string{"data-2024-01.csv", "data-2024-02.csv", "data-2024-03.csv"},
-			Template: fnpayload.FunctionExecutionInput{
+			Template: &fnpayload.FunctionExecutionInput{
 				Name: "process-csv",
 				Args: map[string]string{"format": "standard"},
 			},
@@ -225,12 +226,12 @@ func runAll(ctx context.Context, c client.Client) error {
 	// 5. Parameterized Loop
 	track(submit(ctx, c, fmt.Sprintf("demo-fn-paramloop-%s", ts), fnQueue,
 		fnwf.ParameterizedLoopWorkflow,
-		fnpayload.ParameterizedLoopInput{
+		wftype.ParameterizedLoopInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
 			Parameters: map[string][]string{
 				"environment": {"dev", "staging"},
 				"region":      {"us-east-1", "eu-west-1"},
 			},
-			Template: fnpayload.FunctionExecutionInput{
+			Template: &fnpayload.FunctionExecutionInput{
 				Name: "deploy-service",
 				Args: map[string]string{"version": "v1.2.3"},
 			},
@@ -417,9 +418,9 @@ func createSchedules(ctx context.Context, c client.Client) {
 			WorkflowID:   "scheduled-fn-pipeline",
 			WorkflowFunc: fnwf.FunctionPipelineWorkflow,
 			TaskQueue:    "function-tasks",
-			Input: fnpayload.PipelineInput{
+			Input: wftype.PipelineInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
 				StopOnError: true,
-				Functions: []fnpayload.FunctionExecutionInput{
+				Tasks: []*fnpayload.FunctionExecutionInput{
 					{Name: "validate", Args: map[string]string{"email": "cron@example.com", "name": "CronUser"}},
 					{Name: "transform", Args: map[string]string{"name": "CronUser", "email": "cron@example.com"}},
 					{Name: "notify", Args: map[string]string{"name": "CronUser", "channel": "email"}},
@@ -457,9 +458,9 @@ func createSchedules(ctx context.Context, c client.Client) {
 			WorkflowID:   "scheduled-fn-loop",
 			WorkflowFunc: fnwf.LoopWorkflow,
 			TaskQueue:    "function-tasks",
-			Input: fnpayload.LoopInput{
+			Input: wftype.LoopInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
 				Items: []string{"report-daily.csv", "report-weekly.csv", "report-monthly.csv"},
-				Template: fnpayload.FunctionExecutionInput{
+				Template: &fnpayload.FunctionExecutionInput{
 					Name: "process-csv",
 					Args: map[string]string{"format": "standard"},
 				},
@@ -513,8 +514,8 @@ func createSchedules(ctx context.Context, c client.Client) {
 			WorkflowID:   "scheduled-fn-parallel",
 			WorkflowFunc: fnwf.ParallelFunctionsWorkflow,
 			TaskQueue:    "function-tasks",
-			Input: fnpayload.ParallelInput{
-				Functions: []fnpayload.FunctionExecutionInput{
+			Input: wftype.ParallelInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
+				Tasks: []*fnpayload.FunctionExecutionInput{
 					{Name: "fetch-users"},
 					{Name: "fetch-orders"},
 					{Name: "fetch-inventory"},
@@ -527,12 +528,12 @@ func createSchedules(ctx context.Context, c client.Client) {
 			WorkflowID:   "scheduled-fn-paramloop",
 			WorkflowFunc: fnwf.ParameterizedLoopWorkflow,
 			TaskQueue:    "function-tasks",
-			Input: fnpayload.ParameterizedLoopInput{
+			Input: wftype.ParameterizedLoopInput[*fnpayload.FunctionExecutionInput, fnpayload.FunctionExecutionOutput]{
 				Parameters: map[string][]string{
 					"environment": {"dev", "staging"},
 					"region":      {"us-east-1", "eu-west-1"},
 				},
-				Template: fnpayload.FunctionExecutionInput{
+				Template: &fnpayload.FunctionExecutionInput{
 					Name: "deploy-service",
 					Args: map[string]string{"version": "v1.2.3"},
 				},
