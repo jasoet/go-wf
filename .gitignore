@@ -243,3 +243,7 @@ examples/**/parallel
 examples/**/patterns-demo
 examples/**/pipeline
 .claude/worktrees/
+
+# Nix / direnv
+.direnv/
+result

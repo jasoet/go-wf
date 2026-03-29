@@ -1,6 +1,7 @@
 version: '3'
 
 vars:
+  N: "nix develop -c"
   PODMAN_SOCKET:
     sh: |
       if command -v podman &> /dev/null; then
@@ -44,9 +45,9 @@ tasks:
       TESTCONTAINERS_RYUK_DISABLED: '{{if .CONTAINER_HOST}}true{{end}}'
     cmds:
       - mkdir -p output
-      - go test -race -count=1 -coverprofile=output/coverage.out -covermode=atomic -tags=integration -timeout=15m ./...
-      - go tool cover -html=output/coverage.out -o output/coverage.html
-      - go tool cover -func=output/coverage.out | grep total
+      - "{{.N}} go test -race -count=1 -coverprofile=output/coverage.out -covermode=atomic -tags=integration -timeout=15m ./..."
+      - "{{.N}} go tool cover -html=output/coverage.out -o output/coverage.html"
+      - "{{.N}} go tool cover -func=output/coverage.out | grep total"
       - 'echo "✓ Coverage: output/coverage.html"'
 
   test:unit:
@@ -54,8 +55,8 @@ tasks:
     silent: true
     cmds:
       - mkdir -p output
-      - go test -race -count=1 -coverprofile=output/coverage-unit.out -covermode=atomic ./...
-      - go tool cover -html=output/coverage-unit.out -o output/coverage-unit.html
+      - "{{.N}} go test -race -count=1 -coverprofile=output/coverage-unit.out -covermode=atomic ./..."
+      - "{{.N}} go tool cover -html=output/coverage-unit.out -o output/coverage-unit.html"
       - 'echo "✓ Unit Coverage: output/coverage-unit.html"'
 
   test:integration:
@@ -67,9 +68,9 @@ tasks:
       TESTCONTAINERS_RYUK_DISABLED: '{{if .CONTAINER_HOST}}true{{end}}'
     cmds:
       - mkdir -p output
-      - go test -race -count=1 -coverprofile=output/coverage-integration.out -covermode=atomic -tags=integration -timeout=15m ./...
-      - go tool cover -html=output/coverage-integration.out -o output/coverage-integration.html
-      - go tool cover -func=output/coverage-integration.out | grep total
+      - "{{.N}} go test -race -count=1 -coverprofile=output/coverage-integration.out -covermode=atomic -tags=integration -timeout=15m ./..."
+      - "{{.N}} go tool cover -html=output/coverage-integration.out -o output/coverage-integration.html"
+      - "{{.N}} go tool cover -func=output/coverage-integration.out | grep total"
       - 'echo "✓ Integration Coverage: output/coverage-integration.html"'
 
   container:check:
@@ -114,7 +115,7 @@ tasks:
     desc: Run golangci-lint
     silent: true
     cmds:
-      - golangci-lint run ./...
+      - "{{.N}} golangci-lint run ./..."
 
   check:
     desc: Run all checks (test + lint)
@@ -127,28 +128,28 @@ tasks:
     desc: Install development tools
     silent: true
     cmds:
-      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-      - go install mvdan.cc/gofumpt@latest
-      - go install golang.org/x/tools/cmd/goimports@latest
+      - "{{.N}} go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+      - "{{.N}} go install mvdan.cc/gofumpt@latest"
+      - "{{.N}} go install golang.org/x/tools/cmd/goimports@latest"
       - echo "✓ Tools installed"
 
   fmt:
     desc: Format all Go files (goimports + gofumpt)
     cmds:
-      - goimports -local "github.com/jasoet/go-wf" -w .
-      - gofumpt -l -w .
+      - "{{.N}} goimports -local \"github.com/jasoet/go-wf\" -w ."
+      - "{{.N}} gofumpt -l -w ."
 
   ci:test:
     desc: Run unit tests for CI (no coverage HTML)
     silent: true
     cmds:
-      - go test -race -count=1 ./...
+      - "{{.N}} go test -race -count=1 ./..."
 
   ci:lint:
     desc: Run golangci-lint for CI
     silent: true
     cmds:
-      - golangci-lint run ./...
+      - "{{.N}} golangci-lint run ./..."
 
   ci:check:
     desc: Run all CI checks (test + lint)
@@ -178,55 +179,55 @@ tasks:
     desc: "Run unit tests for a specific package (usage: task test:pkg -- ./function/workflow/...)"
     silent: true
     cmds:
-      - go test -race -count=1 -v {{.CLI_ARGS}}
+      - "{{.N}} go test -race -count=1 -v {{.CLI_ARGS}}"
 
   test:run:
     desc: "Run a specific test by name (usage: task test:run -- -run TestName ./package/...)"
     silent: true
     cmds:
-      - go test -race -count=1 -v {{.CLI_ARGS}}
+      - "{{.N}} go test -race -count=1 -v {{.CLI_ARGS}}"
 
   test:coverage:
     desc: "Show coverage for a specific package (usage: task test:coverage -- ./function/workflow/...)"
     silent: true
     cmds:
-      - go test -race -count=1 -coverprofile=/tmp/pkg-coverage.out -covermode=atomic {{.CLI_ARGS}}
-      - go tool cover -func=/tmp/pkg-coverage.out | grep total
+      - "{{.N}} go test -race -count=1 -coverprofile=/tmp/pkg-coverage.out -covermode=atomic {{.CLI_ARGS}}"
+      - "{{.N}} go tool cover -func=/tmp/pkg-coverage.out | grep total"
 
   example:container:
     desc: "Run a container example (usage: task example:container -- basic.go)"
     silent: true
     dir: examples/container
     cmds:
-      - go run -tags example {{.CLI_ARGS}}
+      - "{{.N}} go run -tags example {{.CLI_ARGS}}"
 
   example:container:worker:
     desc: Start the container example worker (listens on container-tasks queue)
     silent: true
     dir: examples/container/worker
     cmds:
-      - go run -tags example main.go
+      - "{{.N}} go run -tags example main.go"
 
   example:function:
     desc: "Run a function example (usage: task example:function -- basic.go)"
     silent: true
     dir: examples/function
     cmds:
-      - go run -tags example {{.CLI_ARGS}}
+      - "{{.N}} go run -tags example {{.CLI_ARGS}}"
 
   example:datasync:
     desc: "Run a datasync example (usage: task example:datasync -- basic.go)"
     silent: true
     dir: examples/datasync
     cmds:
-      - go run -tags example {{.CLI_ARGS}}
+      - "{{.N}} go run -tags example {{.CLI_ARGS}}"
 
   example:datasync:worker:
     desc: Start the datasync example worker (listens on sync-* task queues)
     silent: true
     dir: examples/datasync/worker
     cmds:
-      - go run -tags example main.go
+      - "{{.N}} go run -tags example main.go"
 
   example:list:
     desc: List all available example files
@@ -510,6 +511,21 @@ tasks:
     silent: true
     cmds:
       - task: local:down
+
+  nix:check:
+    desc: Verify Nix environment and all dev tools
+    cmds:
+      - "{{.N}} go version"
+      - "{{.N}} golangci-lint --version"
+      - "{{.N}} gofumpt --version"
+      - "{{.N}} gosec --version"
+      - "{{.N}} goimports -h 2>&1 | head -1"
+      - "{{.N}} jq --version"
+
+  nix:update:
+    desc: Update Nix flake inputs to latest
+    cmds:
+      - nix flake update
 
   clean:
     desc: Clean build artifacts
