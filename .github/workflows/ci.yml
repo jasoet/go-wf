@@ -21,4 +21,4 @@ jobs:
         run: nix develop --command task lint
 
       - name: Test
-        run: nix develop --command task test
+        run: nix develop --command task ci:test
