@@ -1,57 +1,24 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [main]
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
+  ci:
+    name: Lint & Test
+    if: >
+      github.event_name == 'push' ||
+      github.actor == 'jasoet'
+    runs-on: [self-hosted, local, macOS, ARM64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-          check-latest: true
+      - name: Lint
+        run: nix develop --command task lint
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run tests
-        run: task ci:test
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-          check-latest: true
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-
-      - name: Run lint
-        run: task ci:lint
+      - name: Test
+        run: nix develop --command task test

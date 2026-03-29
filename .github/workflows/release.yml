@@ -2,79 +2,43 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, local, macOS, ARM64]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-          check-latest: true
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run tests
-        run: task ci:test
+      - name: Test
+        run: nix develop --command task test
 
   release:
     name: Release
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, local, macOS, ARM64]
     permissions:
       contents: write
       issues: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-          check-latest: true
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
       - name: Install semantic-release
-        run: bun install -g semantic-release @semantic-release/github conventional-changelog-conventionalcommits
-
+        run: nix develop --command bun install -g semantic-release @semantic-release/github conventional-changelog-conventionalcommits
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: task release
-
-      - name: Warm Go module proxy
+        run: nix develop --command bunx semantic-release
+      - name: Warm Go Proxy
         if: success()
         run: |
-          sleep 5
-          task release:proxy-warmup
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LATEST_TAG" ]; then
+            MODULE=$(head -1 go.mod | awk '{print $2}')
+            nix develop --command go list -m "${MODULE}@${LATEST_TAG}" || true
+          fi
