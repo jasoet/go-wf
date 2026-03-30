@@ -17,153 +17,41 @@ Temporal workflow library providing reusable, production-ready workflows for com
 - **Comprehensive Testing** - 85%+ coverage with integration tests
 - **Full CI/CD** - Automated releases and quality checks
 
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Architecture](./docs/architecture.md) | Architecture and design |
+| [Getting Started](./docs/getting-started.md) | Quick start guide |
+| [Workflow Patterns](./docs/workflow-patterns.md) | Orchestration patterns (pipeline, parallel, loop, DAG) |
+| [Container Workflows](./docs/container-workflows.md) | Container workflow guide |
+| [Function Workflows](./docs/function-workflows.md) | Function workflow guide |
+| [DataSync Workflows](./docs/datasync-workflows.md) | Data synchronization guide |
+| [Store](./docs/store.md) | Store API (RawStore, Store[T]) |
+| [Observability](./docs/observability.md) | OpenTelemetry integration |
+| [Contributing](./docs/contributing.md) | Development and contribution guide |
+
 ## Packages
 
 ### [workflow](./workflow/)
 
-Generic workflow orchestration core using Go generics:
-- **Type-Safe Interfaces** — `TaskInput`/`TaskOutput` constraints for compile-time safety
-- **Pipeline** — Sequential task execution with stop-on-error
-- **Parallel** — Concurrent task execution with fail-fast/continue
-- **Loop** — Iterate over items or parameter combinations
-- **Artifacts** — Pluggable artifact storage (local filesystem, S3-compatible storage)
-- **Extensible** — Implement `TaskInput`/`TaskOutput` to add new activity types
+Generic workflow orchestration core using Go generics with type-safe `TaskInput`/`TaskOutput` constraints. Provides pipeline, parallel, loop, and single-task execution patterns, plus pluggable artifact storage (local + S3). See [Workflow Patterns](./docs/workflow-patterns.md) for details.
 
 ### [container](./container/)
 
-Temporal workflows for executing containers with Argo Workflow-like capabilities:
-
-**Core Workflows:**
-- **Single Container** - Execute individual containers with wait strategies
-- **Pipeline** - Sequential container execution with error handling
-- **Parallel** - Concurrent container execution with configurable limits
-- **DAG** - Directed Acyclic Graph execution with dependency management
-
-**Builder & Templates:**
-- **Fluent Builder API** - Compose complex workflows with chainable methods
-- **Container Templates** - Enhanced container execution with functional options
-- **Script Templates** - Execute bash, python, node, ruby, or golang scripts
-- **HTTP Templates** - HTTP requests, health checks, and webhooks
-- **Pre-built Patterns** - CI/CD, fan-out/fan-in, map-reduce, parallel testing
-
-**Advanced Features:**
-- **Lifecycle Management** - Submit, wait, watch, cancel, terminate, signal, query workflows
-- **Conditional Execution** - When clauses and ContinueOnFail behaviors
-- **Resource Management** - CPU, memory, GPU limits
-- **Artifacts & Secrets** - Input/output artifacts and secret injection
-- **Workflow Parameters** - Template variables for reusable workflows
-
-See [container/README.md](./container/README.md) for detailed documentation and [examples/container/](./examples/container/) for runnable examples.
+Temporal workflows for executing containers with Argo Workflow-like capabilities: single container, pipeline, parallel, and DAG execution. Includes a fluent builder API, container/script/HTTP templates, and pre-built patterns. See [Container Workflows](./docs/container-workflows.md) for details.
 
 ### [function](./function/)
 
-Temporal workflows for executing registered Go functions:
-
-**Core Features:**
-- **Function Registry** - Register named Go handler functions
-- **Single Execution** - Execute individual functions as Temporal activities
-- **Pipeline** - Sequential function execution with error handling
-- **Parallel** - Concurrent function execution with configurable limits
-- **Loop** - Iterate over items or parameter combinations with template substitution
-- **DAG** - Dependency-based execution graph with data passing between nodes
-
-**Builder API:**
-- **Fluent Builder** - Compose function workflows with chainable methods
-- **Loop Builder** - Item-based and parameterized loop construction
-- **DAG Builder** - Construct dependency graphs with input/output/data mappings
-- **WorkflowSource** - Composable function input sources
-
-**Pre-built Patterns:**
-- **Pipeline** - ETL, validate-transform-notify, multi-environment deploy
-- **Parallel** - Fan-out/fan-in, parallel data fetch, health checks
-- **Loop** - Batch processing, sequential migration, multi-region deploy, parameter sweep
-- **DAG** - ETL with validation, CI pipeline
-
-**Usage:**
-```go
-// Create and populate registry
-registry := function.NewRegistry()
-registry.Register("validate", validateHandler)
-registry.Register("transform", transformHandler)
-
-// Register with Temporal worker
-w := worker.New(client, "task-queue", worker.Options{})
-function.RegisterWorkflows(w)
-function.RegisterActivity(w, activity.NewExecuteFunctionActivity(registry))
-
-// Build and execute a pipeline
-pipeline, _ := builder.NewWorkflowBuilder("my-pipeline").
-    AddInput(payload.FunctionExecutionInput{Name: "validate", Args: map[string]string{"path": "/config.yaml"}}).
-    AddInput(payload.FunctionExecutionInput{Name: "transform"}).
-    StopOnError(true).
-    BuildPipeline()
-```
-
-See [examples/function/](./examples/function/) for runnable examples.
+Temporal workflows for executing registered Go functions: function registry, pipeline, parallel, loop, and DAG execution with a fluent builder API and pre-built patterns. See [Function Workflows](./docs/function-workflows.md) for details.
 
 ### [datasync](./datasync/)
 
-Generic data synchronization workflows using a `Source[T] -> Mapper[T,U] -> Sink[U]` pipeline:
-
-**Core Features:**
-- **Source/Sink/Mapper** - Type-safe generic interfaces for data extraction, transformation, and loading
-- **Job** - Bundles Source + Mapper + Sink + schedule into a deployable unit
-- **Runner** - In-process test helper (no Temporal needed)
-
-**Helpers:**
-- **RecordMapper** - Per-record conversion with automatic skip tracking
-- **InsertIfAbsentSink** - Check-then-insert deduplication pattern
-- **MapperFunc** - Adapter for simple mapping functions
-- **IdentityMapper** - No-op mapper when Source and Sink share a type
-
-**Temporal Integration:**
-- **Workflow** - Temporal workflow function with scheduling support
-- **Activity** - SyncData activity with full OTel instrumentation
-- **Builder** - Fluent builder API for Job construction
-
-**Usage:**
-```go
-// Build a sync job
-source := mySource{}
-mapper := datasync.NewRecordMapper[Raw, Entity]("convert", convertFn)
-sink := datasync.NewInsertIfAbsentSink[Entity, string]("db", getID, find, create)
-
-job, _ := builder.NewSyncJobBuilder[Raw, Entity]("my-sync").
-    WithSource(source).
-    WithMapper(mapper).
-    WithSink(sink).
-    WithSchedule(5 * time.Minute).
-    Build()
-
-// Register with Temporal worker
-w := worker.New(client, workflow.TaskQueue("my-sync"), worker.Options{})
-workflow.RegisterJob(w, job)
-```
-
-See [datasync/README.md](./datasync/README.md) for detailed documentation.
+Generic data synchronization workflows using a `Source[T] -> Mapper[T,U] -> Sink[U]` pipeline with helpers for record mapping, deduplication, and Temporal scheduling. See [DataSync Workflows](./docs/datasync-workflows.md) for details.
 
 ## Observability
 
-go-wf includes built-in OpenTelemetry instrumentation via [`jasoet/pkg/v2/otel`](https://github.com/jasoet/pkg). All instrumentation is opt-in — zero overhead when not configured.
-
-**What's instrumented:**
-- **Activity spans** — Docker container and function execution with attributes (image, function name, duration, exit code)
-- **Activity metrics** — `go_wf.container.task.*`, `go_wf.function.task.*`, and `go_wf.datasync.*` (counters + histograms)
-- **Artifact store spans** — Upload, download, delete, exists, list operations with `go_wf.artifact.operation.*` metrics
-- **Workflow logging** — Structured log events at pipeline/parallel/loop boundaries with step counts and durations
-
-**Enable in your application:**
-```go
-import pkgotel "github.com/jasoet/pkg/v2/otel"
-
-// Store OTel config in context — go-wf reads it automatically
-ctx = pkgotel.ContextWithConfig(ctx, otelCfg)
-
-// For artifact store, wrap with instrumented decorator
-store := artifacts.NewInstrumentedStore(myStore)
-```
-
-When `otel.Config` is absent from context, all instrumentation is a no-op with zero allocations.
+Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled. See [Observability](./docs/observability.md) for details.
 
 ## Installation
 
@@ -325,6 +213,7 @@ go-wf/
 │   └── workflow/     # Workflow function and registration
 ├── examples/container/    # Container examples (see [README](./examples/container/README.md))
 ├── examples/function/  # Function examples (see [README](./examples/function/README.md))
+├── docs/               # Project documentation (architecture, guides, API)
 ├── docs/plans/         # Implementation plans (archived/)
 ├── .github/          # GitHub Actions workflows
 ├── Taskfile.yml      # Task automation
@@ -532,12 +421,7 @@ The project enforces high code quality standards:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with tests
-4. Run `task check`
-5. Commit with conventional format
-6. Submit a pull request
+See [Contributing Guide](./docs/contributing.md) for development setup, testing, and contribution workflow.
 
 ## License
 

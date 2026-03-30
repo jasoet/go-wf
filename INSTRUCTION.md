@@ -76,6 +76,15 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `Taskfile.yml` | All project commands |
 | `.claude/` | Claude Code hooks, scripts, and skills |
 | `.github/workflows/` | GitHub Actions CI/CD |
+| `docs/architecture.md` | Architecture and design guide |
+| `docs/getting-started.md` | Quick start and onboarding |
+| `docs/workflow-patterns.md` | Orchestration pattern guide |
+| `docs/container-workflows.md` | Container workflows guide |
+| `docs/function-workflows.md` | Function workflows guide |
+| `docs/datasync-workflows.md` | DataSync workflows guide |
+| `docs/store.md` | Store API guide |
+| `docs/observability.md` | OpenTelemetry guide |
+| `docs/contributing.md` | Contributing guide |
 | `INSTRUCTION.md` | AI context (this file) |
 | `README.md` | Human documentation |
 

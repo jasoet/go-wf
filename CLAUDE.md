@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 Read INSTRUCTION.md for full project context.
+Read docs/ for detailed architecture, patterns, and API guides.
 
 ## ABSOLUTE RULE — NO EXCEPTIONS
 
