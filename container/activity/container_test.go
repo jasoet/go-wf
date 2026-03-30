@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/jasoet/go-wf/container/payload"
 )
 
@@ -120,11 +122,25 @@ func TestBuildWaitStrategy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			strategy := buildWaitStrategy(tt.config)
-			if strategy == nil {
-				t.Error("buildWaitStrategy returned nil")
+			assert.NotNil(t, strategy, "buildWaitStrategy(%q) returned nil", tt.config.Type)
+		})
+	}
+}
+
+func TestBuildWaitStrategy_AllTypeStrings(t *testing.T) {
+	// Verify all documented type strings produce non-nil strategies
+	// and that the function handles each without panicking.
+	types := []string{"log", "port", "http", "healthy", "unknown", ""}
+	for _, typ := range types {
+		t.Run("type_"+typ, func(t *testing.T) {
+			config := payload.WaitStrategyConfig{
+				Type:       typ,
+				LogMessage: "ready",
+				Port:       "8080",
+				HTTPPath:   "/health",
 			}
-			// Successfully built strategy - we can't inspect the internal type easily
-			// but we verify it doesn't panic and returns non-nil
+			strategy := buildWaitStrategy(config)
+			assert.NotNil(t, strategy, "buildWaitStrategy(%q) returned nil", typ)
 		})
 	}
 }
@@ -172,65 +188,6 @@ func TestContainerExecutionInput_AllFields(t *testing.T) {
 
 	if err := input.Validate(); err != nil {
 		t.Errorf("Valid input should not fail validation: %v", err)
-	}
-}
-
-func TestContainerExecutionOutput_Fields(t *testing.T) {
-	// Test output structure
-	startedAt := time.Now()
-	finishedAt := startedAt.Add(5 * time.Second)
-	output := payload.ContainerExecutionOutput{
-		ContainerID: "abc123",
-		Name:        "test",
-		ExitCode:    0,
-		Stdout:      "output",
-		Stderr:      "errors",
-		Endpoint:    "localhost:8080",
-		Ports: map[string]string{
-			"8080": "32768",
-		},
-		StartedAt:  startedAt,
-		FinishedAt: finishedAt,
-		Duration:   5 * time.Second,
-		Success:    true,
-		Error:      "",
-	}
-
-	if output.ContainerID != "abc123" {
-		t.Errorf("Expected ContainerID abc123, got %s", output.ContainerID)
-	}
-	if output.Name != "test" {
-		t.Errorf("Expected Name test, got %s", output.Name)
-	}
-	if output.ExitCode != 0 {
-		t.Errorf("Expected ExitCode 0, got %d", output.ExitCode)
-	}
-	if output.Stdout != "output" {
-		t.Errorf("Expected Stdout output, got %s", output.Stdout)
-	}
-	if output.Stderr != "errors" {
-		t.Errorf("Expected Stderr errors, got %s", output.Stderr)
-	}
-	if output.Endpoint != "localhost:8080" {
-		t.Errorf("Expected Endpoint localhost:8080, got %s", output.Endpoint)
-	}
-	if len(output.Ports) != 1 || output.Ports["8080"] != "32768" {
-		t.Errorf("Expected Ports map with 8080:32768, got %v", output.Ports)
-	}
-	if !output.Success {
-		t.Error("Expected Success to be true")
-	}
-	if output.Error != "" {
-		t.Errorf("Expected empty Error, got %s", output.Error)
-	}
-	if output.Duration != 5*time.Second {
-		t.Errorf("Expected Duration 5s, got %v", output.Duration)
-	}
-	if !output.StartedAt.Equal(startedAt) {
-		t.Errorf("Expected StartedAt %v, got %v", startedAt, output.StartedAt)
-	}
-	if !output.FinishedAt.Equal(finishedAt) {
-		t.Errorf("Expected FinishedAt %v, got %v", finishedAt, output.FinishedAt)
 	}
 }
 
@@ -337,6 +294,21 @@ func TestParallelInput_Concurrency(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParallelInput_NegativeConcurrency(t *testing.T) {
+	// MaxConcurrency is not currently enforced (see ParallelInput docs).
+	// Negative values pass validation. This test documents current behavior.
+	input := payload.ParallelInput{
+		Containers: []payload.ContainerExecutionInput{
+			{Image: "alpine:latest"},
+		},
+		MaxConcurrency:  -1,
+		FailureStrategy: "continue",
+	}
+
+	err := input.Validate()
+	assert.NoError(t, err, "Negative MaxConcurrency should pass validation (field is not enforced)")
 }
 
 func TestWaitStrategyConfig_AllTypes(t *testing.T) {

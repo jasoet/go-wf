@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -107,6 +106,32 @@ func TestDAGWorkflowValidation(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "cyclic dependency",
+			input: payload.DAGWorkflowInput{
+				Nodes: []payload.DAGNode{
+					{
+						Name: "task-a",
+						Container: payload.ExtendedContainerInput{
+							ContainerExecutionInput: payload.ContainerExecutionInput{
+								Image: "alpine:latest",
+							},
+						},
+						Dependencies: []string{"task-b"},
+					},
+					{
+						Name: "task-b",
+						Container: payload.ExtendedContainerInput{
+							ContainerExecutionInput: payload.ContainerExecutionInput{
+								Image: "alpine:latest",
+							},
+						},
+						Dependencies: []string{"task-a"},
+					},
+				},
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -199,22 +224,6 @@ func TestWorkflowWithParameters(t *testing.T) {
 	env.ExecuteWorkflow(WorkflowWithParameters, input, params)
 	assert.True(t, env.IsWorkflowCompleted())
 	assert.NoError(t, env.GetWorkflowError())
-}
-
-func TestHelperFunctions(t *testing.T) {
-	t.Run("replaceAll", func(t *testing.T) {
-		result := strings.ReplaceAll("Hello {{name}}, welcome to {{place}}", "{{name}}", "World")
-		assert.Contains(t, result, "World")
-		assert.NotContains(t, result, "{{name}}")
-	})
-
-	t.Run("indexOf", func(t *testing.T) {
-		index := strings.Index("hello world", "world")
-		assert.Equal(t, 6, index)
-
-		index = strings.Index("hello world", "notfound")
-		assert.Equal(t, -1, index)
-	})
 }
 
 func TestDAGWorkflow_DiamondDependency(t *testing.T) {

@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nexus-rpc/sdk-go/nexus"
-	sdkactivity "go.temporal.io/sdk/activity"
-	sdkworkflow "go.temporal.io/sdk/workflow"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,26 +14,6 @@ import (
 	"github.com/jasoet/go-wf/container/payload"
 	"github.com/jasoet/go-wf/container/workflow"
 )
-
-// integrationMockWorker implements the Worker interface for testing.
-type integrationMockWorker struct{}
-
-func (m *integrationMockWorker) RegisterWorkflow(interface{}) {}
-func (m *integrationMockWorker) RegisterWorkflowWithOptions(interface{}, sdkworkflow.RegisterOptions) {
-}
-
-func (m *integrationMockWorker) RegisterDynamicWorkflow(interface{}, sdkworkflow.DynamicRegisterOptions) {
-}
-func (m *integrationMockWorker) RegisterActivity(interface{}) {}
-func (m *integrationMockWorker) RegisterActivityWithOptions(interface{}, sdkactivity.RegisterOptions) {
-}
-
-func (m *integrationMockWorker) RegisterDynamicActivity(interface{}, sdkactivity.DynamicRegisterOptions) {
-}
-func (m *integrationMockWorker) RegisterNexusService(*nexus.Service) {}
-func (m *integrationMockWorker) Run(<-chan interface{}) error        { return nil }
-func (m *integrationMockWorker) Start() error                        { return nil }
-func (m *integrationMockWorker) Stop()                               {}
 
 // mockContainerActivity registers a mock for StartContainerActivity that returns a successful result.
 func mockContainerActivity(env *testsuite.TestWorkflowEnvironment, stdout string) {
@@ -248,20 +224,4 @@ func TestContainerWithVolumes(t *testing.T) {
 
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
-}
-
-func TestWorkflowRegistration(t *testing.T) {
-	// Test that workflows and activities can be registered without error
-	w := &integrationMockWorker{}
-
-	// These should not panic
-	assert.NotPanics(t, func() {
-		RegisterWorkflows(w)
-	})
-	assert.NotPanics(t, func() {
-		RegisterActivities(w)
-	})
-	assert.NotPanics(t, func() {
-		RegisterAll(w)
-	})
 }

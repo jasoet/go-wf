@@ -4,6 +4,7 @@ package container_test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -23,6 +24,11 @@ var (
 	testClient    client.Client
 	testTaskQueue = "integration-test-queue"
 )
+
+// uniqueWorkflowID returns a unique workflow ID by appending the test name.
+func uniqueWorkflowID(t *testing.T, base string) string {
+	return fmt.Sprintf("%s-%s", base, t.Name())
+}
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -67,7 +73,7 @@ func TestIntegration_ExecuteContainerWorkflow(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-execute-container",
+			ID:        uniqueWorkflowID(t, "integration-test-execute-container"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
@@ -111,7 +117,7 @@ func TestIntegration_ContainerPipelineWorkflow(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-pipeline",
+			ID:        uniqueWorkflowID(t, "integration-test-pipeline"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ContainerPipelineWorkflow,
@@ -160,7 +166,7 @@ func TestIntegration_ParallelContainersWorkflow(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-parallel",
+			ID:        uniqueWorkflowID(t, "integration-test-parallel"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ParallelContainersWorkflow,
@@ -193,7 +199,7 @@ func TestIntegration_ContainerWithEnvironment(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-env",
+			ID:        uniqueWorkflowID(t, "integration-test-env"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
@@ -222,7 +228,7 @@ func TestIntegration_ContainerWithWorkDir(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-workdir",
+			ID:        uniqueWorkflowID(t, "integration-test-workdir"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
@@ -250,7 +256,7 @@ func TestIntegration_ContainerWithEntrypoint(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-entrypoint",
+			ID:        uniqueWorkflowID(t, "integration-test-entrypoint"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
@@ -278,7 +284,7 @@ func TestIntegration_ContainerWithUser(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-user",
+			ID:        uniqueWorkflowID(t, "integration-test-user"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
@@ -305,7 +311,7 @@ func TestIntegration_ContainerFailure(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-container-failure",
+			ID:        uniqueWorkflowID(t, "integration-test-container-failure"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ExecuteContainerWorkflow,
@@ -344,7 +350,7 @@ func TestIntegration_PipelineStopOnError(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-pipeline-stop-on-error",
+			ID:        uniqueWorkflowID(t, "integration-test-pipeline-stop-on-error"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ContainerPipelineWorkflow,
@@ -383,7 +389,7 @@ func TestIntegration_PipelineContinueOnError(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-pipeline-continue-on-error",
+			ID:        uniqueWorkflowID(t, "integration-test-pipeline-continue-on-error"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ContainerPipelineWorkflow,
@@ -429,7 +435,7 @@ func TestIntegration_ParallelFailFast(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-parallel-fail-fast",
+			ID:        uniqueWorkflowID(t, "integration-test-parallel-fail-fast"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ParallelContainersWorkflow,
@@ -474,7 +480,7 @@ func TestIntegration_ParallelContinue(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-parallel-continue",
+			ID:        uniqueWorkflowID(t, "integration-test-parallel-continue"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ParallelContainersWorkflow,
@@ -534,7 +540,7 @@ func TestIntegration_DAGWorkflow(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-dag",
+			ID:        uniqueWorkflowID(t, "integration-test-dag"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.DAGWorkflow,
@@ -586,7 +592,7 @@ func TestIntegration_DAGWorkflowFailFast(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-dag-fail-fast",
+			ID:        uniqueWorkflowID(t, "integration-test-dag-fail-fast"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.DAGWorkflow,
@@ -619,7 +625,7 @@ func TestIntegration_LoopSequential(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-loop-sequential",
+			ID:        uniqueWorkflowID(t, "integration-test-loop-sequential"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.LoopWorkflow,
@@ -653,7 +659,7 @@ func TestIntegration_LoopParallel(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-loop-parallel",
+			ID:        uniqueWorkflowID(t, "integration-test-loop-parallel"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.LoopWorkflow,
@@ -687,7 +693,7 @@ func TestIntegration_LoopSequentialFailFast(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-loop-sequential-fail-fast",
+			ID:        uniqueWorkflowID(t, "integration-test-loop-sequential-fail-fast"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.LoopWorkflow,
@@ -719,7 +725,7 @@ func TestIntegration_LoopParallelContinue(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-loop-parallel-continue",
+			ID:        uniqueWorkflowID(t, "integration-test-loop-parallel-continue"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.LoopWorkflow,
@@ -756,7 +762,7 @@ func TestIntegration_ParameterizedLoop(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-parameterized-loop",
+			ID:        uniqueWorkflowID(t, "integration-test-parameterized-loop"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ParameterizedLoopWorkflow,
@@ -810,7 +816,7 @@ func TestIntegration_ParallelMaxConcurrency(t *testing.T) {
 
 	we, err := testClient.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
-			ID:        "integration-test-parallel-max-concurrency",
+			ID:        uniqueWorkflowID(t, "integration-test-parallel-max-concurrency"),
 			TaskQueue: testTaskQueue,
 		},
 		workflow.ParallelContainersWorkflow,
