@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates all 16 pre-built pattern functions from the container/patterns package:
+// CI/CD patterns, parallel patterns (fan-out, map-reduce), and loop patterns (matrix, batch).
+//
+// Run: task example:container -- patterns-demo.go
+
 package main
 
 import (

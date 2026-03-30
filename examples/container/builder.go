@@ -1,5 +1,11 @@
 //go:build example
 
+// This example demonstrates the fluent builder API for constructing container workflows:
+// CI/CD pipelines, parallel processing, script templates (Bash/Python/Node.js), HTTP operations,
+// loop patterns, and exit handlers.
+//
+// Run: task example:container -- builder.go
+
 package main
 
 import (

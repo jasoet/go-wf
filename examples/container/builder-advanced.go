@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates advanced builder APIs: BuildSingle, auto-select Build,
+// Cleanup between steps, parameterized loops, Go script templates, and webhook templates.
+//
+// Run: task example:container -- builder-advanced.go
+
 package main
 
 import (

@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates a sequential function pipeline (validate -> transform -> notify).
+// Each step processes data and passes results to the next stage using PipelineInput.
+//
+// Run: task example:function -- pipeline.go
+
 package main
 
 import (

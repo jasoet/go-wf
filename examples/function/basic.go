@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates basic single function execution using the registry pattern.
+// It registers a handler, starts a worker, and executes a single function workflow.
+//
+// Run: task example:function -- basic.go
+
 package main
 
 import (

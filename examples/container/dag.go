@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates a complex DAG workflow with an 11-node CI/CD pipeline.
+// Nodes execute in parallel where dependencies allow, with resource limits and fail-fast mode.
+//
+// Run: task example:container -- dag.go
+
 package main
 
 import (

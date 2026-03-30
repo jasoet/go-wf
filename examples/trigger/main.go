@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates comprehensive workflow submission and scheduling.
+// It covers submitting container, function, and datasync workflows, plus cron-based scheduling.
+//
+// Run: task example:trigger
+
 package main
 
 import (

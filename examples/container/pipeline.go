@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates a sequential container pipeline (build -> test -> deploy).
+// Each step runs in order with stop-on-error behavior and automatic cleanup.
+//
+// Run: task example:container -- pipeline.go
+
 package main
 
 import (

@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates the fluent builder API for constructing function workflows:
+// ETL pipelines, parallel pre-flight checks, reusable FunctionSource, and dynamic WorkflowSourceFunc.
+//
+// Run: task example:function -- builder.go
+
 package main
 
 import (

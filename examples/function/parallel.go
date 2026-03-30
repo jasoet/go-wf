@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates parallel function execution with controlled concurrency.
+// Multiple independent data fetching tasks run concurrently with failure handling.
+//
+// Run: task example:function -- parallel.go
+
 package main
 
 import (

@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates parallel container execution with controlled concurrency.
+// Multiple containers run concurrently with max concurrency limits and failure strategy options.
+//
+// Run: task example:container -- parallel.go
+
 package main
 
 import (

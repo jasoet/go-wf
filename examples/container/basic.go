@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates single container execution with wait strategies.
+// It runs a PostgreSQL container with log-based readiness detection and auto-removal.
+//
+// Run: task example:container -- basic.go
+
 package main
 
 import (

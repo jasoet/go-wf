@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates advanced container workflow features: parameterized templates,
+// resource limits (CPU/memory/GPU), conditional execution, wait strategies, and retry/secrets.
+//
+// Run: task example:container -- advanced.go
+
 package main
 
 import (

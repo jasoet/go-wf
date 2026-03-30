@@ -1,5 +1,10 @@
 //go:build example
 
+// This example demonstrates the fluent builder API for constructing datasync jobs.
+// It shows record mapping with custom transformations from User to UserDTO.
+//
+// Run: task example:datasync -- builder.go
+
 package main
 
 import (

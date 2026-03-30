@@ -1,5 +1,10 @@
 //go:build example
 
+// This example is a shared function worker that registers handlers for all function examples.
+// Start this worker in a separate terminal, then trigger workflows via other example files.
+//
+// Run: task example:function-worker
+
 package main
 
 import (

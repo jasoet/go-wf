@@ -1,5 +1,11 @@
 //go:build example
 
+// This example demonstrates loop patterns for iterative function execution:
+// simple parallel loops, sequential fail-fast loops, parameterized matrix loops,
+// and builder API shortcuts (ForEach, ForEachParam).
+//
+// Run: task example:function -- loop.go
+
 package main
 
 import (
