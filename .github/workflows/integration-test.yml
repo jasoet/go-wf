@@ -1,0 +1,63 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Test scope to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - container
+          - function
+          - datasync
+          - store
+
+jobs:
+  integration-test:
+    name: Integration Tests (${{ inputs.scope }})
+    runs-on: [self-hosted, local, macOS, ARM64]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check Container Engine
+        run: |
+          # Detect container engine and export env vars for testcontainers
+          if [ -n "$DOCKER_HOST" ]; then
+            echo "Using existing DOCKER_HOST=$DOCKER_HOST"
+          elif command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+            echo "Using native Docker"
+          else
+            SOCKET=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null || true)
+            if [ -n "$SOCKET" ] && [ -e "$SOCKET" ]; then
+              echo "DOCKER_HOST=unix://$SOCKET" >> "$GITHUB_ENV"
+              echo "TESTCONTAINERS_RYUK_DISABLED=true" >> "$GITHUB_ENV"
+              echo "Using Podman socket: $SOCKET"
+            else
+              echo "::error::No container engine found"
+              exit 1
+            fi
+          fi
+
+      - name: Resolve Test Packages
+        id: packages
+        run: |
+          case "${{ inputs.scope }}" in
+            all)       echo "packages=./..." >> "$GITHUB_OUTPUT" ;;
+            container) echo "packages=./container/..." >> "$GITHUB_OUTPUT" ;;
+            function)  echo "packages=./function/..." >> "$GITHUB_OUTPUT" ;;
+            datasync)  echo "packages=./datasync/..." >> "$GITHUB_OUTPUT" ;;
+            store)     echo "packages=./workflow/store/... ./workflow/artifacts/..." >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Run Integration Tests
+        run: |
+          nix develop --command go test \
+            -race -count=1 \
+            -tags=integration \
+            -timeout=15m \
+            ${{ steps.packages.outputs.packages }}
