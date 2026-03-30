@@ -1,4 +1,4 @@
-// Package datasync provides a Source-Mapper-Sink data synchronisation pipeline
+// Package datasync provides a Source-Mapper-Sink data synchronization pipeline
 // built on Temporal workflows.
 //
 // A sync [Job] is composed of three stages:

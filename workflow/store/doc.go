@@ -8,7 +8,7 @@
 //     and [S3Store] (S3-compatible object storage).
 //
 //   - [Store] — a typed wrapper around [RawStore] that uses a [Codec] to
-//     serialise and deserialise Go values of any type T.  [JSONCodec] is the
+//     serialize and deserialize Go values of any type T.  [JSONCodec] is the
 //     default codec.
 //
 // Keys are built with the [KeyBuilder] helper to ensure consistent, hierarchical
