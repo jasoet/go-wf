@@ -27,11 +27,10 @@ This directory contains examples demonstrating the `go-wf/datasync` package for 
 All examples use the `//go:build example` build tag. Run with:
 
 ```bash
-cd examples/datasync
-go run -tags example basic.go
-go run -tags example pipeline.go
-go run -tags example parallel.go
-go run -tags example builder.go
+task example:datasync -- basic.go
+task example:datasync -- pipeline.go
+task example:datasync -- parallel.go
+task example:datasync -- builder.go
 ```
 
 Each example is self-contained: it creates a datasync job with source/mapper/sink, registers it with a Temporal worker, executes the workflow, and prints results.

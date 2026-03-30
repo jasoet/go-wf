@@ -8,9 +8,9 @@ Generic orchestration primitives built on Temporal. Defines the `TaskInput` and 
 - **ExecuteTaskWorkflow** — run a single task as a Temporal activity
 - **PipelineWorkflow** — sequential execution with optional stop-on-error
 - **ParallelWorkflow** — concurrent execution with configurable concurrency limit
-- **LoopWorkflow** — repeat a task on a schedule until cancelled
-- **DAGWorkflow** — directed acyclic graph execution respecting dependency edges
-- **Fully generic** — parameterised on `[I TaskInput, O TaskOutput]` so concrete packages plug in their own types
+- **LoopWorkflow** — execute a task template for each item in a list
+- **DAG types** — DAGInput, DAGNode, DAGOutput for graph execution with dependency edges
+- **Fully generic** — parameterized on `[I TaskInput, O TaskOutput]` so concrete packages plug in their own types
 
 ## Documentation
 

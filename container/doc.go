@@ -7,6 +7,6 @@
 // generic orchestration patterns in the workflow package (pipeline, parallel,
 // loop, DAG).
 //
-// Typical usage involves creating a [ContainerOperations] instance backed by a
-// Docker/Podman client and registering its activities with a Temporal worker.
+// Typical usage involves calling [RegisterAll] to register all container
+// workflows and activities with a Temporal worker.
 package container

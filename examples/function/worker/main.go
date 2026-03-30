@@ -3,7 +3,7 @@
 // This example is a shared function worker that registers handlers for all function examples.
 // Start this worker in a separate terminal, then trigger workflows via other example files.
 //
-// Run: task example:function-worker
+// This worker is started automatically by task local:workers or task demo:start.
 
 package main
 

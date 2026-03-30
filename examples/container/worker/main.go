@@ -3,7 +3,7 @@
 // This example is a shared container worker that registers all container workflows and activities.
 // Start this worker in a separate terminal, then trigger workflows via other example files.
 //
-// Run: task example:container-worker
+// Run: task example:container:worker
 
 package main
 

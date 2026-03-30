@@ -11,7 +11,7 @@
 //     serialise and deserialise Go values of any type T.  [JSONCodec] is the
 //     default codec.
 //
-// Keys are built with the [Key] helper to ensure consistent, hierarchical
-// naming across stores.  The [OTelStore] decorator adds OpenTelemetry tracing
-// to any [RawStore] implementation.
+// Keys are built with the [KeyBuilder] helper to ensure consistent, hierarchical
+// naming across stores.  The [InstrumentedStore] decorator adds OpenTelemetry
+// tracing and metrics to any [RawStore] implementation.
 package store

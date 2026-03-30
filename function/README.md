@@ -20,15 +20,18 @@ Temporal workflow activities for dispatching arbitrary Go functions. Uses a regi
 ## Quick Example
 
 ```go
-// Register a function
+// Register a handler
 registry := function.NewRegistry()
-registry.Register("greet", func(ctx context.Context, name string) (string, error) {
-    return fmt.Sprintf("Hello, %s!", name), nil
+registry.Register("greet", func(ctx context.Context, input function.FunctionInput) (*function.FunctionOutput, error) {
+    name := input.Args["name"]
+    return &function.FunctionOutput{
+        Result: map[string]string{"greeting": fmt.Sprintf("Hello, %s!", name)},
+    }, nil
 })
 
 // Execute via Temporal
-input := function.ExecutionInput{
-    FunctionName: "greet",
-    Args:         []any{"World"},
+input := function.FunctionExecutionInput{
+    Name: "greet",
+    Args: map[string]string{"name": "World"},
 }
 ```

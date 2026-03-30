@@ -8,7 +8,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 
 ## Features
 
-- **Docker Workflows** - Execute containers with Temporal orchestration
+- **Container Workflows** - Execute containers (Podman/Docker) with Temporal orchestration
 - **Function Workflows** - Execute registered Go functions with Temporal orchestration
 - **DataSync Workflows** - Generic Source/Mapper/Sink data synchronization pipelines
 - **Type-Safe Payloads** - Validated input/output structures
