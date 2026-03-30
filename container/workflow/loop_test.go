@@ -577,11 +577,11 @@ func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerContainerActivity(env)
 
-	callCount := 0
+	var callCount atomic.Int32
 	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
-			callCount++
-			if callCount == 2 {
+			c := callCount.Add(1)
+			if c == 2 {
 				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
 			}
 			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
@@ -601,7 +601,7 @@ func TestLoopWorkflow_SequentialFailFast(t *testing.T) {
 
 	require.True(t, env.IsWorkflowCompleted())
 	require.Error(t, env.GetWorkflowError())
-	assert.Equal(t, 2, callCount, "third item should not execute")
+	assert.Equal(t, int32(2), callCount.Load(), "third item should not execute")
 }
 
 // TestLoopWorkflow_SequentialContinueOnFailure tests sequential loop with continue strategy.
@@ -610,11 +610,11 @@ func TestLoopWorkflow_SequentialContinueOnFailure(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerContainerActivity(env)
 
-	callCount := 0
+	var callCount atomic.Int32
 	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
-			callCount++
-			if callCount == 2 {
+			c := callCount.Add(1)
+			if c == 2 {
 				return &payload.ContainerExecutionOutput{Success: false, ExitCode: 1}, nil
 			}
 			return &payload.ContainerExecutionOutput{Success: true, ExitCode: 0}, nil
