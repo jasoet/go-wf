@@ -244,6 +244,9 @@ examples/**/patterns-demo
 examples/**/pipeline
 .claude/worktrees/
 
+# Go build binaries
+trigger
+
 # Nix / direnv
 .direnv/
 result
