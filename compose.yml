@@ -2,7 +2,7 @@ services:
   postgresql:
     image: postgres:16
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${PG_PORT:-5433}:5432"
     environment:
       POSTGRES_USER: temporal
       POSTGRES_PASSWORD: temporal
@@ -17,7 +17,7 @@ services:
   temporal:
     image: temporalio/auto-setup:1.26.2
     ports:
-      - "127.0.0.1:7233:7233"
+      - "127.0.0.1:${TEMPORAL_PORT:-7234}:7233"
     environment:
       DB: postgres12
       DB_PORT: "5432"
@@ -37,10 +37,10 @@ services:
   temporal-ui:
     image: temporalio/ui:2.35.0
     ports:
-      - "127.0.0.1:8233:8080"
+      - "127.0.0.1:${TEMPORAL_UI_PORT:-8234}:8080"
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-      TEMPORAL_CORS_ORIGINS: http://localhost:8233
+      TEMPORAL_CORS_ORIGINS: http://localhost:${TEMPORAL_UI_PORT:-8234}
     depends_on:
       temporal:
         condition: service_healthy
@@ -74,7 +74,7 @@ services:
       TEMPORAL_HOST_PORT: temporal:7233
       DOCKER_HOST: unix:///var/run/docker.sock
     volumes:
-      - ${CONTAINER_SOCK:-/run/podman/podman.sock}:/var/run/docker.sock
+      - ${CONTAINER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
       temporal:
         condition: service_healthy

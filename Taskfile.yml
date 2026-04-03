@@ -28,6 +28,24 @@ vars:
         fi
       fi
       echo ""
+  COMPOSE_CMD:
+    sh: |
+      # Docker Compose V2 plugin (OrbStack, Docker Desktop)
+      if command -v docker &> /dev/null && docker info &> /dev/null 2>&1 && docker compose version &> /dev/null 2>&1; then
+        echo "docker compose"
+        exit 0
+      fi
+      # podman-compose
+      if command -v podman-compose &> /dev/null && command -v podman &> /dev/null && podman info &> /dev/null 2>&1; then
+        echo "podman-compose"
+        exit 0
+      fi
+      # Legacy docker-compose standalone
+      if command -v docker-compose &> /dev/null && command -v docker &> /dev/null && docker info &> /dev/null 2>&1; then
+        echo "docker-compose"
+        exit 0
+      fi
+      echo ""
 
 tasks:
   default:
@@ -78,9 +96,12 @@ tasks:
     silent: true
     cmds:
       - |
+        COMPOSE_CMD="{{.COMPOSE_CMD}}"
+
         # 1. If DOCKER_HOST is already set by user, trust it
         if [ -n "$DOCKER_HOST" ]; then
           echo "✅ DOCKER_HOST is set: $DOCKER_HOST"
+          [ -n "$COMPOSE_CMD" ] && echo "   Compose: $COMPOSE_CMD"
           exit 0
         fi
 
@@ -88,6 +109,7 @@ tasks:
         if command -v docker &> /dev/null && docker ps &> /dev/null 2>&1; then
           echo "✅ Docker is available and running"
           docker --version
+          [ -n "$COMPOSE_CMD" ] && echo "   Compose: $COMPOSE_CMD"
           exit 0
         fi
 
@@ -97,6 +119,7 @@ tasks:
           echo "✅ Podman is available"
           podman --version
           echo "   Container host: $CONTAINER_HOST"
+          [ -n "$COMPOSE_CMD" ] && echo "   Compose: $COMPOSE_CMD"
           exit 0
         fi
 
@@ -108,7 +131,7 @@ tasks:
         fi
 
         echo "❌ Neither Docker nor Podman found"
-        echo "   Install Docker or Podman and try again"
+        echo "   Install Docker/OrbStack or Podman and try again"
         exit 1
 
   lint:
@@ -432,28 +455,38 @@ tasks:
   local:up:
     desc: Start local environment (infrastructure + function worker + datasync worker + trigger)
     silent: true
+    preconditions:
+      - sh: '[ -n "{{.COMPOSE_CMD}}" ]'
+        msg: "No compose tool found. Install 'docker compose' (Docker/OrbStack) or 'podman-compose' (Podman) and ensure the runtime is running."
     cmds:
-      - podman-compose up -d --build
+      - '{{.COMPOSE_CMD}} up -d --build'
       - |
         echo ""
         echo "Local environment starting (with function worker and datasync worker)..."
-        echo "  Temporal UI: http://localhost:8233"
-        echo "  RustFS Console: http://localhost:9001 (rustfsadmin/rustfsadmin)"
+        echo "  Temporal gRPC: localhost:${TEMPORAL_PORT:-7234}"
+        echo "  Temporal UI:   http://localhost:${TEMPORAL_UI_PORT:-8234}"
+        echo "  PostgreSQL:    localhost:${PG_PORT:-5433}"
+        echo "  RustFS:        http://localhost:9001 (rustfsadmin/rustfsadmin)"
         echo ""
-        echo "To also start container worker: task local:up:all CONTAINER_SOCK=<socket-path>"
+        echo "Override ports: PG_PORT=5433 TEMPORAL_PORT=7234 TEMPORAL_UI_PORT=8234 task local:up"
         echo "Use 'task local:logs' to follow logs"
         echo "Use 'task local:down' to stop"
 
   local:up:all:
     desc: Start all services including container worker (requires CONTAINER_SOCK env var)
     silent: true
+    preconditions:
+      - sh: '[ -n "{{.COMPOSE_CMD}}" ]'
+        msg: "No compose tool found. Install 'docker compose' (Docker/OrbStack) or 'podman-compose' (Podman) and ensure the runtime is running."
     cmds:
-      - podman-compose up -d --build
+      - '{{.COMPOSE_CMD}} up -d --build'
       - |
         echo ""
         echo "Local environment starting (with container worker)..."
-        echo "  Temporal UI: http://localhost:8233"
-        echo "  RustFS Console: http://localhost:9001 (rustfsadmin/rustfsadmin)"
+        echo "  Temporal gRPC: localhost:${TEMPORAL_PORT:-7234}"
+        echo "  Temporal UI:   http://localhost:${TEMPORAL_UI_PORT:-8234}"
+        echo "  PostgreSQL:    localhost:${PG_PORT:-5433}"
+        echo "  RustFS:        http://localhost:9001 (rustfsadmin/rustfsadmin)"
         echo ""
         echo "Use 'task local:logs' to follow logs"
         echo "Use 'task local:down' to stop"
@@ -462,43 +495,43 @@ tasks:
     desc: Stop local environment
     silent: true
     cmds:
-      - podman-compose down
+      - '{{.COMPOSE_CMD}} down'
 
   local:clean:
     desc: Stop local environment and remove volumes
     silent: true
     cmds:
-      - podman-compose down -v
+      - '{{.COMPOSE_CMD}} down -v'
 
   local:build:
     desc: Build worker and trigger container images
     silent: true
     cmds:
-      - podman-compose build
+      - '{{.COMPOSE_CMD}} build'
 
   local:logs:
     desc: Follow logs from all services
     silent: true
     cmds:
-      - podman-compose logs -f
+      - '{{.COMPOSE_CMD}} logs -f'
 
   local:trigger:
     desc: Submit all example workflows once
     silent: true
     cmds:
-      - podman-compose run --rm trigger run
+      - '{{.COMPOSE_CMD}} run --rm trigger run'
 
   local:schedule:
     desc: Create recurring workflow schedules
     silent: true
     cmds:
-      - podman-compose run --rm trigger schedule
+      - '{{.COMPOSE_CMD}} run --rm trigger schedule'
 
   local:schedule:clean:
     desc: Remove all workflow schedules
     silent: true
     cmds:
-      - podman-compose run --rm trigger clean
+      - '{{.COMPOSE_CMD}} run --rm trigger clean'
 
   local:start:
     desc: Start local environment (alias for local:up)

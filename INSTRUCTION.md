@@ -31,7 +31,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 - **README.md**: Human-readable project documentation. Update when user-facing behavior changes.
 - **INSTRUCTION.md**: AI-readable project context (this file). Update when project conventions, architecture, or key paths change.
 - **Scripts**: For complex automation, create proper UV projects (Python) or Bun projects (TypeScript) with `pyproject.toml`/`package.json`. Always `.gitignore` generated files (`.venv/`, `node_modules/`, `__pycache__/`).
-- **Containers**: Always use Podman (never Docker). Use `podman` and `podman-compose` instead of `docker` and `docker-compose`. Migrate any existing Docker references to Podman.
+- **Containers**: Runtime auto-detected (Docker/OrbStack or Podman). Taskfile `COMPOSE_CMD` and `CONTAINER_HOST` variables handle detection — do not hardcode `docker`, `podman`, or compose commands. Use `task container:check` to verify.
 - **Commits**: Use [Conventional Commits](https://www.conventionalcommits.org/). Format: `<type>(<scope>): <description>`. Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`.
 - **Branching**: Create a new branch for each feature or fix (`feat/...`, `fix/...`). Create PR (GitHub, use `gh`) or MR (GitLab, use `glab`) when ready. Always squash commits on merge. Use `gh`/`glab` to check PR/MR status and CI pipeline results before merging.
 
@@ -66,7 +66,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `container/activity/otel.go` | Container activity OTel spans + metrics |
 | `function/activity/otel.go` | Function activity OTel spans + metrics |
 | `workflow/artifacts/otel.go` | Instrumented artifact store decorator |
-| `compose.yml` | Podman compose for local Temporal infrastructure |
+| `compose.yml` | Compose file for local Temporal infrastructure (works with docker compose or podman-compose) |
 | `examples/container/` | Container example code (build tag: `//go:build example`) |
 | `examples/function/` | Function example code (build tag: `//go:build example`) |
 | `examples/function/worker/` | Shared function worker for all examples |
@@ -116,7 +116,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `task demo` | Start Temporal, run all examples, watch at http://localhost:8233 |
 | `task demo:start` | Start Temporal + container worker in background for manual example running |
 | `task demo:stop` | Stop Temporal + container worker started by `demo:start` |
-| `task local:up` | Start local infrastructure (Temporal, PostgreSQL, RustFS) via podman-compose |
+| `task local:up` | Start local infrastructure (Temporal, PostgreSQL, RustFS) via auto-detected compose |
 | `task local:down` | Stop local infrastructure |
 | `task local:clean` | Stop infrastructure and remove volumes |
 | `task local:workers` | Start container and function workers in background |
