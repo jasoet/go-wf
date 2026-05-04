@@ -3,11 +3,18 @@ package activity
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/converter"
+	sdkinterceptor "go.temporal.io/sdk/interceptor"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/worker"
 
 	"github.com/jasoet/go-wf/datasync"
 )
@@ -16,19 +23,37 @@ type mockSource[T any] struct {
 	name    string
 	records []T
 	err     error
+	sleep   time.Duration
 }
 
-func (m *mockSource[T]) Name() string                         { return m.name }
-func (m *mockSource[T]) Fetch(_ context.Context) ([]T, error) { return m.records, m.err }
+func (m *mockSource[T]) Name() string { return m.name }
+func (m *mockSource[T]) Fetch(ctx context.Context) ([]T, error) {
+	if m.sleep > 0 {
+		select {
+		case <-time.After(m.sleep):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return m.records, m.err
+}
 
 type mockSink[U any] struct {
 	name   string
 	result datasync.WriteResult
 	err    error
+	sleep  time.Duration
 }
 
 func (m *mockSink[U]) Name() string { return m.name }
-func (m *mockSink[U]) Write(_ context.Context, _ []U) (datasync.WriteResult, error) {
+func (m *mockSink[U]) Write(ctx context.Context, _ []U) (datasync.WriteResult, error) {
+	if m.sleep > 0 {
+		select {
+		case <-time.After(m.sleep):
+		case <-ctx.Done():
+			return datasync.WriteResult{}, ctx.Err()
+		}
+	}
 	return m.result, m.err
 }
 
@@ -120,4 +145,170 @@ func TestToSyncExecutionOutput_Error(t *testing.T) {
 	output := ToSyncExecutionOutput("test-job", nil, 0, fmt.Errorf("something failed"))
 	assert.False(t, output.Success)
 	assert.Equal(t, "something failed", output.Error)
+}
+
+func TestHeartbeatInterval(t *testing.T) {
+	tests := []struct {
+		name     string
+		timeout  time.Duration
+		expected time.Duration
+	}{
+		{"zero falls back to 10s default", 0, 10 * time.Second},
+		{"100ms hits 1s floor", 100 * time.Millisecond, 1 * time.Second},
+		{"1s hits 1s floor", 1 * time.Second, 1 * time.Second},
+		{"3s yields 1s (floor exact)", 3 * time.Second, 1 * time.Second},
+		{"4s yields ~1333ms (non-round, above floor)", 4 * time.Second, 4 * time.Second / 3},
+		{"6s yields 2s", 6 * time.Second, 2 * time.Second},
+		{"30s yields 10s (default-config case)", 30 * time.Second, 10 * time.Second},
+		{"1m yields 20s", 1 * time.Minute, 20 * time.Second},
+		{"5m yields 100s", 5 * time.Minute, 100 * time.Second},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := heartbeatInterval(tc.timeout)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestActivities_SyncData_HeartbeatsDuringSlowFetch(t *testing.T) {
+	env := &testsuite.WorkflowTestSuite{}
+	testEnv := env.NewTestActivityEnvironment()
+
+	var (
+		mu       sync.Mutex
+		captured []string
+	)
+	testEnv.SetOnActivityHeartbeatListener(func(_ *activity.Info, details converter.EncodedValues) {
+		var payload string
+		// assert (not require) — listener runs from the heartbeat goroutine; require's runtime.Goexit would terminate the wrong goroutine.
+		assert.NoError(t, details.Get(&payload))
+		mu.Lock()
+		captured = append(captured, payload)
+		mu.Unlock()
+	})
+	// Headroom for the 11s Fetch sleep plus goroutine scheduling jitter.
+	testEnv.SetTestTimeout(60 * time.Second)
+	// HeartbeatTimeout is unset in TestActivityEnvironment, so heartbeatInterval falls back to 10s; sleep > 10s guarantees at least one tick fires before Fetch returns.
+	source := &mockSource[string]{
+		name:    "src",
+		records: []string{"a"},
+		sleep:   11 * time.Second,
+	}
+	mapper := datasync.IdentityMapper[string]()
+	sink := &mockSink[string]{name: "dst", result: datasync.WriteResult{Inserted: 1}}
+
+	activities := NewActivities(source, mapper, sink)
+	testEnv.RegisterActivity(activities.SyncData)
+
+	input := ActivityInput{JobName: "test", SourceName: "src", SinkName: "dst"}
+	_, err := testEnv.ExecuteActivity(activities.SyncData, input)
+	require.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.NotEmpty(t, captured, "expected at least one periodic heartbeat during slow Fetch")
+
+	found := false
+	for _, p := range captured {
+		if strings.Contains(p, "fetching") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected at least one heartbeat payload to contain 'fetching', got: %v", captured)
+}
+
+// heartbeatCaptureOutbound is an activity outbound interceptor that records
+// every RecordHeartbeat call before the SDK's throttle batching can suppress it.
+type heartbeatCaptureOutbound struct {
+	sdkinterceptor.ActivityOutboundInterceptorBase
+	mu       sync.Mutex
+	captured []string
+}
+
+func (h *heartbeatCaptureOutbound) RecordHeartbeat(ctx context.Context, details ...interface{}) {
+	if len(details) > 0 {
+		if s, ok := details[0].(string); ok {
+			h.mu.Lock()
+			h.captured = append(h.captured, s)
+			h.mu.Unlock()
+		}
+	}
+	h.Next.RecordHeartbeat(ctx, details...)
+}
+
+// heartbeatCaptureInbound wires the outbound interceptor into the activity chain.
+type heartbeatCaptureInbound struct {
+	sdkinterceptor.ActivityInboundInterceptorBase
+	outbound *heartbeatCaptureOutbound
+}
+
+func (h *heartbeatCaptureInbound) Init(next sdkinterceptor.ActivityOutboundInterceptor) error {
+	h.outbound.Next = next
+	return h.Next.Init(h.outbound)
+}
+
+// heartbeatCaptureWorkerInterceptor is a WorkerInterceptor that injects heartbeat capture.
+type heartbeatCaptureWorkerInterceptor struct {
+	sdkinterceptor.InterceptorBase
+	outbound *heartbeatCaptureOutbound
+}
+
+func (w *heartbeatCaptureWorkerInterceptor) InterceptActivity(
+	ctx context.Context,
+	next sdkinterceptor.ActivityInboundInterceptor,
+) sdkinterceptor.ActivityInboundInterceptor {
+	return &heartbeatCaptureInbound{
+		ActivityInboundInterceptorBase: sdkinterceptor.ActivityInboundInterceptorBase{Next: next},
+		outbound:                       w.outbound,
+	}
+}
+
+func TestActivities_SyncData_HeartbeatsDuringSlowWrite(t *testing.T) {
+	env := &testsuite.WorkflowTestSuite{}
+	testEnv := env.NewTestActivityEnvironment()
+
+	// Use an activity outbound interceptor to capture every RecordHeartbeat call
+	// before the SDK's throttle can batch/drop them. The default throttle window is
+	// 30s; SyncData sends an explicit "fetched N records" heartbeat at t≈0 which
+	// starts that window, so the periodic goroutine tick at t=10s never reaches the
+	// SetOnActivityHeartbeatListener (it's batched and dropped on success). Capturing
+	// at the interceptor layer bypasses throttling entirely.
+	capturer := &heartbeatCaptureOutbound{}
+	workerInterceptor := &heartbeatCaptureWorkerInterceptor{outbound: capturer}
+	testEnv.SetWorkerOptions(worker.Options{
+		Interceptors: []sdkinterceptor.WorkerInterceptor{workerInterceptor},
+	})
+
+	// Headroom for the 11s Write sleep plus goroutine scheduling jitter.
+	testEnv.SetTestTimeout(60 * time.Second)
+	// HeartbeatTimeout is unset in TestActivityEnvironment, so heartbeatInterval falls back to 10s; sleep > 10s guarantees at least one tick fires before Write returns.
+	source := &mockSource[string]{name: "src", records: []string{"a"}}
+	mapper := datasync.IdentityMapper[string]()
+	sink := &mockSink[string]{
+		name:   "dst",
+		result: datasync.WriteResult{Inserted: 1},
+		sleep:  11 * time.Second,
+	}
+
+	activities := NewActivities(source, mapper, sink)
+	testEnv.RegisterActivity(activities.SyncData)
+
+	input := ActivityInput{JobName: "test", SourceName: "src", SinkName: "dst"}
+	_, err := testEnv.ExecuteActivity(activities.SyncData, input)
+	require.NoError(t, err)
+
+	capturer.mu.Lock()
+	defer capturer.mu.Unlock()
+	require.NotEmpty(t, capturer.captured, "expected at least one periodic heartbeat during slow Write")
+
+	found := false
+	for _, p := range capturer.captured {
+		if strings.Contains(p, "writing") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected at least one heartbeat payload to contain 'writing', got: %v", capturer.captured)
 }

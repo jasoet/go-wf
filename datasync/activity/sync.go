@@ -3,6 +3,7 @@ package activity
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	pkgotel "github.com/jasoet/pkg/v2/otel"
@@ -49,7 +50,18 @@ func NewActivities[T, U any](source datasync.Source[T], mapper datasync.Mapper[T
 }
 
 // SyncData fetches records from source, maps them, and writes to sink.
+//
+//nolint:funlen // SyncData orchestrates heartbeat setup, fetch, map, and write — inherently multi-step.
 func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*ActivityOutput, error) {
+	var phase atomic.Pointer[string]
+	setPhase := func(p string) { phase.Store(&p) }
+	setPhase("starting")
+
+	interval := heartbeatInterval(activity.GetInfo(ctx).HeartbeatTimeout)
+	done := make(chan struct{})
+	defer close(done)
+	go heartbeatLoop(ctx, interval, input.JobName, &phase, done)
+
 	attrs := []attribute.KeyValue{
 		attribute.String("job", input.JobName),
 		attribute.String("source", input.SourceName),
@@ -68,6 +80,7 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 	fetchStart := time.Now()
 	fetchLC := pkgotel.Layers.StartService(lc.Context(), "datasync", "Fetch",
 		pkgotel.F("source", input.SourceName))
+	setPhase("fetching")
 	records, err := a.source.Fetch(fetchLC.Context())
 	if err != nil {
 		//nolint:errcheck,gosec // we return the original error, not lc.Error's return
@@ -93,6 +106,7 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 	mapLC := pkgotel.Layers.StartService(lc.Context(), "datasync", "Map",
 		pkgotel.F("job", input.JobName),
 		pkgotel.F("records", len(records)))
+	setPhase("mapping")
 	mapped, err := a.mapper.Map(mapLC.Context(), records)
 	if err != nil {
 		//nolint:errcheck,gosec // we return the original error, not lc.Error's return
@@ -109,6 +123,7 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 	writeLC := pkgotel.Layers.StartRepository(lc.Context(), "datasync", "Write",
 		pkgotel.F("sink", input.SinkName),
 		pkgotel.F("records", len(mapped)))
+	setPhase("writing")
 	wr, err := a.sink.Write(writeLC.Context(), mapped)
 	if err != nil {
 		//nolint:errcheck,gosec // we return the original error, not lc.Error's return
@@ -171,4 +186,47 @@ func recordSuccess(ctx context.Context, start time.Time, attrs []attribute.KeyVa
 func recordFailure(ctx context.Context, start time.Time, attrs []attribute.KeyValue) {
 	syncOpsTotal.Add(ctx, 1, metric.WithAttributes(append(attrs, attribute.String("status", "error"))...))
 	syncOpsDuration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(attrs...))
+}
+
+// heartbeatLoop ticks at the given interval until done is closed or ctx is
+// canceled, calling activity.RecordHeartbeat with the current phase string.
+// Phase is read via *atomic.Pointer[string] so the main goroutine can update
+// it without a mutex.
+func heartbeatLoop(
+	ctx context.Context,
+	interval time.Duration,
+	jobName string,
+	phase *atomic.Pointer[string],
+	done <-chan struct{},
+) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			p := "starting"
+			if ptr := phase.Load(); ptr != nil {
+				p = *ptr
+			}
+			activity.RecordHeartbeat(ctx, fmt.Sprintf("syncing %s: %s", jobName, p))
+		}
+	}
+}
+
+// heartbeatInterval derives the periodic heartbeat tick from the configured
+// HeartbeatTimeout. Returns max(1s, hbTimeout/3); falls back to 10s when
+// hbTimeout is 0 (no timeout configured).
+func heartbeatInterval(hbTimeout time.Duration) time.Duration {
+	if hbTimeout == 0 {
+		return 10 * time.Second
+	}
+	interval := hbTimeout / 3
+	if interval < 1*time.Second {
+		return 1 * time.Second
+	}
+	return interval
 }
