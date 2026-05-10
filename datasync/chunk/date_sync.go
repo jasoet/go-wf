@@ -54,7 +54,7 @@ type TimeFetcher[In any] func(ctx context.Context, start, end time.Time) ([]In, 
 // TimeProgressTracker is the time.Time-keyed counterpart to ProgressTracker.
 // It is used by DateChunkedSync.WithTracker instead of the generic
 // ProgressTracker[K] because time.Time does not satisfy cmp.Ordered.
-type TimeProgressTracker[In any] interface {
+type TimeProgressTracker interface {
 	Cursor(ctx context.Context, jobName string) (time.Time, bool, error)
 	Advance(ctx context.Context, jobName string, completed time.Time) error
 }
@@ -79,8 +79,8 @@ func (d *DateChunkedSync[In, Out]) Sink(s datasync.Sink[Out]) *DateChunkedSync[I
 }
 
 // WithTracker adapts a time.Time-keyed tracker to the inner int64 representation.
-func (d *DateChunkedSync[In, Out]) WithTracker(t TimeProgressTracker[In]) *DateChunkedSync[In, Out] {
-	d.inner.WithTracker(timeTrackerAdapter[In]{inner: t})
+func (d *DateChunkedSync[In, Out]) WithTracker(t TimeProgressTracker) *DateChunkedSync[In, Out] {
+	d.inner.WithTracker(timeTrackerAdapter{inner: t})
 	return d
 }
 
@@ -132,11 +132,11 @@ func (d *DateChunkedSync[In, Out]) Build() datasyncwf.FullJobRegistration {
 
 // timeTrackerAdapter projects a TimeProgressTracker onto the int64-keyed
 // ProgressTracker interface used by the inner ChunkedSync.
-type timeTrackerAdapter[In any] struct {
-	inner TimeProgressTracker[In]
+type timeTrackerAdapter struct {
+	inner TimeProgressTracker
 }
 
-func (a timeTrackerAdapter[In]) Cursor(ctx context.Context, jobName string) (int64, bool, error) {
+func (a timeTrackerAdapter) Cursor(ctx context.Context, jobName string) (int64, bool, error) {
 	t, exists, err := a.inner.Cursor(ctx, jobName)
 	if err != nil {
 		return 0, false, err
@@ -147,6 +147,6 @@ func (a timeTrackerAdapter[In]) Cursor(ctx context.Context, jobName string) (int
 	return TimeToKey(t), true, nil
 }
 
-func (a timeTrackerAdapter[In]) Advance(ctx context.Context, jobName string, completed int64) error {
+func (a timeTrackerAdapter) Advance(ctx context.Context, jobName string, completed int64) error {
 	return a.inner.Advance(ctx, jobName, KeyToTime(completed))
 }

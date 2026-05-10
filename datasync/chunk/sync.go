@@ -28,6 +28,10 @@ var defaultActivityRetryPolicy = temporal.RetryPolicy{
 	MaximumInterval:    5 * time.Minute,
 }
 
+// defaultCursorActivityOptions configures cursor-read and cursor-advance
+// activity calls. These are lightweight metadata operations against the
+// caller-supplied ProgressTracker (typically a local DB) — short timeouts
+// and aggressive retries are appropriate.
 var defaultCursorActivityOptions = workflow.ActivityOptions{
 	StartToCloseTimeout: 10 * time.Second,
 	RetryPolicy: &temporal.RetryPolicy{
@@ -114,6 +118,11 @@ func (c *ChunkedSync[In, Out, K]) ActivityTimeouts(startToClose, hb time.Duratio
 	return c
 }
 
+// MaxPartitionsPerExecution caps how many partitions one workflow execution
+// processes before issuing ContinueAsNew with the same input. Required for
+// large partition lists that would otherwise exceed Temporal's history
+// budget. Must be combined with WithTracker — without a tracker, every
+// execution re-processes the same prefix forever.
 func (c *ChunkedSync[In, Out, K]) MaxPartitionsPerExecution(n int) *ChunkedSync[In, Out, K] {
 	c.maxPerExec = n
 	return c
@@ -124,7 +133,7 @@ func (c *ChunkedSync[In, Out, K]) Disabled(b bool) *ChunkedSync[In, Out, K] {
 	return c
 }
 
-// buildValidate panics if any required field is missing.
+// buildValidate panics if any required field is missing or an invalid combination is configured.
 func (c *ChunkedSync[In, Out, K]) buildValidate() {
 	if c.partitioner == nil {
 		panic(fmt.Sprintf("chunk.ChunkedSync(%q).Build: Partitioner is required", c.name))
@@ -137,6 +146,9 @@ func (c *ChunkedSync[In, Out, K]) buildValidate() {
 	}
 	if c.sink == nil {
 		panic(fmt.Sprintf("chunk.ChunkedSync(%q).Build: Sink is required", c.name))
+	}
+	if c.maxPerExec > 0 && c.tracker == nil {
+		panic(fmt.Sprintf("chunk.ChunkedSync(%q).Build: MaxPartitionsPerExecution requires WithTracker — without a tracker, the workflow re-processes the same partitions forever", c.name))
 	}
 }
 
@@ -301,8 +313,11 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		deferred = true
 	}
 
+	var cursorAdvCtx workflow.Context
+	if s.hasTracker {
+		cursorAdvCtx = workflow.WithActivityOptions(ctx, defaultCursorActivityOptions)
+	}
 	partCtx := workflow.WithActivityOptions(ctx, s.partitionActivityOptions)
-	cursorCtx := workflow.WithActivityOptions(ctx, defaultCursorActivityOptions)
 	for i, p := range parts {
 		var pr PartitionResult[K]
 		if err := workflow.ExecuteActivity(partCtx, s.runPartitionActivityName, runPartitionInput[K]{
@@ -319,7 +334,7 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		summary.TotalSkipped += pr.Skipped
 
 		if s.hasTracker {
-			if err := workflow.ExecuteActivity(cursorCtx, s.advanceCursorActivityName, p.End).Get(cursorCtx, nil); err != nil {
+			if err := workflow.ExecuteActivity(cursorAdvCtx, s.advanceCursorActivityName, p.End).Get(cursorAdvCtx, nil); err != nil {
 				return summary, fmt.Errorf("advance cursor: %w", err)
 			}
 		}

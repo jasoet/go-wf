@@ -314,6 +314,48 @@ func TestChunkedSync_Workflow_MaxPerExecution_TriggersContinueAsNew(t *testing.T
 	assert.Equal(t, []int64{0, 10}, processed)
 }
 
+func TestChunkedSync_Build_RequiresTrackerWhenMaxPerExecSet(t *testing.T) {
+	defer func() { assert.NotNil(t, recover()) }()
+	_ = NewChunkedSync[string, string, int64]("job-x").
+		Partitioner(&stubPartitioner{}).
+		Fetcher(func(_ context.Context, _, _ int64) ([]string, error) { return nil, nil }).
+		Mapper(datasync.IdentityMapper[string]()).
+		Sink(&stubSink{name: "sink"}).
+		MaxPartitionsPerExecution(50).
+		Build()
+}
+
+func TestChunkedSync_Workflow_PartitionSleep_DelaysBetweenPartitions(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerStubActivities(env)
+
+	parts := []Partition[int64]{{Start: 0, End: 10}, {Start: 10, End: 20}}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.RunPartition", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, in runPartitionInput[int64]) (PartitionResult[int64], error) {
+			return PartitionResult[int64]{Start: in.Partition.Start, End: in.Partition.End}, nil
+		})
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                  "job-x",
+		partitionsActivityName:   "job-x.Partitions",
+		runPartitionActivityName: "job-x.RunPartition",
+		partitionActivityOptions: workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:    workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionSleep:           5 * time.Second,
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result SyncResult[int64]
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.TotalPartitions)
+}
+
 // registerStubActivities registers stubs for the four activities referenced by
 // chunkedSyncWorkflow.run, satisfying Temporal's test environment requirement
 // that activities be registered before OnActivity mocks them.
