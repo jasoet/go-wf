@@ -11,7 +11,7 @@ import (
 
 func TestDatePartitioner_BasicWindow(t *testing.T) {
 	loc := time.UTC
-	now := time.Date(2026, 5, 10, 12, 0, 0, 0, loc)
+	now := time.Date(2026, 5, 10, 0, 0, 0, 0, loc)
 	p := &DatePartitioner{
 		Now:       func() time.Time { return now },
 		Loc:       loc,
@@ -40,8 +40,10 @@ func TestDatePartitioner_LastChunkClampedToNow(t *testing.T) {
 	}
 	parts, err := p.Partitions(context.Background())
 	require.NoError(t, err)
-	require.Len(t, parts, 2)
+	require.Len(t, parts, 3)
 	// Last partition end clamped to now (06:00), not the next midnight.
+	// 48h LookBack from now=05-10 06:00 aligns start to 05-08 00:00.
+	// Iter: [05-08, 05-09), [05-09, 05-10), [05-10, 05-10 06:00 clamped to now).
 	assert.Equal(t, TimeToKey(now), parts[len(parts)-1].End)
 }
 
@@ -60,7 +62,9 @@ func TestDatePartitioner_AlignsToCalendarMidnightInTimezone(t *testing.T) {
 	}
 	parts, err := p.Partitions(context.Background())
 	require.NoError(t, err)
-	require.Len(t, parts, 1)
+	// Simple algorithm: now=14:30 WIB, start aligns to 05-09 00:00 WIB.
+	// Iter: [05-09 00:00, 05-10 00:00), [05-10 00:00, 05-10 14:30 clamped to now).
+	require.Len(t, parts, 2)
 	startTime := KeyToTime(parts[0].Start).In(loc)
 	assert.Equal(t, 0, startTime.Hour())
 	assert.Equal(t, 0, startTime.Minute())

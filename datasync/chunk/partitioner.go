@@ -38,16 +38,13 @@ type DatePartitioner struct {
 
 // Partitions implements Partitioner[int64].
 //
-// The partitioning proceeds as follows:
-//
-//  1. alignedStart = midnight(now − LookBack) in Loc, aligning the window start
-//     to a calendar-day boundary so a 24 h ChunkSize yields whole calendar days.
-//  2. naturalEnd = alignedStart + LookBack — the canonical window end after
-//     alignment.
-//  3. The loop emits full ChunkSize partitions in [alignedStart, naturalEnd).
-//  4. If now > naturalEnd and the trailing gap (now − naturalEnd) is less than
-//     half a ChunkSize, the last partition's End is extended to now so the
-//     short partial period is included rather than silently dropped.
+// Algorithm:
+//  1. alignedStart = midnight(now − LookBack) in Loc, aligning the window
+//     start to a calendar-day boundary so a 24 h ChunkSize yields whole
+//     calendar days.
+//  2. Iterate while cur < now: emit a partition [cur, cur+ChunkSize). If
+//     cur+ChunkSize > now, clamp End to now so the final partition does not
+//     extend past the present moment.
 func (d *DatePartitioner) Partitions(_ context.Context) ([]Partition[int64], error) {
 	if d.LookBack <= 0 {
 		return nil, errors.New("DatePartitioner: LookBack must be > 0")
@@ -64,27 +61,19 @@ func (d *DatePartitioner) Partitions(_ context.Context) ([]Partition[int64], err
 		nowFn = time.Now
 	}
 	now := nowFn()
-	alignedStart := alignToMidnight(now.Add(-d.LookBack), loc)
-	naturalEnd := alignedStart.Add(d.LookBack)
+	start := alignToMidnight(now.Add(-d.LookBack), loc)
 
 	var out []Partition[int64]
-	for cur := alignedStart; cur.Before(naturalEnd); cur = cur.Add(d.ChunkSize) {
+	for cur := start; cur.Before(now); cur = cur.Add(d.ChunkSize) {
 		end := cur.Add(d.ChunkSize)
-		if end.After(naturalEnd) {
-			end = naturalEnd
+		if end.After(now) {
+			end = now
 		}
 		out = append(out, Partition[int64]{
 			Start: TimeToKey(cur),
 			End:   TimeToKey(end),
 		})
 	}
-
-	// If now falls slightly past naturalEnd (trailing gap < half a ChunkSize),
-	// extend the last partition's End to now to capture the short partial period.
-	if now.After(naturalEnd) && now.Sub(naturalEnd) < d.ChunkSize/2 && len(out) > 0 {
-		out[len(out)-1].End = TimeToKey(now)
-	}
-
 	return out, nil
 }
 
