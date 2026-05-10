@@ -267,6 +267,53 @@ func TestChunkedSync_Workflow_Tracker_PartitionFails_CursorNotAdvanced(t *testin
 	assert.Equal(t, []int64{10}, advanced)
 }
 
+func TestChunkedSync_Workflow_MaxPerExecution_TriggersContinueAsNew(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerStubActivities(env)
+
+	parts := []Partition[int64]{
+		{Start: 0, End: 10},
+		{Start: 10, End: 20},
+		{Start: 20, End: 30},
+		{Start: 30, End: 40},
+	}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.ReadCursor", mock.Anything, "job-x").
+		Return(cursorResult[int64]{Cursor: 0, Exists: false}, nil)
+	env.OnActivity("job-x.AdvanceCursor", mock.Anything, mock.Anything).Return(nil)
+	processed := []int64{}
+	env.OnActivity("job-x.RunPartition", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, in runPartitionInput[int64]) (PartitionResult[int64], error) {
+			processed = append(processed, in.Partition.Start)
+			return PartitionResult[int64]{Start: in.Partition.Start, End: in.Partition.End}, nil
+		})
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                   "job-x",
+		partitionsActivityName:    "job-x.Partitions",
+		runPartitionActivityName:  "job-x.RunPartition",
+		readCursorActivityName:    "job-x.ReadCursor",
+		advanceCursorActivityName: "job-x.AdvanceCursor",
+		partitionActivityOptions:  workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:     workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		hasTracker:                true,
+		maxPerExec:                2,
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+
+	// ContinueAsNew is signaled by the workflow returning a *workflow.ContinueAsNewError;
+	// the test environment surfaces it as the workflow error.
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	assert.True(t, workflow.IsContinueAsNewError(err), "expected ContinueAsNewError, got %T: %v", err, err)
+
+	// Only the first 2 partitions processed in this execution.
+	assert.Equal(t, []int64{0, 10}, processed)
+}
+
 // registerStubActivities registers stubs for the four activities referenced by
 // chunkedSyncWorkflow.run, satisfying Temporal's test environment requirement
 // that activities be registered before OnActivity mocks them.

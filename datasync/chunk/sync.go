@@ -294,6 +294,13 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		}
 	}
 
+	// Truncate to MaxPartitionsPerExecution; defer the rest to a fresh execution.
+	deferred := false
+	if s.maxPerExec > 0 && len(parts) > s.maxPerExec {
+		parts = parts[:s.maxPerExec]
+		deferred = true
+	}
+
 	partCtx := workflow.WithActivityOptions(ctx, s.partitionActivityOptions)
 	cursorCtx := workflow.WithActivityOptions(ctx, defaultCursorActivityOptions)
 	for i, p := range parts {
@@ -324,6 +331,8 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		}
 	}
 
-	_ = input
+	if deferred {
+		return summary, workflow.NewContinueAsNewError(ctx, s.jobName, input)
+	}
 	return summary, nil
 }
