@@ -28,7 +28,7 @@ var defaultActivityRetryPolicy = temporal.RetryPolicy{
 	MaximumInterval:    5 * time.Minute,
 }
 
-var defaultCursorActivityOptions = workflow.ActivityOptions{ //nolint:unused
+var defaultCursorActivityOptions = workflow.ActivityOptions{
 	StartToCloseTimeout: 10 * time.Second,
 	RetryPolicy: &temporal.RetryPolicy{
 		MaximumAttempts:    3,
@@ -264,7 +264,6 @@ type chunkedSyncWorkflow[In, Out any, K cmp.Ordered] struct {
 func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload.SyncExecutionInput) (SyncResult[K], error) {
 	summary := SyncResult[K]{JobName: s.jobName}
 
-	// 1. Get partition list via activity.
 	listCtx := workflow.WithActivityOptions(ctx, s.partitionsListOptions)
 	var parts []Partition[K]
 	if err := workflow.ExecuteActivity(listCtx, s.partitionsActivityName).Get(listCtx, &parts); err != nil {
@@ -274,8 +273,29 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		return summary, nil
 	}
 
-	// 2. Process each partition.
+	// Cursor filtering when tracker is configured.
+	if s.hasTracker {
+		cursorCtx := workflow.WithActivityOptions(ctx, defaultCursorActivityOptions)
+		var cur cursorResult[K]
+		if err := workflow.ExecuteActivity(cursorCtx, s.readCursorActivityName, s.jobName).Get(cursorCtx, &cur); err != nil {
+			return summary, fmt.Errorf("read cursor: %w", err)
+		}
+		if cur.Exists {
+			filtered := make([]Partition[K], 0, len(parts))
+			for _, p := range parts {
+				if p.Start >= cur.Cursor {
+					filtered = append(filtered, p)
+				}
+			}
+			parts = filtered
+		}
+		if len(parts) == 0 {
+			return summary, nil
+		}
+	}
+
 	partCtx := workflow.WithActivityOptions(ctx, s.partitionActivityOptions)
+	cursorCtx := workflow.WithActivityOptions(ctx, defaultCursorActivityOptions)
 	for i, p := range parts {
 		var pr PartitionResult[K]
 		if err := workflow.ExecuteActivity(partCtx, s.runPartitionActivityName, runPartitionInput[K]{
@@ -291,6 +311,12 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		summary.TotalUpdated += pr.Updated
 		summary.TotalSkipped += pr.Skipped
 
+		if s.hasTracker {
+			if err := workflow.ExecuteActivity(cursorCtx, s.advanceCursorActivityName, p.End).Get(cursorCtx, nil); err != nil {
+				return summary, fmt.Errorf("advance cursor: %w", err)
+			}
+		}
+
 		if i < len(parts)-1 && s.partitionSleep > 0 {
 			if err := workflow.Sleep(ctx, s.partitionSleep); err != nil {
 				return summary, fmt.Errorf("partition-sleep: %w", err)
@@ -298,6 +324,6 @@ func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload
 		}
 	}
 
-	_ = input // reserved for future use (input contains JobName for logging)
+	_ = input
 	return summary, nil
 }

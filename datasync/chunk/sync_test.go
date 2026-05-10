@@ -2,13 +2,14 @@ package chunk
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	sdkactivity "go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -79,14 +80,7 @@ func TestChunkedSync_Build_PopulatesRegistration(t *testing.T) {
 func TestChunkedSync_Workflow_NoTracker_AllPartitionsProcessed(t *testing.T) {
 	suite := &testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
-
-	// Register stub activities so the test environment recognizes the names.
-	stubPartitionsAct := func(_ context.Context) ([]Partition[int64], error) { return nil, nil }
-	stubRunPartitionAct := func(_ context.Context, _ runPartitionInput[int64]) (PartitionResult[int64], error) {
-		return PartitionResult[int64]{}, nil
-	}
-	env.RegisterActivityWithOptions(stubPartitionsAct, sdkactivity.RegisterOptions{Name: "job-x.Partitions"})
-	env.RegisterActivityWithOptions(stubRunPartitionAct, sdkactivity.RegisterOptions{Name: "job-x.RunPartition"})
+	registerStubActivities(env)
 
 	parts := []Partition[int64]{{Start: 0, End: 10}, {Start: 10, End: 20}}
 	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
@@ -119,4 +113,178 @@ func TestChunkedSync_Workflow_NoTracker_AllPartitionsProcessed(t *testing.T) {
 	assert.Equal(t, 6, result.TotalFetched)
 	assert.Equal(t, 6, result.TotalInserted)
 	assert.Len(t, result.Partitions, 2)
+}
+
+func TestChunkedSync_Workflow_Tracker_NoCursor_ProcessesAll(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerStubActivities(env)
+
+	parts := []Partition[int64]{{Start: 0, End: 10}, {Start: 10, End: 20}}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.ReadCursor", mock.Anything, "job-x").
+		Return(cursorResult[int64]{Cursor: 0, Exists: false}, nil)
+	advanced := []int64{}
+	env.OnActivity("job-x.AdvanceCursor", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, c int64) error {
+			advanced = append(advanced, c)
+			return nil
+		})
+	env.OnActivity("job-x.RunPartition", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, in runPartitionInput[int64]) (PartitionResult[int64], error) {
+			return PartitionResult[int64]{Start: in.Partition.Start, End: in.Partition.End, Fetched: 1, Inserted: 1}, nil
+		})
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                   "job-x",
+		partitionsActivityName:    "job-x.Partitions",
+		runPartitionActivityName:  "job-x.RunPartition",
+		readCursorActivityName:    "job-x.ReadCursor",
+		advanceCursorActivityName: "job-x.AdvanceCursor",
+		partitionActivityOptions:  workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:     workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		hasTracker:                true,
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	assert.Equal(t, []int64{10, 20}, advanced)
+}
+
+func TestChunkedSync_Workflow_Tracker_MidRangeCursor_FiltersBefore(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerStubActivities(env)
+
+	parts := []Partition[int64]{
+		{Start: 0, End: 10},
+		{Start: 10, End: 20},
+		{Start: 20, End: 30},
+	}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.ReadCursor", mock.Anything, "job-x").
+		Return(cursorResult[int64]{Cursor: 10, Exists: true}, nil)
+	processed := []int64{}
+	env.OnActivity("job-x.RunPartition", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, in runPartitionInput[int64]) (PartitionResult[int64], error) {
+			processed = append(processed, in.Partition.Start)
+			return PartitionResult[int64]{Start: in.Partition.Start, End: in.Partition.End}, nil
+		})
+	env.OnActivity("job-x.AdvanceCursor", mock.Anything, mock.Anything).Return(nil)
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                   "job-x",
+		partitionsActivityName:    "job-x.Partitions",
+		runPartitionActivityName:  "job-x.RunPartition",
+		readCursorActivityName:    "job-x.ReadCursor",
+		advanceCursorActivityName: "job-x.AdvanceCursor",
+		partitionActivityOptions:  workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:     workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		hasTracker:                true,
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	// Partitions starting at 0 (< cursor 10) are skipped; 10 and 20 are processed.
+	assert.Equal(t, []int64{10, 20}, processed)
+}
+
+func TestChunkedSync_Workflow_Tracker_CursorPastEnd_ProcessesNothing(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerStubActivities(env)
+
+	parts := []Partition[int64]{{Start: 0, End: 10}, {Start: 10, End: 20}}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.ReadCursor", mock.Anything, "job-x").
+		Return(cursorResult[int64]{Cursor: 100, Exists: true}, nil)
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                   "job-x",
+		partitionsActivityName:    "job-x.Partitions",
+		runPartitionActivityName:  "job-x.RunPartition",
+		readCursorActivityName:    "job-x.ReadCursor",
+		advanceCursorActivityName: "job-x.AdvanceCursor",
+		partitionActivityOptions:  workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:     workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		hasTracker:                true,
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result SyncResult[int64]
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 0, result.TotalPartitions)
+}
+
+func TestChunkedSync_Workflow_Tracker_PartitionFails_CursorNotAdvanced(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerStubActivities(env)
+
+	parts := []Partition[int64]{{Start: 0, End: 10}, {Start: 10, End: 20}}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.ReadCursor", mock.Anything, "job-x").
+		Return(cursorResult[int64]{Cursor: 0, Exists: false}, nil)
+	advanced := []int64{}
+	env.OnActivity("job-x.AdvanceCursor", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, c int64) error {
+			advanced = append(advanced, c)
+			return nil
+		})
+	calls := 0
+	env.OnActivity("job-x.RunPartition", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, in runPartitionInput[int64]) (PartitionResult[int64], error) {
+			calls++
+			if calls == 1 {
+				return PartitionResult[int64]{Start: in.Partition.Start, End: in.Partition.End}, nil
+			}
+			return PartitionResult[int64]{}, errors.New("boom")
+		})
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                   "job-x",
+		partitionsActivityName:    "job-x.Partitions",
+		runPartitionActivityName:  "job-x.RunPartition",
+		readCursorActivityName:    "job-x.ReadCursor",
+		advanceCursorActivityName: "job-x.AdvanceCursor",
+		partitionActivityOptions:  workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:     workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		hasTracker:                true,
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+
+	// Cursor advanced for the first (successful) partition only.
+	assert.Equal(t, []int64{10}, advanced)
+}
+
+// registerStubActivities registers stubs for the four activities referenced by
+// chunkedSyncWorkflow.run, satisfying Temporal's test environment requirement
+// that activities be registered before OnActivity mocks them.
+func registerStubActivities(env *testsuite.TestWorkflowEnvironment) {
+	env.RegisterActivityWithOptions(
+		func(_ context.Context) ([]Partition[int64], error) { return nil, nil },
+		activity.RegisterOptions{Name: "job-x.Partitions"})
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, _ runPartitionInput[int64]) (PartitionResult[int64], error) {
+			return PartitionResult[int64]{}, nil
+		},
+		activity.RegisterOptions{Name: "job-x.RunPartition"})
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, _ string) (cursorResult[int64], error) {
+			return cursorResult[int64]{}, nil
+		},
+		activity.RegisterOptions{Name: "job-x.ReadCursor"})
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, _ int64) error { return nil },
+		activity.RegisterOptions{Name: "job-x.AdvanceCursor"})
 }
