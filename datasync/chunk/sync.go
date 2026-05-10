@@ -260,8 +260,44 @@ type chunkedSyncWorkflow[In, Out any, K cmp.Ordered] struct {
 	maxPerExec                int
 }
 
-// run is the Temporal workflow function. Implemented in Tasks 13–15.
-func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, _ payload.SyncExecutionInput) (SyncResult[K], error) {
-	_ = ctx
-	return SyncResult[K]{JobName: s.jobName}, fmt.Errorf("ChunkedSync workflow not yet implemented")
+// run is the Temporal workflow function.
+func (s chunkedSyncWorkflow[In, Out, K]) run(ctx workflow.Context, input payload.SyncExecutionInput) (SyncResult[K], error) {
+	summary := SyncResult[K]{JobName: s.jobName}
+
+	// 1. Get partition list via activity.
+	listCtx := workflow.WithActivityOptions(ctx, s.partitionsListOptions)
+	var parts []Partition[K]
+	if err := workflow.ExecuteActivity(listCtx, s.partitionsActivityName).Get(listCtx, &parts); err != nil {
+		return summary, fmt.Errorf("partitions: %w", err)
+	}
+	if len(parts) == 0 {
+		return summary, nil
+	}
+
+	// 2. Process each partition.
+	partCtx := workflow.WithActivityOptions(ctx, s.partitionActivityOptions)
+	for i, p := range parts {
+		var pr PartitionResult[K]
+		if err := workflow.ExecuteActivity(partCtx, s.runPartitionActivityName, runPartitionInput[K]{
+			Partition: p,
+			JobName:   s.jobName,
+		}).Get(partCtx, &pr); err != nil {
+			return summary, fmt.Errorf("partition %v..%v: %w", p.Start, p.End, err)
+		}
+		summary.Partitions = append(summary.Partitions, pr)
+		summary.TotalPartitions++
+		summary.TotalFetched += pr.Fetched
+		summary.TotalInserted += pr.Inserted
+		summary.TotalUpdated += pr.Updated
+		summary.TotalSkipped += pr.Skipped
+
+		if i < len(parts)-1 && s.partitionSleep > 0 {
+			if err := workflow.Sleep(ctx, s.partitionSleep); err != nil {
+				return summary, fmt.Errorf("partition-sleep: %w", err)
+			}
+		}
+	}
+
+	_ = input // reserved for future use (input contains JobName for logging)
+	return summary, nil
 }

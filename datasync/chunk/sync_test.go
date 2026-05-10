@@ -6,8 +6,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	sdkactivity "go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 
 	"github.com/jasoet/go-wf/datasync"
+	"github.com/jasoet/go-wf/datasync/payload"
 )
 
 type stubPartitioner struct {
@@ -67,4 +74,49 @@ func TestChunkedSync_Build_PopulatesRegistration(t *testing.T) {
 	assert.Equal(t, "sync-job-x", reg.TaskQueue)
 	assert.Equal(t, 15*time.Minute, reg.Schedule)
 	assert.True(t, reg.Disabled)
+}
+
+func TestChunkedSync_Workflow_NoTracker_AllPartitionsProcessed(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	// Register stub activities so the test environment recognizes the names.
+	stubPartitionsAct := func(_ context.Context) ([]Partition[int64], error) { return nil, nil }
+	stubRunPartitionAct := func(_ context.Context, _ runPartitionInput[int64]) (PartitionResult[int64], error) {
+		return PartitionResult[int64]{}, nil
+	}
+	env.RegisterActivityWithOptions(stubPartitionsAct, sdkactivity.RegisterOptions{Name: "job-x.Partitions"})
+	env.RegisterActivityWithOptions(stubRunPartitionAct, sdkactivity.RegisterOptions{Name: "job-x.RunPartition"})
+
+	parts := []Partition[int64]{{Start: 0, End: 10}, {Start: 10, End: 20}}
+	env.OnActivity("job-x.Partitions", mock.Anything).Return(parts, nil)
+	env.OnActivity("job-x.RunPartition", mock.Anything, mock.Anything).
+		Return(func(_ context.Context, in runPartitionInput[int64]) (PartitionResult[int64], error) {
+			return PartitionResult[int64]{
+				Start:    in.Partition.Start,
+				End:      in.Partition.End,
+				Fetched:  3,
+				Inserted: 3,
+			}, nil
+		})
+
+	wf := chunkedSyncWorkflow[string, string, int64]{
+		jobName:                  "job-x",
+		partitionsActivityName:   "job-x.Partitions",
+		runPartitionActivityName: "job-x.RunPartition",
+		partitionActivityOptions: workflow.ActivityOptions{StartToCloseTimeout: time.Minute, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+		partitionsListOptions:    workflow.ActivityOptions{StartToCloseTimeout: 30 * time.Second, RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1}},
+	}
+	env.RegisterWorkflowWithOptions(wf.run, workflow.RegisterOptions{Name: "job-x"})
+
+	env.ExecuteWorkflow("job-x", payload.SyncExecutionInput{JobName: "job-x"})
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result SyncResult[int64]
+	require.NoError(t, env.GetWorkflowResult(&result))
+	assert.Equal(t, 2, result.TotalPartitions)
+	assert.Equal(t, 6, result.TotalFetched)
+	assert.Equal(t, 6, result.TotalInserted)
+	assert.Len(t, result.Partitions, 2)
 }
