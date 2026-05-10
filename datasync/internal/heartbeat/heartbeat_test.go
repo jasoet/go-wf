@@ -71,7 +71,7 @@ func (h *heartbeatCaptureOutbound) RecordHeartbeat(ctx context.Context, details 
 			h.mu.Unlock()
 		}
 	}
-	h.ActivityOutboundInterceptorBase.RecordHeartbeat(ctx, details...)
+	h.Next.RecordHeartbeat(ctx, details...)
 }
 
 func (h *heartbeatCaptureOutbound) snapshot() []string {
@@ -88,7 +88,7 @@ type capturingInbound struct {
 }
 
 func (c *capturingInbound) Init(o sdkinterceptor.ActivityOutboundInterceptor) error {
-	c.outbound.ActivityOutboundInterceptorBase.Next = o
+	c.outbound.Next = o
 	return c.ActivityInboundInterceptorBase.Init(c.outbound)
 }
 
@@ -99,7 +99,7 @@ type capturingInterceptor struct {
 
 func (c *capturingInterceptor) InterceptActivity(_ context.Context, next sdkinterceptor.ActivityInboundInterceptor) sdkinterceptor.ActivityInboundInterceptor {
 	in := &capturingInbound{outbound: c.outbound}
-	in.ActivityInboundInterceptorBase.Next = next
+	in.Next = next
 	return in
 }
 
@@ -107,8 +107,9 @@ func TestLoop_TicksAndStopsOnDone(t *testing.T) {
 	env := &testsuite.WorkflowTestSuite{}
 	testEnv := env.NewTestActivityEnvironment()
 
-	// Sanity: SetOnActivityHeartbeatListener captures at least the first heartbeat,
-	// but the interceptor below captures all calls.
+	// Register an empty listener to silence the test environment's warning about
+	// unregistered heartbeat listeners. The interceptor below is what captures
+	// the heartbeats we assert on.
 	testEnv.SetOnActivityHeartbeatListener(func(_ *activity.Info, _ converter.EncodedValues) {})
 
 	cap := &heartbeatCaptureOutbound{}
