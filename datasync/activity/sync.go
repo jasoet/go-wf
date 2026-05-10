@@ -12,6 +12,7 @@ import (
 	"go.temporal.io/sdk/activity"
 
 	"github.com/jasoet/go-wf/datasync"
+	"github.com/jasoet/go-wf/datasync/internal/heartbeat"
 	"github.com/jasoet/go-wf/datasync/payload"
 )
 
@@ -57,10 +58,10 @@ func (a *Activities[T, U]) SyncData(ctx context.Context, input ActivityInput) (*
 	setPhase := func(p string) { phase.Store(&p) }
 	setPhase("starting")
 
-	interval := heartbeatInterval(activity.GetInfo(ctx).HeartbeatTimeout)
+	interval := heartbeat.Interval(activity.GetInfo(ctx).HeartbeatTimeout)
 	done := make(chan struct{})
 	defer close(done)
-	go heartbeatLoop(ctx, interval, input.JobName, &phase, done)
+	go heartbeat.Loop(ctx, interval, heartbeat.PhaseMessage("syncing "+input.JobName, &phase), done)
 
 	attrs := []attribute.KeyValue{
 		attribute.String("job", input.JobName),
@@ -186,47 +187,4 @@ func recordSuccess(ctx context.Context, start time.Time, attrs []attribute.KeyVa
 func recordFailure(ctx context.Context, start time.Time, attrs []attribute.KeyValue) {
 	syncOpsTotal.Add(ctx, 1, metric.WithAttributes(append(attrs, attribute.String("status", "error"))...))
 	syncOpsDuration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(attrs...))
-}
-
-// heartbeatLoop ticks at the given interval until done is closed or ctx is
-// canceled, calling activity.RecordHeartbeat with the current phase string.
-// Phase is read via *atomic.Pointer[string] so the main goroutine can update
-// it without a mutex.
-func heartbeatLoop(
-	ctx context.Context,
-	interval time.Duration,
-	jobName string,
-	phase *atomic.Pointer[string],
-	done <-chan struct{},
-) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-done:
-			return
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			p := "starting"
-			if ptr := phase.Load(); ptr != nil {
-				p = *ptr
-			}
-			activity.RecordHeartbeat(ctx, fmt.Sprintf("syncing %s: %s", jobName, p))
-		}
-	}
-}
-
-// heartbeatInterval derives the periodic heartbeat tick from the configured
-// HeartbeatTimeout. Returns max(1s, hbTimeout/3); falls back to 10s when
-// hbTimeout is 0 (no timeout configured).
-func heartbeatInterval(hbTimeout time.Duration) time.Duration {
-	if hbTimeout == 0 {
-		return 10 * time.Second
-	}
-	interval := hbTimeout / 3
-	if interval < 1*time.Second {
-		return 1 * time.Second
-	}
-	return interval
 }

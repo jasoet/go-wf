@@ -147,30 +147,6 @@ func TestToSyncExecutionOutput_Error(t *testing.T) {
 	assert.Equal(t, "something failed", output.Error)
 }
 
-func TestHeartbeatInterval(t *testing.T) {
-	tests := []struct {
-		name     string
-		timeout  time.Duration
-		expected time.Duration
-	}{
-		{"zero falls back to 10s default", 0, 10 * time.Second},
-		{"100ms hits 1s floor", 100 * time.Millisecond, 1 * time.Second},
-		{"1s hits 1s floor", 1 * time.Second, 1 * time.Second},
-		{"3s yields 1s (floor exact)", 3 * time.Second, 1 * time.Second},
-		{"4s yields ~1333ms (non-round, above floor)", 4 * time.Second, 4 * time.Second / 3},
-		{"6s yields 2s", 6 * time.Second, 2 * time.Second},
-		{"30s yields 10s (default-config case)", 30 * time.Second, 10 * time.Second},
-		{"1m yields 20s", 1 * time.Minute, 20 * time.Second},
-		{"5m yields 100s", 5 * time.Minute, 100 * time.Second},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := heartbeatInterval(tc.timeout)
-			assert.Equal(t, tc.expected, got)
-		})
-	}
-}
-
 func TestActivities_SyncData_HeartbeatsDuringSlowFetch(t *testing.T) {
 	env := &testsuite.WorkflowTestSuite{}
 	testEnv := env.NewTestActivityEnvironment()
