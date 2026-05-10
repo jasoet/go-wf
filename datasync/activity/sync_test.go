@@ -165,7 +165,7 @@ func TestActivities_SyncData_HeartbeatsDuringSlowFetch(t *testing.T) {
 	})
 	// Headroom for the 11s Fetch sleep plus goroutine scheduling jitter.
 	testEnv.SetTestTimeout(60 * time.Second)
-	// HeartbeatTimeout is unset in TestActivityEnvironment, so heartbeatInterval falls back to 10s; sleep > 10s guarantees at least one tick fires before Fetch returns.
+	// HeartbeatTimeout is unset in TestActivityEnvironment, so heartbeat.Interval falls back to 10s; sleep > 10s guarantees at least one tick fires before Fetch returns.
 	source := &mockSource[string]{
 		name:    "src",
 		records: []string{"a"},
@@ -259,7 +259,7 @@ func TestActivities_SyncData_HeartbeatsDuringSlowWrite(t *testing.T) {
 
 	// Headroom for the 11s Write sleep plus goroutine scheduling jitter.
 	testEnv.SetTestTimeout(60 * time.Second)
-	// HeartbeatTimeout is unset in TestActivityEnvironment, so heartbeatInterval falls back to 10s; sleep > 10s guarantees at least one tick fires before Write returns.
+	// HeartbeatTimeout is unset in TestActivityEnvironment, so heartbeat.Interval falls back to 10s; sleep > 10s guarantees at least one tick fires before Write returns.
 	source := &mockSource[string]{name: "src", records: []string{"a"}}
 	mapper := datasync.IdentityMapper[string]()
 	sink := &mockSink[string]{
