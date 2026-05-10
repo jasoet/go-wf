@@ -42,7 +42,7 @@ pkg/temporal/job/                NEW. Generic, transport-agnostic.
   status.go                      Status enum + transition helpers
   result.go                      RunHandle, RunDetail, RunHistory, ActivityEvent, RunSummary, RunPage,
                                  DefinitionStats, ScheduleSummary, ScheduleDetail
-  options.go                     ListOpts, StatsOpts, HistoryOpts, ScheduleListOpts
+  options.go                     ListOpts, StatsOpts, HistoryOpts, ScheduleListOpts, ExecuteOption
   errors.go                      Typed errors + SDK-error translation
 
 go-wf/                           MODIFIED. All builders converge on *job.Definition.
@@ -103,7 +103,7 @@ func New(name, taskQueue string, opts ...Option) (*Definition, error)
 type Option func(*Definition)
 
 func WithRegister(fn func(worker.Worker)) Option
-func WithExecute(fn func(ctx context.Context, c client.Client, input any) (client.WorkflowRun, error)) Option
+func WithExecute(fn func(ctx context.Context, c client.Client, opts client.StartWorkflowOptions, input any) (client.WorkflowRun, error)) Option
 func WithNewInput(fn func() any) Option
 func WithSchedule(spec *ScheduleSpec) Option
 func WithDescription(desc string) Option
@@ -120,7 +120,10 @@ func (d *Definition) Register(w worker.Worker)
 
 // Execution
 func (d *Definition) NewInput() any
-func (d *Definition) Execute(ctx context.Context, c client.Client, input any) (RunHandle, error)
+func (d *Definition) Execute(ctx context.Context, c client.Client, input any, opts ...ExecuteOption) (RunHandle, error)
+
+// Run handle for a run you already know the ID of (skips re-Execute)
+func (d *Definition) GetRun(c client.Client, wfID, runID string) RunHandle
 
 // Schedule control (only valid when d.Schedule != nil)
 func (d *Definition) ApplySchedule(ctx context.Context, c client.Client) error
@@ -143,7 +146,29 @@ func (d *Definition) ListRuns(ctx context.Context, c client.Client, opts ListOpt
 func (d *Definition) Stats(ctx context.Context, c client.Client, opts StatsOpts) (DefinitionStats, error)
 ```
 
-`ListRuns` and `Stats` automatically scope their visibility queries by `WorkflowType=<d.Name>`. iws's "all runs of this workflow type" becomes one method call.
+### Run scoping (uniform across L1 and L2)
+
+`Definition.Execute` generates workflow IDs of the form `"<Name>-<uuid>"` unless the caller overrides via `WithWorkflowID(...)`. `ListRuns` and `Stats` filter the visibility query by `WorkflowId STARTS_WITH "<Name>-"` so the scope is unambiguous regardless of layer:
+
+- **L2** (datasync/chunk): `Name == WorkflowType`, but we still use the ID-prefix filter — it's just as accurate and avoids a layer-conditional code path.
+- **L1** (container/function): multiple Definitions share a Temporal workflow type, but each Definition's runs have distinct ID prefixes, so the filter cleanly separates them.
+
+Callers that override `WithWorkflowID(...)` to an ID that doesn't start with `"<Name>-"` opt out of `ListRuns`/`Stats` scoping for that run. Documented contract; no enforcement.
+
+### ExecuteOption
+
+```go
+type ExecuteOption func(*executeConfig)
+
+func WithWorkflowID(id string) ExecuteOption           // override default "<Name>-<uuid>"
+func WithTimeout(d time.Duration) ExecuteOption        // WorkflowExecutionTimeout
+func WithTaskTimeout(d time.Duration) ExecuteOption    // WorkflowTaskTimeout
+func WithRetryPolicy(p *temporal.RetryPolicy) ExecuteOption
+func WithMemo(m map[string]any) ExecuteOption
+func WithSearchAttributes(sa map[string]any) ExecuteOption
+```
+
+`Definition.Execute` constructs a default `client.StartWorkflowOptions{ID: generateID(d.Name), TaskQueue: d.TaskQueue}`, applies each `ExecuteOption`, then passes the finalised opts to the builder-supplied execute closure.
 
 ### `Registry`
 
@@ -171,6 +196,12 @@ type ScheduleSpec struct {
     Interval time.Duration
     Cron     string
     Calendar []CalendarSpec // escape hatch, mapped to client.ScheduleCalendarSpec
+    // CalendarSpec mirrors the field set of client.ScheduleCalendarSpec:
+    //   type CalendarSpec struct {
+    //       Second, Minute, Hour, DayOfMonth, Month, Year, DayOfWeek []ScheduleRange
+    //       Comment string
+    //   }
+    //   type ScheduleRange struct { Start, End, Step int }
 
     // Behavior
     Overlap       OverlapPolicy // Skip (default), BufferOne, BufferAll, CancelOther, TerminateOther, AllowAll
@@ -285,7 +316,8 @@ type ListOpts struct {
     PageToken []byte
 }
 type StatsOpts struct {
-    TodayOnly bool // default true
+    TodayOnly bool       // default true — "today" = UTC calendar day [00:00, 24:00) at server time
+    Location  *time.Location // optional; if set, "today" uses this zone instead of UTC
 }
 type HistoryOpts struct {
     MaxEvents int // default 500; 0 = no cap (caller takes responsibility)
@@ -315,13 +347,15 @@ type TimeRange struct {
 ```go
 return job.New(j.Name, datasyncwf.TaskQueue(j.Name),
     job.WithRegister(func(w worker.Worker) { datasyncwf.RegisterJob(w, j) }),
-    job.WithExecute(func(ctx context.Context, c client.Client, in any) (client.WorkflowRun, error) {
+    job.WithExecute(func(ctx context.Context, c client.Client, opts client.StartWorkflowOptions, in any) (client.WorkflowRun, error) {
         return c.ExecuteWorkflow(ctx, opts, j.Name, in)
     }),
     job.WithNewInput(func() any { return &payload.SyncExecutionInput{} }),
     job.WithSchedule(b.schedule),
 )
 ```
+
+The closure receives a fully-prepared `StartWorkflowOptions` (ID, TaskQueue, plus any caller overrides applied via `ExecuteOption`). The closure only needs to know which workflow function name to invoke.
 
 **`datasync/chunk.ChunkedSync` / `DateChunkedSync`** — already produces FullJobRegistration today; trivial rename to `*job.Definition`. Schedule field type changes from `time.Duration` to `*job.ScheduleSpec`; new sugar methods replace `.Schedule(d)`.
 
@@ -331,6 +365,10 @@ return job.New(j.Name, datasyncwf.TaskQueue(j.Name),
 
 ### Dedup mechanic for Path β
 
+Two cooperating pieces:
+
+**1. `job.RegisterWorkflowOnce` / `job.RegisterActivityOnce` helpers** for fine-grained idempotency:
+
 ```go
 // pkg/temporal/job/definition.go
 
@@ -339,6 +377,7 @@ type registrarKey struct {
     typeName string
 }
 var registeredWorkflows sync.Map
+var registeredActivities sync.Map
 
 func RegisterWorkflowOnce(w worker.Worker, typeName string, wf any, opts workflow.RegisterOptions) {
     key := registrarKey{w, typeName}
@@ -350,7 +389,11 @@ func RegisterWorkflowOnce(w worker.Worker, typeName string, wf any, opts workflo
 // RegisterActivityOnce has the same shape.
 ```
 
-go-wf builders use this helper inside their `register` closure. Two Definitions backing the same workflow type → one actual SDK call.
+**2. `container.RegisterAll` / `function.RegisterAll` MUST be made idempotent** by refactoring their internal calls to `worker.RegisterWorkflowWithOptions` / `worker.RegisterActivityWithOptions` to go through `job.RegisterWorkflowOnce` / `job.RegisterActivityOnce`.
+
+Required change in `container/worker.go` and `function/worker.go`: every `w.RegisterWorkflowWithOptions(wfFn, opts)` becomes `job.RegisterWorkflowOnce(w, opts.Name, wfFn, opts)`. Same pattern for activities.
+
+After this change, calling `function.RegisterAll(w, activityFn)` twice on the same worker is safe — second call is a no-op for already-registered types.
 
 Note on memory: the `sync.Map` keyed by `(worker, typeName)` retains entries for the worker's lifetime. In tests that spin up many short-lived workers, entries accumulate. The leak is bounded (one small entry per `(worker, typeName)` pair created) and acceptable for the library's expected usage pattern (a small number of long-lived workers per process). If this becomes a problem, a future revision can attach the dedup state to a `*Registry` instead of package-global state.
 
@@ -374,11 +417,16 @@ var (
 
 ### SDK translation table
 
+Verified against `go.temporal.io/api/serviceerror` (v1.50):
+
 | Temporal SDK error | Maps to (via `errors.Is`) |
 |---|---|
-| `serviceerror.NotFound` | `ErrNotFound` |
-| `serviceerror.WorkflowExecutionAlreadyCompleted` | `ErrAlreadyClosed` |
+| `*serviceerror.NotFound` (workflow execution or namespace) | `ErrNotFound` |
+| `*serviceerror.AlreadyExists` (e.g., `WorkflowExecutionAlreadyStartedError`) | passed through wrapped |
+| `*serviceerror.CancellationAlreadyRequested` | passed through wrapped |
 | (others) | passed through wrapped with operation context |
+
+There is no dedicated SDK error type for "workflow already completed" — when calling `Cancel` / `Terminate` / `Signal` on a closed workflow, Temporal returns `*serviceerror.NotFound` (because the visibility query treats closed executions as not-active). `ErrAlreadyClosed` is therefore reserved for cases where we can detect closure via a preceding `Describe` (optional helper, not the default `Cancel`/`Terminate` path).
 
 All translations preserve the SDK error via `fmt.Errorf("op: %w", sdkErr)` so consumers can `errors.As` to deeper types.
 
