@@ -5,6 +5,10 @@ import (
 	"sync"
 
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
+
+	"github.com/jasoet/pkg/v2/temporal/job"
 
 	wf "github.com/jasoet/go-wf/function/workflow"
 )
@@ -28,38 +32,39 @@ func SetActivityInstrumenter(wrapper func(activityType) activityType) {
 	})
 }
 
-// WorkflowRegistrar is the interface for registering workflows and activities.
-type WorkflowRegistrar interface {
-	RegisterWorkflow(w interface{})
-	RegisterActivityWithOptions(a interface{}, options activity.RegisterOptions)
+// RegisterWorkflows registers all function workflows with a worker.
+// Calling this function multiple times on the same worker is a no-op for
+// subsequent calls — each workflow type is registered at most once per worker.
+func RegisterWorkflows(w worker.Worker) {
+	job.RegisterWorkflowOnce(w, "ExecuteFunctionWorkflow", wf.ExecuteFunctionWorkflow, workflow.RegisterOptions{Name: "ExecuteFunctionWorkflow"})
+	job.RegisterWorkflowOnce(w, "FunctionPipelineWorkflow", wf.FunctionPipelineWorkflow, workflow.RegisterOptions{Name: "FunctionPipelineWorkflow"})
+	job.RegisterWorkflowOnce(w, "ParallelFunctionsWorkflow", wf.ParallelFunctionsWorkflow, workflow.RegisterOptions{Name: "ParallelFunctionsWorkflow"})
+	job.RegisterWorkflowOnce(w, "LoopWorkflow", wf.LoopWorkflow, workflow.RegisterOptions{Name: "LoopWorkflow"})
+	job.RegisterWorkflowOnce(w, "ParameterizedLoopWorkflow", wf.ParameterizedLoopWorkflow, workflow.RegisterOptions{Name: "ParameterizedLoopWorkflow"})
+	job.RegisterWorkflowOnce(w, "InstrumentedDAGWorkflow", wf.InstrumentedDAGWorkflow, workflow.RegisterOptions{Name: "InstrumentedDAGWorkflow"})
 }
 
-// RegisterWorkflows registers all function workflows.
-func RegisterWorkflows(w WorkflowRegistrar) {
-	w.RegisterWorkflow(wf.ExecuteFunctionWorkflow)
-	w.RegisterWorkflow(wf.FunctionPipelineWorkflow)
-	w.RegisterWorkflow(wf.ParallelFunctionsWorkflow)
-	w.RegisterWorkflow(wf.LoopWorkflow)
-	w.RegisterWorkflow(wf.ParameterizedLoopWorkflow)
-	w.RegisterWorkflow(wf.InstrumentedDAGWorkflow)
-}
-
-// RegisterActivity registers a function execution activity.
+// RegisterActivity registers a function execution activity with a worker.
 // Create the activity with activity.NewExecuteFunctionActivity(registry).
-func RegisterActivity(w WorkflowRegistrar, activityFn interface{}) {
+// Calling this function multiple times on the same worker is a no-op for
+// subsequent calls — the activity type is registered at most once per worker.
+func RegisterActivity(w worker.Worker, activityFn interface{}) {
 	if typed, ok := activityFn.(func(context.Context, FunctionExecutionInput) (*FunctionExecutionOutput, error)); ok {
 		if instrumentActivity != nil {
 			activityFn = instrumentActivity(typed)
 		}
 	}
-	w.RegisterActivityWithOptions(activityFn, activity.RegisterOptions{
+	job.RegisterActivityOnce(w, "ExecuteFunctionActivity", activityFn, activity.RegisterOptions{
 		Name: "ExecuteFunctionActivity",
 	})
 }
 
-// RegisterAll registers all function workflows and the given activity.
+// RegisterAll registers all function workflows and the given activity with a worker.
 // Create the activity with activity.NewExecuteFunctionActivity(registry).
-func RegisterAll(w WorkflowRegistrar, activityFn interface{}) {
+// Calling this function multiple times on the same worker is a no-op for
+// subsequent calls — idempotency is ensured via job.RegisterWorkflowOnce and
+// job.RegisterActivityOnce.
+func RegisterAll(w worker.Worker, activityFn interface{}) {
 	RegisterWorkflows(w)
 	RegisterActivity(w, activityFn)
 }

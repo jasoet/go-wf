@@ -3,7 +3,6 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/function/builder"
 	"github.com/jasoet/go-wf/function/payload"
 	"github.com/jasoet/go-wf/workflow"
 )
@@ -14,21 +13,18 @@ import (
 //
 //	input, err := patterns.ETLPipeline("s3://bucket/data", "json", "postgres://db/table")
 func ETLPipeline(source, format, target string) (*workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
-	return builder.NewFunctionBuilder("etl-pipeline").
-		Add(&payload.FunctionExecutionInput{
-			Name: "extract",
-			Args: map[string]string{"source": source},
-		}).
-		Add(&payload.FunctionExecutionInput{
-			Name: "etl-transform",
-			Args: map[string]string{"format": format},
-		}).
-		Add(&payload.FunctionExecutionInput{
-			Name: "load",
-			Args: map[string]string{"target": target},
-		}).
-		StopOnError(true).
-		BuildPipeline()
+	input := &workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
+			{Name: "extract", Args: map[string]string{"source": source}},
+			{Name: "etl-transform", Args: map[string]string{"format": format}},
+			{Name: "load", Args: map[string]string{"target": target}},
+		},
+		StopOnError: true,
+	}
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("ETLPipeline validation failed: %w", err)
+	}
+	return input, nil
 }
 
 // ValidateTransformNotify creates a 3-step pipeline: validate, transform, notify.
@@ -37,21 +33,18 @@ func ETLPipeline(source, format, target string) (*workflow.PipelineInput[*payloa
 //
 //	input, err := patterns.ValidateTransformNotify("user@example.com", "report", "#alerts")
 func ValidateTransformNotify(email, name, channel string) (*workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput], error) {
-	return builder.NewFunctionBuilder("validate-transform-notify").
-		Add(&payload.FunctionExecutionInput{
-			Name: "validate",
-			Args: map[string]string{"email": email, "name": name},
-		}).
-		Add(&payload.FunctionExecutionInput{
-			Name: "transform",
-			Args: map[string]string{"name": name, "email": email},
-		}).
-		Add(&payload.FunctionExecutionInput{
-			Name: "notify",
-			Args: map[string]string{"name": name, "channel": channel},
-		}).
-		StopOnError(true).
-		BuildPipeline()
+	input := &workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks: []*payload.FunctionExecutionInput{
+			{Name: "validate", Args: map[string]string{"email": email, "name": name}},
+			{Name: "transform", Args: map[string]string{"name": name, "email": email}},
+			{Name: "notify", Args: map[string]string{"name": name, "channel": channel}},
+		},
+		StopOnError: true,
+	}
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("ValidateTransformNotify validation failed: %w", err)
+	}
+	return input, nil
 }
 
 // MultiEnvironmentDeploy creates a pipeline that deploys a service to multiple environments sequentially.
@@ -64,14 +57,20 @@ func MultiEnvironmentDeploy(version string, environments []string) (*workflow.Pi
 		return nil, fmt.Errorf("at least one environment is required")
 	}
 
-	wb := builder.NewFunctionBuilder("multi-env-deploy")
-
+	tasks := make([]*payload.FunctionExecutionInput, 0, len(environments))
 	for _, env := range environments {
-		wb.Add(&payload.FunctionExecutionInput{
+		tasks = append(tasks, &payload.FunctionExecutionInput{
 			Name: "deploy-service",
 			Args: map[string]string{"environment": env, "version": version},
 		})
 	}
 
-	return wb.StopOnError(true).BuildPipeline()
+	input := &workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks:       tasks,
+		StopOnError: true,
+	}
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("MultiEnvironmentDeploy validation failed: %w", err)
+	}
+	return input, nil
 }

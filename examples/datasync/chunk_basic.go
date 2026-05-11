@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/jasoet/pkg/v2/temporal"
-	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
 	"github.com/jasoet/go-wf/datasync"
 	"github.com/jasoet/go-wf/datasync/chunk"
+	"github.com/jasoet/go-wf/datasync/payload"
 )
 
 // This example demonstrates a date-chunked datasync job:
@@ -61,19 +61,16 @@ func (s *OrderSink) Write(_ context.Context, records []Order) (datasync.WriteRes
 
 func main() {
 	// Create Temporal client.
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Build the date-chunked sync registration.
 	// LookBack(72h) with ChunkSize(24h) produces 3 daily partitions.
 	var fetcher chunk.TimeFetcher[Order] = OrderFetcher
-	reg := chunk.NewDateChunkedSync[Order, Order]("order-sync").
+	def, err := chunk.NewDateChunkedSync[Order, Order]("order-sync").
 		LookBack(72 * time.Hour).
 		ChunkSize(24 * time.Hour).
 		Timezone(time.UTC).
@@ -81,10 +78,13 @@ func main() {
 		Mapper(datasync.IdentityMapper[Order]()).
 		Sink(&OrderSink{}).
 		Build()
+	if err != nil {
+		log.Fatalf("Failed to build chunked sync: %v", err)
+	}
 
 	// Create and start worker.
-	w := worker.New(c, reg.TaskQueue, worker.Options{})
-	reg.Register(w)
+	w := worker.New(c, def.TaskQueue, worker.Options{})
+	def.Register(w)
 
 	go func() {
 		if err := w.Run(worker.InterruptCh()); err != nil {
@@ -96,22 +96,17 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Execute the chunked sync workflow.
-	we, err := c.ExecuteWorkflow(context.Background(),
-		client.StartWorkflowOptions{
-			ID:        "order-chunk-sync-example",
-			TaskQueue: reg.TaskQueue,
-		},
-		reg.Name,
-		reg.WorkflowInput,
-	)
+	input := def.NewInput().(*payload.SyncExecutionInput)
+	input.JobName = def.Name
+	run, err := def.Execute(context.Background(), c, input)
 	if err != nil {
 		log.Fatalf("Failed to start workflow: %v", err)
 	}
 
-	log.Printf("Started workflow ID: %s, RunID: %s", we.GetID(), we.GetRunID())
+	log.Printf("Started workflow ID: %s, RunID: %s", run.WorkflowID, run.RunID)
 
 	var result chunk.SyncResult[int64]
-	if err := we.Get(context.Background(), &result); err != nil {
+	if err := run.Get(context.Background(), &result); err != nil {
 		log.Fatalf("Workflow failed: %v", err)
 	}
 

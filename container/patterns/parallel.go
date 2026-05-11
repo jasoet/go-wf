@@ -20,7 +20,7 @@ func FanOutFanIn(image string, tasks []string) (*payload.ParallelInput, error) {
 		return nil, fmt.Errorf("at least one task is required")
 	}
 
-	wb := builder.NewWorkflowBuilder("fan-out-fan-in").Parallel(true)
+	wb := builder.NewWorkflowBuilder().Name("fan-out-fan-in").Parallel()
 
 	for _, taskName := range tasks {
 		task := template.NewContainer(taskName, image,
@@ -45,7 +45,7 @@ func ParallelDataProcessing(image string, dataItems []string, command string) (*
 		return nil, fmt.Errorf("at least one data item is required")
 	}
 
-	wb := builder.NewWorkflowBuilder("data-processing").Parallel(true)
+	wb := builder.NewWorkflowBuilder().Name("data-processing").Parallel()
 
 	for i, dataItem := range dataItems {
 		task := template.NewContainer(fmt.Sprintf("process-%d", i), image,
@@ -74,7 +74,7 @@ func ParallelTestSuite(image string, testSuites map[string]string) (*payload.Par
 		return nil, fmt.Errorf("at least one test suite is required")
 	}
 
-	wb := builder.NewWorkflowBuilder("test-suite").Parallel(true).FailFast(true)
+	wb := builder.NewWorkflowBuilder().Name("test-suite").Parallel().FailFast(true)
 
 	for suiteName, testCmd := range testSuites {
 		task := template.NewContainer("test-"+suiteName, image,
@@ -99,8 +99,9 @@ func ParallelDeployment(deployImage string, regions []string) (*payload.Parallel
 		return nil, fmt.Errorf("at least one region is required")
 	}
 
-	wb := builder.NewWorkflowBuilder("multi-region-deploy").
-		Parallel(true).
+	wb := builder.NewWorkflowBuilder().
+		Name("multi-region-deploy").
+		Parallel().
 		FailFast(false)
 
 	for _, region := range regions {
@@ -129,7 +130,7 @@ func MapReduce(image string, inputs []string, mapCmd, reduceCmd string) (*payloa
 	}
 
 	// Create map tasks
-	mapBuilder := builder.NewWorkflowBuilder("map-phase").Parallel(true)
+	mapBuilder := builder.NewWorkflowBuilder().Name("map-phase").Parallel()
 
 	for i, input := range inputs {
 		mapTask := template.NewContainer(fmt.Sprintf("map-%d", i), image,
@@ -151,7 +152,7 @@ func MapReduce(image string, inputs []string, mapCmd, reduceCmd string) (*payloa
 		template.WithCommand("sh", "-c", fmt.Sprintf("echo 'Reducing...' && %s", reduceCmd)))
 
 	// Convert to pipeline for now (simplified)
-	wb := builder.NewWorkflowBuilder("map-reduce")
+	wb := builder.NewWorkflowBuilder().Name("map-reduce")
 	for _, container := range mapInput.Containers {
 		wb.AddInput(container)
 	}

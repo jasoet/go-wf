@@ -64,31 +64,6 @@ func BuildActivityInput[T, U any](job datasync.Job[T, U]) activity.ActivityInput
 	return input
 }
 
-// FullJobRegistration holds all information needed to register and schedule a sync job
-// without knowing its generic types.
-type FullJobRegistration struct {
-	Name          string
-	TaskQueue     string
-	Schedule      time.Duration
-	Disabled      bool
-	WorkflowInput payload.SyncExecutionInput
-	Register      func(w worker.Worker)
-}
-
-// BuildJobRegistration creates a FullJobRegistration from a generic Job and a disabled flag.
-func BuildJobRegistration[T, U any](job datasync.Job[T, U], disabled bool) FullJobRegistration {
-	return FullJobRegistration{
-		Name:          job.Name,
-		TaskQueue:     TaskQueue(job.Name),
-		Schedule:      job.Schedule,
-		Disabled:      disabled,
-		WorkflowInput: BuildWorkflowInput(job),
-		Register: func(w worker.Worker) {
-			RegisterJob(w, job)
-		},
-	}
-}
-
 // RegisterJob registers a sync job's workflow and activities with a Temporal worker.
 func RegisterJob[T, U any](w worker.Worker, job datasync.Job[T, U]) {
 	activities := activity.NewActivities(job.Source, job.Mapper, job.Sink)

@@ -1,9 +1,15 @@
 package builder
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/jasoet/pkg/v2/temporal/job"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+
+	"github.com/jasoet/go-wf/container"
 	"github.com/jasoet/go-wf/container/payload"
 	"github.com/jasoet/go-wf/workflow"
 )
@@ -13,6 +19,25 @@ const (
 	FailureStrategyContinue = "continue"
 	// FailureStrategyFailFast indicates that workflow should stop on first failure.
 	FailureStrategyFailFast = "fail_fast"
+)
+
+// workflowMode selects the execution pattern for a WorkflowBuilder.
+type workflowMode int
+
+const (
+	modeUnset    workflowMode = iota
+	modePipeline              // sequential, stop-on-error
+	modeParallel              // concurrent tasks
+	modeSingle                // one task
+)
+
+// loopMode selects the execution pattern for a LoopBuilder.
+type loopMode int
+
+const (
+	loopModeUnset             loopMode = iota
+	loopModeLoop                       // iterate over string items
+	loopModeParameterizedLoop          // iterate over parameter combinations
 )
 
 // GenericBuilder provides a fluent API for constructing generic workflow inputs.
@@ -135,12 +160,17 @@ func (b *GenericBuilder[I, O]) Errors() []error {
 	return b.errors
 }
 
-// WorkflowBuilder provides a fluent API for constructing Docker workflow inputs.
-// It supports composing workflows from reusable sources and adding exit handlers.
+// WorkflowBuilder provides a fluent API for constructing container workflow inputs
+// and producing a *job.Definition ready for registration with a Temporal worker.
+//
+// Call Name(...), one of Pipeline()/Parallel()/Single() to select a mode, add
+// containers via Add/AddInput, then call Build() to get a *job.Definition.
 //
 // Example usage:
 //
-//	builder := NewWorkflowBuilder("deployment").
+//	def, err := NewWorkflowBuilder().
+//	    Name("deployment").
+//	    Pipeline().
 //	    Add(buildStep).
 //	    Add(testStep).
 //	    Add(deployStep).
@@ -148,32 +178,28 @@ func (b *GenericBuilder[I, O]) Errors() []error {
 //	    Build()
 type WorkflowBuilder struct {
 	name           string
+	taskQueue      string
+	mode           workflowMode
 	containers     []payload.ContainerExecutionInput
 	exitHandlers   []payload.ContainerExecutionInput
 	stopOnError    bool
 	cleanup        bool
-	parallelMode   bool
 	failFast       bool
 	maxConcurrency int
 	errors         []error
 }
 
-// NewWorkflowBuilder creates a new workflow builder with the specified name.
-//
-// Parameters:
-//   - name: Workflow name for identification and logging
+// NewWorkflowBuilder creates a new workflow builder.
 //
 // Example:
 //
-//	builder := NewWorkflowBuilder("ci-pipeline")
-func NewWorkflowBuilder(name string, opts ...BuilderOption) *WorkflowBuilder {
+//	builder := NewWorkflowBuilder().Name("ci-pipeline").Pipeline()
+func NewWorkflowBuilder(opts ...BuilderOption) *WorkflowBuilder {
 	b := &WorkflowBuilder{
-		name:         name,
 		containers:   make([]payload.ContainerExecutionInput, 0),
 		exitHandlers: make([]payload.ContainerExecutionInput, 0),
 		stopOnError:  true,
 		cleanup:      false,
-		parallelMode: false,
 		failFast:     false,
 	}
 
@@ -182,6 +208,36 @@ func NewWorkflowBuilder(name string, opts ...BuilderOption) *WorkflowBuilder {
 		opt(b)
 	}
 
+	return b
+}
+
+// Name sets the job name. Required before calling Build.
+func (b *WorkflowBuilder) Name(n string) *WorkflowBuilder {
+	b.name = n
+	return b
+}
+
+// TaskQueue overrides the default task queue (which is "container-<name>").
+func (b *WorkflowBuilder) TaskQueue(tq string) *WorkflowBuilder {
+	b.taskQueue = tq
+	return b
+}
+
+// Pipeline selects sequential pipeline execution mode.
+func (b *WorkflowBuilder) Pipeline() *WorkflowBuilder {
+	b.mode = modePipeline
+	return b
+}
+
+// Parallel selects concurrent parallel execution mode.
+func (b *WorkflowBuilder) Parallel() *WorkflowBuilder {
+	b.mode = modeParallel
+	return b
+}
+
+// Single selects single-container execution mode.
+func (b *WorkflowBuilder) Single() *WorkflowBuilder {
+	b.mode = modeSingle
 	return b
 }
 
@@ -235,12 +291,6 @@ func (b *WorkflowBuilder) Cleanup(cleanup bool) *WorkflowBuilder {
 	return b
 }
 
-// Parallel configures the builder to create a parallel execution workflow.
-func (b *WorkflowBuilder) Parallel(parallel bool) *WorkflowBuilder {
-	b.parallelMode = parallel
-	return b
-}
-
 // FailFast configures fail-fast behavior for parallel workflows.
 func (b *WorkflowBuilder) FailFast(failFast bool) *WorkflowBuilder {
 	b.failFast = failFast
@@ -253,8 +303,8 @@ func (b *WorkflowBuilder) MaxConcurrency(max int) *WorkflowBuilder {
 	return b
 }
 
-// BuildPipeline creates a pipeline workflow configuration.
-func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
+// buildPipelineInput constructs a PipelineInput from the current builder state.
+func (b *WorkflowBuilder) buildPipelineInput() (*payload.PipelineInput, error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -276,8 +326,85 @@ func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
 	return input, nil
 }
 
+// buildParallelInput constructs a ParallelInput from the current builder state.
+func (b *WorkflowBuilder) buildParallelInput() (*payload.ParallelInput, error) {
+	if len(b.errors) > 0 {
+		return nil, b.errors[0]
+	}
+
+	if len(b.containers) == 0 {
+		return nil, fmt.Errorf("parallel workflow requires at least one container")
+	}
+
+	failureStrategy := FailureStrategyContinue
+	if b.failFast {
+		failureStrategy = FailureStrategyFailFast
+	}
+
+	input := &payload.ParallelInput{
+		Containers:      b.containers,
+		MaxConcurrency:  b.maxConcurrency,
+		FailureStrategy: failureStrategy,
+	}
+
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("parallel validation failed: %w", err)
+	}
+
+	return input, nil
+}
+
+// buildSingleInput constructs a single ContainerExecutionInput from the current builder state.
+func (b *WorkflowBuilder) buildSingleInput() (*payload.ContainerExecutionInput, error) {
+	if len(b.errors) > 0 {
+		return nil, b.errors[0]
+	}
+
+	if len(b.containers) == 0 {
+		return nil, fmt.Errorf("single workflow requires at least one container")
+	}
+
+	input := b.containers[0]
+
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("single container validation failed: %w", err)
+	}
+
+	return &input, nil
+}
+
+// BuildPipeline creates a pipeline workflow configuration.
+// Kept for callers that only need the raw input without a full job.Definition.
+func (b *WorkflowBuilder) BuildPipeline() (*payload.PipelineInput, error) {
+	return b.buildPipelineInput()
+}
+
+// BuildParallel creates a parallel workflow configuration.
+// Kept for callers that only need the raw input without a full job.Definition.
+func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
+	return b.buildParallelInput()
+}
+
+// BuildSingle creates a single container execution workflow.
+// Kept for callers that only need the raw input without a full job.Definition.
+func (b *WorkflowBuilder) BuildSingle() (*payload.ContainerExecutionInput, error) {
+	return b.buildSingleInput()
+}
+
 // BuildGenericPipeline creates a generic pipeline input using workflow.PipelineInput.
+// Kept for callers that only need the raw typed input.
 func (b *WorkflowBuilder) BuildGenericPipeline() (*workflow.PipelineInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
+	return b.buildGenericPipelineInput()
+}
+
+// BuildGenericParallel creates a generic parallel input using workflow.ParallelInput.
+// Kept for callers that only need the raw typed input.
+func (b *WorkflowBuilder) BuildGenericParallel() (*workflow.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
+	return b.buildGenericParallelInput()
+}
+
+// buildGenericPipelineInput creates a generic pipeline input using workflow.PipelineInput.
+func (b *WorkflowBuilder) buildGenericPipelineInput() (*workflow.PipelineInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -305,36 +432,8 @@ func (b *WorkflowBuilder) BuildGenericPipeline() (*workflow.PipelineInput[*paylo
 	return input, nil
 }
 
-// BuildParallel creates a parallel workflow configuration.
-func (b *WorkflowBuilder) BuildParallel() (*payload.ParallelInput, error) {
-	if len(b.errors) > 0 {
-		return nil, b.errors[0]
-	}
-
-	if len(b.containers) == 0 {
-		return nil, fmt.Errorf("parallel workflow requires at least one container")
-	}
-
-	failureStrategy := FailureStrategyContinue
-	if b.failFast {
-		failureStrategy = FailureStrategyFailFast
-	}
-
-	input := &payload.ParallelInput{
-		Containers:      b.containers,
-		MaxConcurrency:  b.maxConcurrency,
-		FailureStrategy: failureStrategy,
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, fmt.Errorf("parallel validation failed: %w", err)
-	}
-
-	return input, nil
-}
-
-// BuildGenericParallel creates a generic parallel input using workflow.ParallelInput.
-func (b *WorkflowBuilder) BuildGenericParallel() (*workflow.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
+// buildGenericParallelInput creates a generic parallel input using workflow.ParallelInput.
+func (b *WorkflowBuilder) buildGenericParallelInput() (*workflow.ParallelInput[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput], error) {
 	if len(b.errors) > 0 {
 		return nil, b.errors[0]
 	}
@@ -367,31 +466,84 @@ func (b *WorkflowBuilder) BuildGenericParallel() (*workflow.ParallelInput[*paylo
 	return input, nil
 }
 
-// Build creates the appropriate workflow configuration based on the builder's mode.
-func (b *WorkflowBuilder) Build() (interface{}, error) {
-	if b.parallelMode {
-		return b.BuildParallel()
+// Build validates the configuration and returns a *job.Definition ready for
+// registration with a Temporal worker and execution via the job registry.
+//
+// Required before calling Build:
+//   - Name(...) — sets the job name
+//   - One of Pipeline(), Parallel(), Single() — selects the execution mode
+func (b *WorkflowBuilder) Build() (*job.Definition, error) {
+	if b.name == "" {
+		return nil, fmt.Errorf("container.WorkflowBuilder: Name is required")
 	}
-	return b.BuildPipeline()
-}
-
-// BuildSingle creates a single container execution workflow.
-func (b *WorkflowBuilder) BuildSingle() (*payload.ContainerExecutionInput, error) {
-	if len(b.errors) > 0 {
-		return nil, b.errors[0]
-	}
-
-	if len(b.containers) == 0 {
-		return nil, fmt.Errorf("single workflow requires at least one container")
+	if b.mode == modeUnset {
+		return nil, fmt.Errorf("container.WorkflowBuilder: call .Pipeline()/.Parallel()/.Single() before Build")
 	}
 
-	input := &b.containers[0]
-
-	if err := input.Validate(); err != nil {
-		return nil, fmt.Errorf("single container validation failed: %w", err)
+	tq := b.taskQueue
+	if tq == "" {
+		tq = "container-" + b.name
 	}
 
-	return input, nil
+	var wfType string
+	var newInputFn func() any
+
+	switch b.mode {
+	case modePipeline:
+		wfType = "ContainerPipelineWorkflow"
+		if _, err := b.buildPipelineInput(); err != nil {
+			return nil, err
+		}
+		containers := b.containers
+		stopOnError := b.stopOnError
+		cleanup := b.cleanup
+		newInputFn = func() any {
+			return payload.PipelineInput{
+				Containers:  containers,
+				StopOnError: stopOnError,
+				Cleanup:     cleanup,
+			}
+		}
+
+	case modeParallel:
+		wfType = "ParallelContainersWorkflow"
+		if _, err := b.buildParallelInput(); err != nil {
+			return nil, err
+		}
+		failureStrategy := FailureStrategyContinue
+		if b.failFast {
+			failureStrategy = FailureStrategyFailFast
+		}
+		containers := b.containers
+		maxConcurrency := b.maxConcurrency
+		fs := failureStrategy
+		newInputFn = func() any {
+			return payload.ParallelInput{
+				Containers:      containers,
+				MaxConcurrency:  maxConcurrency,
+				FailureStrategy: fs,
+			}
+		}
+
+	case modeSingle:
+		wfType = "ExecuteContainerWorkflow"
+		if _, err := b.buildSingleInput(); err != nil {
+			return nil, err
+		}
+		snapshot := b.containers[0]
+		newInputFn = func() any {
+			cp := snapshot
+			return cp
+		}
+	}
+
+	return job.New(b.name, tq,
+		job.WithRegister(func(w worker.Worker) { container.RegisterAll(w) }),
+		job.WithExecute(func(ctx context.Context, c client.Client, opts client.StartWorkflowOptions, in any) (client.WorkflowRun, error) {
+			return c.ExecuteWorkflow(ctx, opts, wfType, in)
+		}),
+		job.WithNewInput(newInputFn),
+	)
 }
 
 // Count returns the number of containers added to the builder.
@@ -425,8 +577,12 @@ func (b *WorkflowBuilder) WithAutoRemove(autoRemove bool) *WorkflowBuilder {
 	return b
 }
 
-// LoopBuilder provides a fluent API for constructing loop workflow inputs.
+// LoopBuilder provides a fluent API for constructing loop workflow inputs
+// and producing a *job.Definition ready for registration with a Temporal worker.
 type LoopBuilder struct {
+	name           string
+	taskQueue      string
+	mode           loopMode
 	items          []string
 	parameters     map[string][]string
 	template       payload.ContainerExecutionInput
@@ -440,6 +596,7 @@ type LoopBuilder struct {
 func NewLoopBuilder(items []string) *LoopBuilder {
 	return &LoopBuilder{
 		items:    items,
+		mode:     loopModeLoop,
 		parallel: false,
 		failFast: false,
 	}
@@ -449,9 +606,34 @@ func NewLoopBuilder(items []string) *LoopBuilder {
 func NewParameterizedLoopBuilder(parameters map[string][]string) *LoopBuilder {
 	return &LoopBuilder{
 		parameters: parameters,
+		mode:       loopModeParameterizedLoop,
 		parallel:   false,
 		failFast:   false,
 	}
+}
+
+// Name sets the job name. Required before calling Build.
+func (lb *LoopBuilder) Name(n string) *LoopBuilder {
+	lb.name = n
+	return lb
+}
+
+// TaskQueue overrides the default task queue (which is "container-<name>").
+func (lb *LoopBuilder) TaskQueue(tq string) *LoopBuilder {
+	lb.taskQueue = tq
+	return lb
+}
+
+// Loop selects simple item-iteration mode (default for NewLoopBuilder).
+func (lb *LoopBuilder) Loop() *LoopBuilder {
+	lb.mode = loopModeLoop
+	return lb
+}
+
+// ParameterizedLoop selects parameter-combination mode (default for NewParameterizedLoopBuilder).
+func (lb *LoopBuilder) ParameterizedLoop() *LoopBuilder {
+	lb.mode = loopModeParameterizedLoop
+	return lb
 }
 
 // WithTemplate sets the container template for the loop.
@@ -555,6 +737,89 @@ func (lb *LoopBuilder) BuildParameterizedLoop() (*payload.ParameterizedLoopInput
 	}
 
 	return input, nil
+}
+
+// Build validates the configuration and returns a *job.Definition ready for
+// registration with a Temporal worker and execution via the job registry.
+//
+// Required before calling Build:
+//   - Name(...) — sets the job name
+//   - The mode is inferred from the constructor (NewLoopBuilder → Loop,
+//     NewParameterizedLoopBuilder → ParameterizedLoop). Override with .Loop()
+//     or .ParameterizedLoop().
+func (lb *LoopBuilder) Build() (*job.Definition, error) {
+	if lb.name == "" {
+		return nil, fmt.Errorf("container.LoopBuilder: Name is required")
+	}
+	if lb.mode == loopModeUnset {
+		return nil, fmt.Errorf("container.LoopBuilder: call .Loop() or .ParameterizedLoop() before Build")
+	}
+
+	tq := lb.taskQueue
+	if tq == "" {
+		tq = "container-" + lb.name
+	}
+
+	var wfType string
+	var newInputFn func() any
+
+	switch lb.mode {
+	case loopModeLoop:
+		wfType = "LoopWorkflow"
+		if _, err := lb.BuildLoop(); err != nil {
+			return nil, err
+		}
+		failureStrategy := FailureStrategyContinue
+		if lb.failFast {
+			failureStrategy = FailureStrategyFailFast
+		}
+		items := lb.items
+		tmpl := lb.template
+		parallel := lb.parallel
+		maxConcurrency := lb.maxConcurrency
+		fs := failureStrategy
+		newInputFn = func() any {
+			return payload.LoopInput{
+				Items:           items,
+				Template:        tmpl,
+				Parallel:        parallel,
+				MaxConcurrency:  maxConcurrency,
+				FailureStrategy: fs,
+			}
+		}
+
+	case loopModeParameterizedLoop:
+		wfType = "ParameterizedLoopWorkflow"
+		if _, err := lb.BuildParameterizedLoop(); err != nil {
+			return nil, err
+		}
+		failureStrategy := FailureStrategyContinue
+		if lb.failFast {
+			failureStrategy = FailureStrategyFailFast
+		}
+		params := lb.parameters
+		tmpl := lb.template
+		parallel := lb.parallel
+		maxConcurrency := lb.maxConcurrency
+		fs := failureStrategy
+		newInputFn = func() any {
+			return payload.ParameterizedLoopInput{
+				Parameters:      params,
+				Template:        tmpl,
+				Parallel:        parallel,
+				MaxConcurrency:  maxConcurrency,
+				FailureStrategy: fs,
+			}
+		}
+	}
+
+	return job.New(lb.name, tq,
+		job.WithRegister(func(w worker.Worker) { container.RegisterAll(w) }),
+		job.WithExecute(func(ctx context.Context, c client.Client, opts client.StartWorkflowOptions, in any) (client.WorkflowRun, error) {
+			return c.ExecuteWorkflow(ctx, opts, wfType, in)
+		}),
+		job.WithNewInput(newInputFn),
+	)
 }
 
 // ForEach creates a loop builder for iterating over items.

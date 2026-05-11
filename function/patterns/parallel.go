@@ -18,15 +18,19 @@ func FanOutFanIn(functionNames []string) (*workflow.ParallelInput[*payload.Funct
 		return nil, fmt.Errorf("at least one function name is required")
 	}
 
-	wb := builder.NewFunctionBuilder("fan-out-fan-in").Parallel(true)
-
+	tasks := make([]*payload.FunctionExecutionInput, 0, len(functionNames))
 	for _, name := range functionNames {
-		wb.Add(&payload.FunctionExecutionInput{
-			Name: name,
-		})
+		tasks = append(tasks, &payload.FunctionExecutionInput{Name: name})
 	}
 
-	return wb.BuildParallel()
+	input := &workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks:           tasks,
+		FailureStrategy: builder.FailureStrategyContinue,
+	}
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("FanOutFanIn validation failed: %w", err)
+	}
+	return input, nil
 }
 
 // ParallelDataFetch creates a parallel workflow that fetches data from three
@@ -52,12 +56,9 @@ func ParallelHealthCheck(services []string, env string) (*workflow.ParallelInput
 		return nil, fmt.Errorf("at least one service is required")
 	}
 
-	wb := builder.NewFunctionBuilder("health-check").
-		Parallel(true).
-		FailFast(true)
-
+	tasks := make([]*payload.FunctionExecutionInput, 0, len(services))
 	for _, service := range services {
-		wb.Add(&payload.FunctionExecutionInput{
+		tasks = append(tasks, &payload.FunctionExecutionInput{
 			Name: "health-check",
 			Args: map[string]string{
 				"service":     service,
@@ -66,5 +67,12 @@ func ParallelHealthCheck(services []string, env string) (*workflow.ParallelInput
 		})
 	}
 
-	return wb.BuildParallel()
+	input := &workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]{
+		Tasks:           tasks,
+		FailureStrategy: builder.FailureStrategyFailFast,
+	}
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("ParallelHealthCheck validation failed: %w", err)
+	}
+	return input, nil
 }

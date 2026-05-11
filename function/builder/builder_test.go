@@ -7,111 +7,179 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow"
 )
 
-func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
-	input, err := NewFunctionBuilder("test-pipeline").
+// dummyActivity is a no-op stand-in for the activity function required by Build.
+func dummyActivity() {}
+
+func TestWorkflowBuilder_Build_Pipeline(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("test-pipeline").
+		Activity(dummyActivity).
+		Pipeline().
 		Add(&payload.FunctionExecutionInput{Name: "step1"}).
 		Add(&payload.FunctionExecutionInput{Name: "step2"}).
 		StopOnError(true).
-		BuildPipeline()
+		Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, input)
+	require.NotNil(t, def)
 
-	assert.Len(t, input.Tasks, 2)
-	assert.True(t, input.StopOnError)
+	assert.Equal(t, "test-pipeline", def.Name)
+	assert.Equal(t, "function-test-pipeline", def.TaskQueue)
 }
 
-func TestWorkflowBuilder_BuildParallel(t *testing.T) {
-	input, err := NewFunctionBuilder("test-parallel").
+func TestWorkflowBuilder_Build_Parallel(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("test-parallel").
+		Activity(dummyActivity).
+		Parallel().
 		Add(&payload.FunctionExecutionInput{Name: "task-a"}).
 		Add(&payload.FunctionExecutionInput{Name: "task-b"}).
-		Parallel(true).
 		FailFast(true).
 		MaxConcurrency(5).
-		BuildParallel()
+		Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, input)
+	require.NotNil(t, def)
 
-	assert.Len(t, input.Tasks, 2)
-	assert.Equal(t, "fail_fast", input.FailureStrategy)
-	assert.Equal(t, 5, input.MaxConcurrency)
+	assert.Equal(t, "test-parallel", def.Name)
+	assert.Equal(t, "function-test-parallel", def.TaskQueue)
 }
 
-func TestWorkflowBuilder_BuildSingle(t *testing.T) {
-	input, err := NewFunctionBuilder("single").
+func TestWorkflowBuilder_Build_Single(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("single").
+		Activity(dummyActivity).
+		Single().
 		Add(&payload.FunctionExecutionInput{Name: "only-one"}).
-		BuildSingle()
+		Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, input)
+	require.NotNil(t, def)
 
-	assert.Equal(t, "only-one", (*input).Name)
+	assert.Equal(t, "single", def.Name)
+	assert.Equal(t, "function-single", def.TaskQueue)
 }
 
-func TestWorkflowBuilder_Build_AutoSelectsPipeline(t *testing.T) {
-	result, err := NewFunctionBuilder("auto").
+func TestWorkflowBuilder_Build_CustomTaskQueue(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("custom").
+		TaskQueue("my-special-queue").
+		Activity(dummyActivity).
+		Pipeline().
 		Add(&payload.FunctionExecutionInput{Name: "step1"}).
 		Build()
 
 	require.NoError(t, err)
+	require.NotNil(t, def)
 
-	_, ok := result.(*workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
-	assert.True(t, ok, "Expected PipelineInput for non-parallel mode")
+	assert.Equal(t, "my-special-queue", def.TaskQueue)
 }
 
-func TestWorkflowBuilder_Build_AutoSelectsParallel(t *testing.T) {
-	result, err := NewFunctionBuilder("auto").
+func TestWorkflowBuilder_Build_RequiresName(t *testing.T) {
+	_, err := NewFunctionBuilder().
+		Activity(dummyActivity).
+		Pipeline().
 		Add(&payload.FunctionExecutionInput{Name: "step1"}).
-		Parallel(true).
 		Build()
 
-	require.NoError(t, err)
-
-	_, ok := result.(*workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
-	assert.True(t, ok, "Expected ParallelInput for parallel mode")
-}
-
-func TestWorkflowBuilder_EmptyError(t *testing.T) {
-	_, err := NewFunctionBuilder("empty").BuildPipeline()
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Name is required")
+}
+
+func TestWorkflowBuilder_Build_RequiresMode(t *testing.T) {
+	_, err := NewFunctionBuilder().
+		Name("x").
+		Activity(dummyActivity).
+		Add(&payload.FunctionExecutionInput{Name: "step1"}).
+		Build()
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), ".Pipeline()")
+}
+
+func TestWorkflowBuilder_Build_RequiresActivity(t *testing.T) {
+	_, err := NewFunctionBuilder().
+		Name("x").
+		Pipeline().
+		Add(&payload.FunctionExecutionInput{Name: "step1"}).
+		Build()
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Activity is required")
+}
+
+func TestWorkflowBuilder_Build_RequiresInputs(t *testing.T) {
+	_, err := NewFunctionBuilder().
+		Name("empty").
+		Activity(dummyActivity).
+		Pipeline().
+		Build()
+
+	assert.Error(t, err)
+}
+
+func TestWorkflowBuilder_NewInput_Pipeline(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("ni-pipeline").
+		Activity(dummyActivity).
+		Pipeline().
+		Add(&payload.FunctionExecutionInput{Name: "step1"}).
+		Build()
+
+	require.NoError(t, err)
+	in := def.NewInput()
+	require.NotNil(t, in)
+}
+
+func TestWorkflowBuilder_NewInput_Parallel(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("ni-parallel").
+		Activity(dummyActivity).
+		Parallel().
+		Add(&payload.FunctionExecutionInput{Name: "step1"}).
+		Build()
+
+	require.NoError(t, err)
+	in := def.NewInput()
+	require.NotNil(t, in)
+}
+
+func TestWorkflowBuilder_WithOptions(t *testing.T) {
+	def, err := NewFunctionBuilder().
+		Name("opts").
+		Activity(dummyActivity).
+		Parallel().
+		FailFast(true).
+		MaxConcurrency(10).
+		Add(&payload.FunctionExecutionInput{Name: "a"}).
+		Build()
+
+	require.NoError(t, err)
+	assert.Equal(t, "opts", def.Name)
+}
+
+func TestWorkflowBuilder_Count(t *testing.T) {
+	b := NewFunctionBuilder().Name("count")
+	assert.Equal(t, 0, b.Count())
+
+	b.Add(&payload.FunctionExecutionInput{Name: "a"})
+	assert.Equal(t, 1, b.Count())
 }
 
 func TestWorkflowBuilder_WithSource(t *testing.T) {
 	source := NewFunctionSource(payload.FunctionExecutionInput{Name: "from-source"})
 	fnInput := source.ToInput()
 
-	input, err := NewFunctionBuilder("with-source").
+	def, err := NewFunctionBuilder().
+		Name("with-source").
+		Activity(dummyActivity).
+		Single().
 		Add(&fnInput).
-		BuildSingle()
+		Build()
 
 	require.NoError(t, err)
-	assert.Equal(t, "from-source", (*input).Name)
-}
-
-func TestWorkflowBuilder_WithOptions(t *testing.T) {
-	b := NewFunctionBuilder("opts")
-	b.StopOnError(false).
-		Parallel(true).
-		FailFast(true).
-		MaxConcurrency(10)
-
-	b.Add(&payload.FunctionExecutionInput{Name: "a"})
-
-	input, err := b.BuildParallel()
-	require.NoError(t, err)
-
-	assert.Equal(t, "fail_fast", input.FailureStrategy)
-	assert.Equal(t, 10, input.MaxConcurrency)
-}
-
-func TestWorkflowBuilder_Count(t *testing.T) {
-	b := NewFunctionBuilder("count")
-	assert.Equal(t, 0, b.Count())
-
-	b.Add(&payload.FunctionExecutionInput{Name: "a"})
-	assert.Equal(t, 1, b.Count())
+	require.NotNil(t, def)
+	assert.Equal(t, "with-source", def.Name)
 }

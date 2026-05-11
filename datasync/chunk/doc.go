@@ -1,5 +1,5 @@
 // Package chunk provides Temporal-backed partitioned-sync workflows on top of
-// the datasync primitives (Mapper, Sink, FullJobRegistration).
+// the datasync primitives (Mapper, Sink, and job.Definition).
 //
 // A ChunkedSync walks a list of Partition[K] in order, running fetch -> map ->
 // write per partition. Optionally, a ProgressTracker[K] persists progress so
@@ -12,7 +12,7 @@
 //
 // Example (date-based, with tracker):
 //
-//	reg := chunk.NewDateChunkedSync[goers.Order, db.OrderRow]("orders-sync").
+//	def, err := chunk.NewDateChunkedSync[goers.Order, db.OrderRow]("orders-sync").
 //	    LookBack(7 * 24 * time.Hour).
 //	    ChunkSize(24 * time.Hour).
 //	    Timezone(time.UTC).
@@ -20,12 +20,12 @@
 //	    Mapper(myMapper).
 //	    Sink(myDBSink).
 //	    WithTracker(myPostgresTracker).
-//	    Schedule(15 * time.Minute).
+//	    ScheduleEvery(15 * time.Minute).
 //	    MaxPartitionsPerExecution(50).
 //	    Build()
 //
-//	// reg is a datasync/workflow.FullJobRegistration — register with a worker
-//	// alongside other jobs from datasync/workflow.
+//	// def is a *job.Definition — register with a worker via def.Register(w)
+//	// and start via def.Execute(ctx, client, input).
 //
 // The package does not provide tracker implementations. Define your own (e.g.,
 // Postgres-backed) and pass it via WithTracker.

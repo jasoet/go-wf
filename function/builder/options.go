@@ -19,10 +19,9 @@ func WithStopOnError[I workflow.TaskInput, O workflow.TaskOutput](stop bool) Bui
 }
 
 // WithParallelMode enables parallel execution mode.
-func WithParallelMode[I workflow.TaskInput, O workflow.TaskOutput](parallel bool) BuilderOption[I, O] {
-	return func(b *WorkflowBuilder[I, O]) {
-		b.parallelMode = parallel
-	}
+// Deprecated: call .Parallel() on the builder directly; this option is a no-op.
+func WithParallelMode[I workflow.TaskInput, O workflow.TaskOutput](_ bool) BuilderOption[I, O] {
+	return func(_ *WorkflowBuilder[I, O]) {}
 }
 
 // WithFailFast enables fail-fast behavior for parallel workflows.

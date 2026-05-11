@@ -57,14 +57,11 @@ func (s *UserSink) Write(_ context.Context, records []User) (datasync.WriteResul
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Define sync job with identity mapper
 	job := datasync.Job[User, User]{

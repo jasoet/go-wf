@@ -26,21 +26,18 @@ import (
 )
 
 // This example demonstrates the Builder API for constructing function workflows:
-// 1. Pipeline via builder with Add and BuildPipeline
-// 2. Parallel via builder with Parallel, MaxConcurrency, FailFast
+// 1. Pipeline via builder with Add and Pipeline().Build()
+// 2. Parallel via builder with Parallel(), MaxConcurrency, FailFast
 // 3. Using FunctionSource as a WorkflowSource
-// 4. Using WorkflowSourceFunc for dynamic input generation
+// 4. Using dynamic input generation
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Create function registry with ETL handlers
 	registry := fn.NewRegistry()
@@ -93,10 +90,12 @@ func main() {
 		}, nil
 	})
 
+	activityFn := fnactivity.NewExecuteFunctionActivity(registry)
+
 	// Create and start worker
 	w := worker.New(c, "function-tasks", worker.Options{})
 	fn.RegisterWorkflows(w)
-	fn.RegisterActivity(w, fnactivity.NewExecuteFunctionActivity(registry))
+	fn.RegisterActivity(w, activityFn)
 
 	go func() {
 		if err := w.Run(worker.InterruptCh()); err != nil {
@@ -111,30 +110,33 @@ func main() {
 
 	// Example 1: Pipeline via builder with Add
 	fmt.Println("\n=== Example 1: ETL Pipeline via Builder ===")
-	runETLPipeline(ctx, c)
+	runETLPipeline(ctx, c, activityFn)
 
 	time.Sleep(time.Second)
 
 	// Example 2: Parallel via builder with MaxConcurrency and FailFast
 	fmt.Println("\n=== Example 2: Parallel Pre-flight Checks ===")
-	runParallelChecks(ctx, c)
+	runParallelChecks(ctx, c, activityFn)
 
 	time.Sleep(time.Second)
 
 	// Example 3: Using FunctionSource as WorkflowSource
 	fmt.Println("\n=== Example 3: FunctionSource as WorkflowSource ===")
-	runFunctionSourceExample(ctx, c)
+	runFunctionSourceExample(ctx, c, activityFn)
 
 	time.Sleep(time.Second)
 
-	// Example 4: Using WorkflowSourceFunc
-	fmt.Println("\n=== Example 4: WorkflowSourceFunc ===")
-	runWorkflowSourceFuncExample(ctx, c)
+	// Example 4: Using dynamic inputs
+	fmt.Println("\n=== Example 4: Dynamic Inputs ===")
+	runDynamicInputExample(ctx, c, activityFn)
 }
 
 // Example 1: ETL Pipeline using Add for direct payload construction
-func runETLPipeline(ctx context.Context, c client.Client) {
-	pipelineInput, err := builder.NewFunctionBuilder("etl-pipeline").
+func runETLPipeline(ctx context.Context, c client.Client, activityFn any) {
+	def, err := builder.NewFunctionBuilder().
+		Name("etl-pipeline").
+		Activity(activityFn).
+		Pipeline().
 		Add(&payload.FunctionExecutionInput{
 			Name: "extract",
 			Args: map[string]string{
@@ -157,19 +159,22 @@ func runETLPipeline(ctx context.Context, c client.Client) {
 			},
 		}).
 		StopOnError(true).
-		BuildPipeline()
+		Build()
 	if err != nil {
 		log.Printf("Failed to build ETL pipeline: %v", err)
 		return
 	}
 
+	// Use the raw input factory to construct the workflow input.
+	pipelineInput := def.NewInput()
+
 	we, err := c.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "etl-pipeline-example",
-			TaskQueue: "function-tasks",
+			TaskQueue: def.TaskQueue,
 		},
 		workflow.FunctionPipelineWorkflow,
-		*pipelineInput,
+		pipelineInput,
 	)
 	if err != nil {
 		log.Printf("Failed to start pipeline: %v", err)
@@ -191,8 +196,11 @@ func runETLPipeline(ctx context.Context, c client.Client) {
 }
 
 // Example 2: Parallel pre-flight checks with concurrency control
-func runParallelChecks(ctx context.Context, c client.Client) {
-	parallelInput, err := builder.NewFunctionBuilder("pre-flight-checks").
+func runParallelChecks(ctx context.Context, c client.Client, activityFn any) {
+	def, err := builder.NewFunctionBuilder().
+		Name("pre-flight-checks").
+		Activity(activityFn).
+		Parallel().
 		Add(&payload.FunctionExecutionInput{
 			Name: "validate-config",
 			Args: map[string]string{"env": "production"},
@@ -209,22 +217,23 @@ func runParallelChecks(ctx context.Context, c client.Client) {
 			Name: "run-smoke-tests",
 			Args: map[string]string{"target": "https://staging.example.com"},
 		}).
-		Parallel(true).
 		MaxConcurrency(2).
 		FailFast(true).
-		BuildParallel()
+		Build()
 	if err != nil {
 		log.Printf("Failed to build parallel checks: %v", err)
 		return
 	}
 
+	parallelInput := def.NewInput()
+
 	we, err := c.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "pre-flight-checks-example",
-			TaskQueue: "function-tasks",
+			TaskQueue: def.TaskQueue,
 		},
 		workflow.ParallelFunctionsWorkflow,
-		*parallelInput,
+		parallelInput,
 	)
 	if err != nil {
 		log.Printf("Failed to start parallel checks: %v", err)
@@ -246,7 +255,7 @@ func runParallelChecks(ctx context.Context, c client.Client) {
 }
 
 // Example 3: Using FunctionSource to wrap inputs as WorkflowSource
-func runFunctionSourceExample(ctx context.Context, c client.Client) {
+func runFunctionSourceExample(ctx context.Context, c client.Client, activityFn any) {
 	// Create reusable FunctionSource components
 	extractInput := payload.FunctionExecutionInput{
 		Name: "extract",
@@ -272,24 +281,29 @@ func runFunctionSourceExample(ctx context.Context, c client.Client) {
 	}
 
 	// Compose pipeline from reusable inputs
-	pipelineInput, err := builder.NewFunctionBuilder("crm-sync").
+	def, err := builder.NewFunctionBuilder().
+		Name("crm-sync").
+		Activity(activityFn).
+		Pipeline().
 		Add(&extractInput).
 		Add(&transformInput).
 		Add(&loadInput).
 		StopOnError(true).
-		BuildPipeline()
+		Build()
 	if err != nil {
 		log.Printf("Failed to build CRM sync pipeline: %v", err)
 		return
 	}
 
+	pipelineInput := def.NewInput()
+
 	we, err := c.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "crm-sync-example",
-			TaskQueue: "function-tasks",
+			TaskQueue: def.TaskQueue,
 		},
 		workflow.FunctionPipelineWorkflow,
-		*pipelineInput,
+		pipelineInput,
 	)
 	if err != nil {
 		log.Printf("Failed to start CRM sync: %v", err)
@@ -306,13 +320,15 @@ func runFunctionSourceExample(ctx context.Context, c client.Client) {
 		result.TotalSuccess, result.TotalFailed, result.TotalDuration)
 }
 
-// Example 4: Using WorkflowSourceFunc for dynamic input generation
-func runWorkflowSourceFuncExample(ctx context.Context, c client.Client) {
+// Example 4: Using dynamic input generation
+func runDynamicInputExample(ctx context.Context, c client.Client, activityFn any) {
 	// Generate inputs dynamically at build time
 	environments := []string{"staging", "production"}
 
-	wb := builder.NewFunctionBuilder("dynamic-validation").
-		Parallel(true).
+	wb := builder.NewFunctionBuilder().
+		Name("dynamic-validation").
+		Activity(activityFn).
+		Parallel().
 		MaxConcurrency(3).
 		FailFast(false)
 
@@ -328,19 +344,21 @@ func runWorkflowSourceFuncExample(ctx context.Context, c client.Client) {
 		wb.Add(&input)
 	}
 
-	parallelInput, err := wb.BuildParallel()
+	def, err := wb.Build()
 	if err != nil {
 		log.Printf("Failed to build dynamic validation: %v", err)
 		return
 	}
 
+	parallelInput := def.NewInput()
+
 	we, err := c.ExecuteWorkflow(ctx,
 		client.StartWorkflowOptions{
 			ID:        "dynamic-validation-example",
-			TaskQueue: "function-tasks",
+			TaskQueue: def.TaskQueue,
 		},
 		workflow.ParallelFunctionsWorkflow,
-		*parallelInput,
+		parallelInput,
 	)
 	if err != nil {
 		log.Printf("Failed to start dynamic validation: %v", err)

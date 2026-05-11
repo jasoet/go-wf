@@ -15,7 +15,7 @@ func TestDateChunkedSync_Build_ConfiguresDatePartitioner(t *testing.T) {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	require.NoError(t, err)
 
-	reg := NewDateChunkedSync[string, string]("date-job").
+	def, buildErr := NewDateChunkedSync[string, string]("date-job").
 		LookBack(48 * time.Hour).
 		ChunkSize(24 * time.Hour).
 		Timezone(loc).
@@ -24,12 +24,14 @@ func TestDateChunkedSync_Build_ConfiguresDatePartitioner(t *testing.T) {
 		}).
 		Mapper(datasync.IdentityMapper[string]()).
 		Sink(&stubSink{name: "sink"}).
-		Schedule(15 * time.Minute).
+		ScheduleEvery(15 * time.Minute).
 		Build()
 
-	assert.Equal(t, "date-job", reg.Name)
-	assert.Equal(t, "sync-date-job", reg.TaskQueue)
-	assert.Equal(t, 15*time.Minute, reg.Schedule)
+	require.NoError(t, buildErr)
+	assert.Equal(t, "date-job", def.Name)
+	assert.Equal(t, "sync-date-job", def.TaskQueue)
+	require.NotNil(t, def.Schedule)
+	assert.Equal(t, 15*time.Minute, def.Schedule.Interval)
 }
 
 func TestDateChunkedSync_Fetcher_ConvertsKeysToTime(t *testing.T) {

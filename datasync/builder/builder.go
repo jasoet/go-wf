@@ -1,10 +1,17 @@
 package builder
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/jasoet/pkg/v2/temporal/job"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+
 	"github.com/jasoet/go-wf/datasync"
+	"github.com/jasoet/go-wf/datasync/payload"
+	datasyncwf "github.com/jasoet/go-wf/datasync/workflow"
 	"github.com/jasoet/go-wf/workflow/store"
 )
 
@@ -102,25 +109,26 @@ func (b *SyncJobBuilder[T, U]) WithStore(s store.RawStore) *SyncJobBuilder[T, U]
 	return b
 }
 
-// Build validates and returns the Job.
-func (b *SyncJobBuilder[T, U]) Build() (datasync.Job[T, U], error) {
+// Build validates the configuration and returns a *job.Definition ready for
+// registration with a Temporal worker and execution via the job registry.
+func (b *SyncJobBuilder[T, U]) Build() (*job.Definition, error) {
 	if b.name == "" {
-		return datasync.Job[T, U]{}, fmt.Errorf("job name is required")
+		return nil, fmt.Errorf("job name is required")
 	}
 	if b.source == nil {
-		return datasync.Job[T, U]{}, fmt.Errorf("source is required")
+		return nil, fmt.Errorf("source is required")
 	}
 	if b.mapper == nil {
-		return datasync.Job[T, U]{}, fmt.Errorf("mapper is required")
+		return nil, fmt.Errorf("mapper is required")
 	}
 	if b.sink == nil {
-		return datasync.Job[T, U]{}, fmt.Errorf("sink is required")
+		return nil, fmt.Errorf("sink is required")
 	}
 	if b.schedule <= 0 {
-		return datasync.Job[T, U]{}, fmt.Errorf("schedule must be positive")
+		return nil, fmt.Errorf("schedule must be positive")
 	}
 
-	return datasync.Job[T, U]{
+	j := datasync.Job[T, U]{
 		Name:                    b.name,
 		Source:                  b.source,
 		Mapper:                  b.mapper,
@@ -134,5 +142,14 @@ func (b *SyncJobBuilder[T, U]) Build() (datasync.Job[T, U], error) {
 		RetryBackoffCoefficient: b.retryBackoffCoefficient,
 		RetryMaxInterval:        b.retryMaxInterval,
 		Store:                   b.store,
-	}, nil
+	}
+
+	return job.New(j.Name, datasyncwf.TaskQueue(j.Name),
+		job.WithRegister(func(w worker.Worker) { datasyncwf.RegisterJob(w, j) }),
+		job.WithExecute(func(ctx context.Context, c client.Client, opts client.StartWorkflowOptions, in any) (client.WorkflowRun, error) {
+			return c.ExecuteWorkflow(ctx, opts, j.Name, in)
+		}),
+		job.WithNewInput(func() any { return &payload.SyncExecutionInput{} }),
+		job.WithSchedule(&job.ScheduleSpec{Interval: b.schedule}),
+	)
 }

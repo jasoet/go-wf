@@ -119,14 +119,11 @@ func main() {
 	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
 		config.HostPort = hostPort
 	}
-	c, closer, err := temporal.NewClient(config)
+	c, err := temporal.NewClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	log.Println("Starting DataSync Temporal Worker...")
 

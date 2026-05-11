@@ -37,14 +37,11 @@ func main() {
 	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
 		config.HostPort = hostPort
 	}
-	c, closer, err := pkgtemporal.NewClient(config)
+	c, err := pkgtemporal.NewClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	ctx := context.Background()
 

@@ -24,7 +24,7 @@ func (m *mockSink[U]) Write(_ context.Context, _ []U) (datasync.WriteResult, err
 }
 
 func TestSyncJobBuilder_Build_Success(t *testing.T) {
-	job, err := NewSyncJobBuilder[int, int]("test-job").
+	def, err := NewSyncJobBuilder[int, int]("test-job").
 		WithSource(&mockSource[int]{name: "src"}).
 		WithMapper(datasync.IdentityMapper[int]()).
 		WithSink(&mockSink[int]{name: "dst"}).
@@ -35,10 +35,10 @@ func TestSyncJobBuilder_Build_Success(t *testing.T) {
 		Build()
 
 	require.NoError(t, err)
-	assert.Equal(t, "test-job", job.Name)
-	assert.Equal(t, 5*time.Minute, job.Schedule)
-	assert.Equal(t, 10*time.Minute, job.ActivityTimeout)
-	assert.Equal(t, int32(5), job.MaxRetries)
+	assert.Equal(t, "test-job", def.Name)
+	assert.Equal(t, "sync-test-job", def.TaskQueue)
+	require.NotNil(t, def.Schedule)
+	assert.Equal(t, 5*time.Minute, def.Schedule.Interval)
 }
 
 func TestSyncJobBuilder_Build_MissingName(t *testing.T) {

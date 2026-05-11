@@ -29,7 +29,8 @@ func BuildTestDeploy(buildImage, testImage, deployImage string) (*payload.Pipeli
 	deploy := template.NewContainer("deploy", deployImage,
 		template.WithCommand("sh", "-c", "echo 'Deploying...'"))
 
-	return builder.NewWorkflowBuilder("ci-cd").
+	return builder.NewWorkflowBuilder().
+		Name("ci-cd").
 		Add(build).
 		Add(test).
 		Add(deploy).
@@ -59,7 +60,8 @@ func BuildTestDeployWithHealthCheck(buildImage, deployImage, healthURL string) (
 
 	healthCheck := template.NewHTTPHealthCheck("health-check", healthURL)
 
-	return builder.NewWorkflowBuilder("ci-cd-health").
+	return builder.NewWorkflowBuilder().
+		Name("ci-cd-health").
 		Add(build).
 		Add(test).
 		Add(deploy).
@@ -89,7 +91,8 @@ func BuildTestDeployWithNotification(buildImage, deployImage, webhookURL, messag
 
 	notify := template.NewHTTPWebhook("notify", webhookURL, message)
 
-	wb := builder.NewWorkflowBuilder("ci-cd-notify").
+	wb := builder.NewWorkflowBuilder().
+		Name("ci-cd-notify").
 		Add(build).
 		Add(test).
 		Add(deploy).
@@ -109,7 +112,7 @@ func BuildTestDeployWithNotification(buildImage, deployImage, webhookURL, messag
 //	    "deployer:v1",
 //	    []string{"staging", "production"})
 func MultiEnvironmentDeploy(deployImage string, environments []string) (*payload.PipelineInput, error) {
-	wb := builder.NewWorkflowBuilder("multi-env-deploy")
+	wb := builder.NewWorkflowBuilder().Name("multi-env-deploy")
 
 	for _, env := range environments {
 		deploy := template.NewContainer("deploy-"+env, deployImage,
