@@ -20,12 +20,11 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			name: "default configuration",
 			opts: nil,
 			want: &WorkflowBuilder{
-				name:           "test",
 				containers:     []payload.ContainerExecutionInput{},
 				exitHandlers:   []payload.ContainerExecutionInput{},
 				stopOnError:    true,
 				cleanup:        false,
-				parallelMode:   false,
+				mode:           modeUnset,
 				failFast:       false,
 				maxConcurrency: 0,
 			},
@@ -34,17 +33,16 @@ func TestNewWorkflowBuilder(t *testing.T) {
 			name: "with options",
 			opts: []BuilderOption{
 				WithStopOnError(false),
-				WithParallelMode(true),
+				WithParallelMode(),
 				WithFailFast(true),
 				WithMaxConcurrency(5),
 			},
 			want: &WorkflowBuilder{
-				name:           "test",
 				containers:     []payload.ContainerExecutionInput{},
 				exitHandlers:   []payload.ContainerExecutionInput{},
 				stopOnError:    false,
 				cleanup:        false,
-				parallelMode:   true,
+				mode:           modeParallel,
 				failFast:       true,
 				maxConcurrency: 5,
 			},
@@ -55,12 +53,11 @@ func TestNewWorkflowBuilder(t *testing.T) {
 				WithCleanup(true),
 			},
 			want: &WorkflowBuilder{
-				name:         "test",
 				containers:   []payload.ContainerExecutionInput{},
 				exitHandlers: []payload.ContainerExecutionInput{},
 				stopOnError:  true,
 				cleanup:      true,
-				parallelMode: false,
+				mode:         modeUnset,
 				failFast:     false,
 			},
 		},
@@ -68,11 +65,10 @@ func TestNewWorkflowBuilder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewWorkflowBuilder("test", tt.opts...)
-			assert.Equal(t, tt.want.name, got.name)
+			got := NewWorkflowBuilder(tt.opts...)
 			assert.Equal(t, tt.want.stopOnError, got.stopOnError)
 			assert.Equal(t, tt.want.cleanup, got.cleanup)
-			assert.Equal(t, tt.want.parallelMode, got.parallelMode)
+			assert.Equal(t, tt.want.mode, got.mode)
 			assert.Equal(t, tt.want.failFast, got.failFast)
 			assert.Equal(t, tt.want.maxConcurrency, got.maxConcurrency)
 			assert.NotNil(t, got.containers)
@@ -83,7 +79,7 @@ func TestNewWorkflowBuilder(t *testing.T) {
 
 func TestBuilderOptions_GlobalTimeoutAndAutoRemove(t *testing.T) {
 	t.Run("WithGlobalTimeout applies to existing containers", func(t *testing.T) {
-		builder := NewWorkflowBuilder("test").
+		builder := NewWorkflowBuilder().
 			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 			AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 
@@ -95,7 +91,7 @@ func TestBuilderOptions_GlobalTimeoutAndAutoRemove(t *testing.T) {
 	})
 
 	t.Run("WithGlobalAutoRemove applies to existing containers", func(t *testing.T) {
-		builder := NewWorkflowBuilder("test").
+		builder := NewWorkflowBuilder().
 			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 			AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 
@@ -146,7 +142,7 @@ func TestWorkflowBuilder_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewWorkflowBuilder("test")
+			builder := NewWorkflowBuilder()
 			for _, source := range tt.sources {
 				builder.Add(source)
 			}
@@ -163,7 +159,7 @@ func TestWorkflowBuilder_Add(t *testing.T) {
 }
 
 func TestWorkflowBuilder_AddInput(t *testing.T) {
-	builder := NewWorkflowBuilder("test")
+	builder := NewWorkflowBuilder()
 
 	input1 := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
@@ -182,7 +178,7 @@ func TestWorkflowBuilder_AddInput(t *testing.T) {
 }
 
 func TestWorkflowBuilder_AddExitHandler(t *testing.T) {
-	builder := NewWorkflowBuilder("test")
+	builder := NewWorkflowBuilder()
 
 	cleanup := NewContainerSource(payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
@@ -200,7 +196,7 @@ func TestWorkflowBuilder_AddExitHandler(t *testing.T) {
 }
 
 func TestWorkflowBuilder_AddExitHandlerInput(t *testing.T) {
-	builder := NewWorkflowBuilder("test")
+	builder := NewWorkflowBuilder()
 
 	cleanup := payload.ContainerExecutionInput{
 		Image:   "alpine:latest",
@@ -219,7 +215,7 @@ func TestWorkflowBuilder_AddExitHandlerInput(t *testing.T) {
 	assert.Equal(t, "curlimages/curl:latest", builder.exitHandlers[1].Image)
 }
 
-func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
+func TestWorkflowBuilder_buildPipelineInput(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupFunc   func() *WorkflowBuilder
@@ -229,7 +225,7 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 		{
 			name: "valid pipeline",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").
+				return NewWorkflowBuilder().
 					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 					AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 			},
@@ -243,7 +239,7 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 		{
 			name: "empty pipeline",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test")
+				return NewWorkflowBuilder()
 			},
 			expectError: true,
 			validate:    nil,
@@ -251,7 +247,7 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 		{
 			name: "pipeline with custom settings",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").
+				return NewWorkflowBuilder().
 					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 					StopOnError(false).
 					Cleanup(true)
@@ -267,7 +263,7 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := tt.setupFunc()
-			input, err := builder.BuildPipeline()
+			input, err := builder.buildPipelineInput()
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -283,7 +279,7 @@ func TestWorkflowBuilder_BuildPipeline(t *testing.T) {
 	}
 }
 
-func TestWorkflowBuilder_BuildParallel(t *testing.T) {
+func TestWorkflowBuilder_buildParallelInput(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupFunc   func() *WorkflowBuilder
@@ -293,8 +289,7 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 		{
 			name: "valid parallel",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").
-					Parallel(true).
+				return NewWorkflowBuilder().
 					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 					AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 			},
@@ -308,8 +303,7 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 		{
 			name: "parallel with fail fast",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").
-					Parallel(true).
+				return NewWorkflowBuilder().
 					FailFast(true).
 					MaxConcurrency(5).
 					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
@@ -323,7 +317,7 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 		{
 			name: "empty parallel",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").Parallel(true)
+				return NewWorkflowBuilder()
 			},
 			expectError: true,
 			validate:    nil,
@@ -333,7 +327,7 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := tt.setupFunc()
-			input, err := builder.BuildParallel()
+			input, err := builder.buildParallelInput()
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -350,33 +344,97 @@ func TestWorkflowBuilder_BuildParallel(t *testing.T) {
 }
 
 func TestWorkflowBuilder_Build(t *testing.T) {
-	t.Run("builds pipeline by default", func(t *testing.T) {
-		builder := NewWorkflowBuilder("test").
-			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
-
-		result, err := builder.Build()
+	t.Run("pipeline mode produces definition", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("daily-deploy").
+			Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
 		require.NoError(t, err)
-
-		pipelineInput, ok := result.(*payload.PipelineInput)
-		assert.True(t, ok, "Expected PipelineInput")
-		assert.NotNil(t, pipelineInput)
+		assert.Equal(t, "daily-deploy", def.Name)
+		assert.Equal(t, "container-daily-deploy", def.TaskQueue)
 	})
 
-	t.Run("builds parallel when enabled", func(t *testing.T) {
-		builder := NewWorkflowBuilder("test").
-			Parallel(true).
-			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
-
-		result, err := builder.Build()
+	t.Run("parallel mode produces definition", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("parallel-job").
+			Parallel().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
 		require.NoError(t, err)
+		assert.Equal(t, "parallel-job", def.Name)
+		assert.Equal(t, "container-parallel-job", def.TaskQueue)
+	})
 
-		parallelInput, ok := result.(*payload.ParallelInput)
-		assert.True(t, ok, "Expected ParallelInput")
-		assert.NotNil(t, parallelInput)
+	t.Run("single mode produces definition", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("single-job").
+			Single().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		require.NoError(t, err)
+		assert.Equal(t, "single-job", def.Name)
+		assert.Equal(t, "container-single-job", def.TaskQueue)
+	})
+
+	t.Run("custom task queue is used", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("my-job").
+			TaskQueue("custom-queue").
+			Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		require.NoError(t, err)
+		assert.Equal(t, "custom-queue", def.TaskQueue)
+	})
+
+	t.Run("requires name", func(t *testing.T) {
+		_, err := NewWorkflowBuilder().
+			Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Name is required")
+	})
+
+	t.Run("requires mode", func(t *testing.T) {
+		_, err := NewWorkflowBuilder().
+			Name("x").
+			AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Pipeline()")
+	})
+
+	t.Run("pipeline mode validates containers", func(t *testing.T) {
+		_, err := NewWorkflowBuilder().
+			Name("empty-pipeline").
+			Pipeline().
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one container")
+	})
+
+	t.Run("parallel mode validates containers", func(t *testing.T) {
+		_, err := NewWorkflowBuilder().
+			Name("empty-parallel").
+			Parallel().
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one container")
+	})
+
+	t.Run("single mode validates containers", func(t *testing.T) {
+		_, err := NewWorkflowBuilder().
+			Name("empty-single").
+			Single().
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one container")
 	})
 }
 
-func TestWorkflowBuilder_BuildSingle(t *testing.T) {
+func TestWorkflowBuilder_buildSingleInput(t *testing.T) {
 	tests := []struct {
 		name        string
 		setupFunc   func() *WorkflowBuilder
@@ -385,7 +443,7 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 		{
 			name: "valid single",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").
+				return NewWorkflowBuilder().
 					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"})
 			},
 			expectError: false,
@@ -393,14 +451,14 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 		{
 			name: "empty single",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test")
+				return NewWorkflowBuilder()
 			},
 			expectError: true,
 		},
 		{
 			name: "multiple containers returns first",
 			setupFunc: func() *WorkflowBuilder {
-				return NewWorkflowBuilder("test").
+				return NewWorkflowBuilder().
 					AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 					AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"})
 			},
@@ -411,7 +469,7 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := tt.setupFunc()
-			input, err := builder.BuildSingle()
+			input, err := builder.buildSingleInput()
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -426,7 +484,7 @@ func TestWorkflowBuilder_BuildSingle(t *testing.T) {
 }
 
 func TestWorkflowBuilder_WithTimeout(t *testing.T) {
-	builder := NewWorkflowBuilder("test").
+	builder := NewWorkflowBuilder().
 		AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 		AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"}).
 		WithTimeout(5 * time.Minute)
@@ -436,7 +494,7 @@ func TestWorkflowBuilder_WithTimeout(t *testing.T) {
 }
 
 func TestWorkflowBuilder_WithAutoRemove(t *testing.T) {
-	builder := NewWorkflowBuilder("test").
+	builder := NewWorkflowBuilder().
 		AddInput(payload.ContainerExecutionInput{Image: "alpine:latest"}).
 		AddInput(payload.ContainerExecutionInput{Image: "busybox:latest"}).
 		WithAutoRemove(true)
@@ -446,8 +504,10 @@ func TestWorkflowBuilder_WithAutoRemove(t *testing.T) {
 }
 
 func TestWorkflowBuilder_ChainedCalls(t *testing.T) {
-	// Test fluent API with chained calls
-	input, err := NewWorkflowBuilder("test").
+	// Test fluent API with chained calls producing a job.Definition
+	def, err := NewWorkflowBuilder().
+		Name("cicd-pipeline").
+		Pipeline().
 		AddInput(payload.ContainerExecutionInput{Image: "golang:1.25", Name: "build"}).
 		AddInput(payload.ContainerExecutionInput{Image: "golang:1.25", Name: "test"}).
 		AddInput(payload.ContainerExecutionInput{Image: "deployer:v1", Name: "deploy"}).
@@ -455,15 +515,12 @@ func TestWorkflowBuilder_ChainedCalls(t *testing.T) {
 		Cleanup(true).
 		WithTimeout(10 * time.Minute).
 		WithAutoRemove(true).
-		BuildPipeline()
+		Build()
 
 	require.NoError(t, err)
-	assert.NotNil(t, input)
-	assert.Len(t, input.Containers, 3)
-	assert.True(t, input.StopOnError)
-	assert.True(t, input.Cleanup)
-	assert.Equal(t, 10*time.Minute, input.Containers[0].RunTimeout)
-	assert.True(t, input.Containers[0].AutoRemove)
+	assert.NotNil(t, def)
+	assert.Equal(t, "cicd-pipeline", def.Name)
+	assert.Equal(t, "container-cicd-pipeline", def.TaskQueue)
 }
 
 func TestContainerSource(t *testing.T) {

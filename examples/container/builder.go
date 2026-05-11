@@ -27,14 +27,11 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Create and start worker
 	w := worker.New(c, "container-tasks", worker.Options{})
@@ -86,7 +83,9 @@ func main() {
 
 // Example 1: CI/CD Pipeline using Builder
 func runCICDPipeline(c client.Client) {
-	input, err := builder.NewWorkflowBuilder("cicd-pipeline").
+	input, err := builder.NewWorkflowBuilder().
+		Name("cicd-pipeline").
+		Pipeline().
 		Add(template.NewContainer("checkout", "alpine/git",
 			template.WithCommand("sh", "-c", "echo 'Cloning repository...' && sleep 1"))).
 		Add(template.NewBashScript("build",
@@ -138,8 +137,9 @@ func runParallelProcessing(c client.Client) {
 	// Process multiple data files in parallel
 	dataFiles := []string{"data-001.csv", "data-002.csv", "data-003.csv", "data-004.csv"}
 
-	wb := builder.NewWorkflowBuilder("parallel-processing").
-		Parallel(true).
+	wb := builder.NewWorkflowBuilder().
+		Name("parallel-processing").
+		Parallel().
 		MaxConcurrency(2). // Process 2 at a time
 		FailFast(false)    // Continue even if some fail
 
@@ -181,7 +181,9 @@ print("%s processed successfully")
 
 // Example 3: Multi-Language Script Templates
 func runScriptExamples(c client.Client) {
-	input, err := builder.NewWorkflowBuilder("scripts-demo").
+	input, err := builder.NewWorkflowBuilder().
+		Name("scripts-demo").
+		Pipeline().
 		Add(template.NewBashScript("bash-script",
 			`echo "Running Bash script"
 			date
@@ -220,7 +222,9 @@ print(f"Platform: {platform.system()}")`)).
 
 // Example 4: HTTP Operations (Health Checks & Webhooks)
 func runHTTPExamples(c client.Client) {
-	input, err := builder.NewWorkflowBuilder("http-demo").
+	input, err := builder.NewWorkflowBuilder().
+		Name("http-demo").
+		Pipeline().
 		Add(template.NewHTTPHealthCheck("check-google",
 			"https://www.google.com",
 			template.WithHTTPExpectedStatus(200))).
@@ -256,7 +260,7 @@ func runLoopPattern(c client.Client) {
 	// Simulate Argo's withItems by programmatically creating containers
 	environments := []string{"dev", "staging", "production"}
 
-	wb := builder.NewWorkflowBuilder("deploy-loop")
+	wb := builder.NewWorkflowBuilder().Name("deploy-loop")
 
 	// Create a deployment container for each environment
 	for _, env := range environments {
@@ -304,7 +308,9 @@ func runExitHandlers(c client.Client) {
 		`echo "Workflow completed"
 		echo "Sending notification..."`)
 
-	input, err := builder.NewWorkflowBuilder("exit-handler-demo").
+	input, err := builder.NewWorkflowBuilder().
+		Name("exit-handler-demo").
+		Pipeline().
 		Add(mainTask).
 		AddExitHandler(cleanup).
 		AddExitHandler(notify).

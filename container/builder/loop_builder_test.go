@@ -422,3 +422,69 @@ func TestParameterizedLoopBuilder_ChainedCalls(t *testing.T) {
 	assert.Equal(t, 6, input.MaxConcurrency)
 	assert.Equal(t, "fail_fast", input.FailureStrategy)
 }
+
+func TestLoopBuilder_Build(t *testing.T) {
+	t.Run("loop mode produces definition", func(t *testing.T) {
+		def, err := NewLoopBuilder([]string{"item1", "item2"}).
+			Name("batch-processor").
+			WithTemplate(payload.ContainerExecutionInput{
+				Image:   "processor:v1",
+				Command: []string{"process", "{{item}}"},
+			}).
+			Build()
+		require.NoError(t, err)
+		assert.Equal(t, "batch-processor", def.Name)
+		assert.Equal(t, "container-batch-processor", def.TaskQueue)
+	})
+
+	t.Run("parameterized loop mode produces definition", func(t *testing.T) {
+		def, err := NewParameterizedLoopBuilder(map[string][]string{
+			"env": {"dev", "prod"},
+		}).
+			Name("matrix-deploy").
+			WithTemplate(payload.ContainerExecutionInput{
+				Image:   "deployer:v1",
+				Command: []string{"deploy", "--env={{.env}}"},
+			}).
+			Build()
+		require.NoError(t, err)
+		assert.Equal(t, "matrix-deploy", def.Name)
+		assert.Equal(t, "container-matrix-deploy", def.TaskQueue)
+	})
+
+	t.Run("custom task queue is used", func(t *testing.T) {
+		def, err := NewLoopBuilder([]string{"item1"}).
+			Name("my-loop").
+			TaskQueue("custom-loop-queue").
+			WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		require.NoError(t, err)
+		assert.Equal(t, "custom-loop-queue", def.TaskQueue)
+	})
+
+	t.Run("requires name", func(t *testing.T) {
+		_, err := NewLoopBuilder([]string{"item1"}).
+			WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Name is required")
+	})
+
+	t.Run("loop validates items", func(t *testing.T) {
+		_, err := NewLoopBuilder([]string{}).
+			Name("empty-loop").
+			WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one item")
+	})
+
+	t.Run("parameterized loop validates parameters", func(t *testing.T) {
+		_, err := NewParameterizedLoopBuilder(map[string][]string{}).
+			Name("empty-param-loop").
+			WithTemplate(payload.ContainerExecutionInput{Image: "alpine:latest"}).
+			Build()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one parameter")
+	})
+}

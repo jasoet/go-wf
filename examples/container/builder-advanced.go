@@ -1,6 +1,6 @@
 //go:build example
 
-// This example demonstrates advanced builder APIs: BuildSingle, auto-select Build,
+// This example demonstrates advanced builder APIs: BuildSingle, mode-based Build,
 // Cleanup between steps, parameterized loops, Go script templates, and webhook templates.
 //
 // Run: task example:container -- builder-advanced.go
@@ -26,14 +26,11 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Create and start worker
 	w := worker.New(c, "container-tasks", worker.Options{})
@@ -48,15 +45,15 @@ func main() {
 
 	time.Sleep(time.Second)
 
-	// Example 1: BuildSingle with constructor options
+	// Example 1: Single mode with constructor options
 	log.Println("=== Example 1: Single Container Builder ===")
 	runSingleContainerBuilder(c)
 
 	time.Sleep(2 * time.Second)
 
-	// Example 2: Build() auto-select with ContainerSource and AddInput
-	log.Println("\n=== Example 2: Auto-Select Builder ===")
-	runAutoSelectBuilder(c)
+	// Example 2: Build() producing *job.Definition
+	log.Println("\n=== Example 2: Build returning job.Definition ===")
+	runBuildDefinition(c)
 
 	time.Sleep(2 * time.Second)
 
@@ -77,15 +74,17 @@ func main() {
 	runAdditionalTemplates(c)
 }
 
-// runSingleContainerBuilder demonstrates BuildSingle with constructor options:
+// runSingleContainerBuilder demonstrates Single() mode with constructor options:
 // WithStopOnError, WithGlobalAutoRemove, WithGlobalTimeout.
 func runSingleContainerBuilder(c client.Client) {
-	// Use constructor options to pre-configure the builder
-	singleInput, err := builder.NewWorkflowBuilder("single-container",
+	// Use constructor options to pre-configure the builder, then select Single mode
+	singleInput, err := builder.NewWorkflowBuilder(
 		builder.WithStopOnError(true),
 		builder.WithGlobalAutoRemove(true),
 		builder.WithGlobalTimeout(3*time.Minute),
 	).
+		Name("single-container").
+		Single().
 		Add(template.NewContainer("alpine-task", "alpine:latest",
 			template.WithCommand("sh", "-c", "echo 'Running single container task' && sleep 1 && echo 'Done'"),
 			template.WithEnv("TASK_ID", "single-001"),
@@ -96,7 +95,7 @@ func runSingleContainerBuilder(c client.Client) {
 		return
 	}
 
-	// ExecuteContainerWorkflow is used for BuildSingle results
+	// ExecuteContainerWorkflow is used for Single results
 	we, err := c.ExecuteWorkflow(context.Background(),
 		client.StartWorkflowOptions{
 			ID:        fmt.Sprintf("single-builder-%d", time.Now().UnixNano()),
@@ -119,9 +118,9 @@ func runSingleContainerBuilder(c client.Client) {
 	log.Printf("Single container completed: ExitCode=%d, Stdout=%s", result.ExitCode, result.Stdout)
 }
 
-// runAutoSelectBuilder demonstrates Build() auto-select, ContainerSource,
-// NewContainerSource, AddInput, WithParallelMode, and WithMaxConcurrency.
-func runAutoSelectBuilder(c client.Client) {
+// runBuildDefinition demonstrates Build() returning a *job.Definition, along with
+// ContainerSource, AddInput, and Parallel mode.
+func runBuildDefinition(c client.Client) {
 	// Create a raw ContainerExecutionInput and wrap it with NewContainerSource
 	rawInput := payload.ContainerExecutionInput{
 		Image:      "alpine:latest",
@@ -131,50 +130,38 @@ func runAutoSelectBuilder(c client.Client) {
 	}
 	source := builder.NewContainerSource(rawInput)
 
-	// Use WithParallelMode and WithMaxConcurrency as constructor options
-	// Build() will auto-select ParallelInput because parallel mode is true
-	wb := builder.NewWorkflowBuilder("auto-select-parallel",
-		builder.WithParallelMode(true),
+	// Use Parallel() mode and MaxConcurrency
+	// Build() returns a *job.Definition — the workflow type is baked in
+	def, err := builder.NewWorkflowBuilder(
+		builder.WithParallelMode(),
 		builder.WithMaxConcurrency(2),
-	)
-
-	// Add via ContainerSource (implements WorkflowSource)
-	wb.Add(source)
-
-	// Add via AddInput (raw payload)
-	wb.AddInput(payload.ContainerExecutionInput{
-		Image:      "alpine:latest",
-		Command:    []string{"sh", "-c", "echo 'Task from AddInput' && sleep 1"},
-		AutoRemove: true,
-		Name:       "direct-input-task",
-	})
-
-	// Add another container via template
-	wb.Add(template.NewContainer("template-task", "alpine:latest",
-		template.WithCommand("sh", "-c", "echo 'Task from template' && sleep 1"),
-	))
-
-	// Build() auto-selects based on parallel mode
-	result, err := wb.Build()
+	).
+		Name("auto-select-parallel").
+		Add(source).
+		AddInput(payload.ContainerExecutionInput{
+			Image:      "alpine:latest",
+			Command:    []string{"sh", "-c", "echo 'Task from AddInput' && sleep 1"},
+			AutoRemove: true,
+			Name:       "direct-input-task",
+		}).
+		Add(template.NewContainer("template-task", "alpine:latest",
+			template.WithCommand("sh", "-c", "echo 'Task from template' && sleep 1"),
+		)).
+		Build()
 	if err != nil {
-		log.Printf("Failed to build: %v", err)
+		log.Printf("Failed to build definition: %v", err)
 		return
 	}
 
-	// When ParallelMode is true, cast to *payload.ParallelInput
-	parallelInput, ok := result.(*payload.ParallelInput)
-	if !ok {
-		log.Printf("Expected *payload.ParallelInput, got %T", result)
-		return
-	}
-
+	// Execute using the definition's NewInput
+	input := def.NewInput()
 	we, err := c.ExecuteWorkflow(context.Background(),
 		client.StartWorkflowOptions{
-			ID:        fmt.Sprintf("auto-select-parallel-%d", time.Now().UnixNano()),
-			TaskQueue: "container-tasks",
+			ID:        fmt.Sprintf("build-definition-%d", time.Now().UnixNano()),
+			TaskQueue: def.TaskQueue,
 		},
 		workflow.ParallelContainersWorkflow,
-		*parallelInput,
+		input,
 	)
 	if err != nil {
 		log.Printf("Failed to start workflow: %v", err)
@@ -187,7 +174,7 @@ func runAutoSelectBuilder(c client.Client) {
 		return
 	}
 
-	log.Printf("Auto-select parallel completed: Success=%d, Failed=%d, Duration=%v",
+	log.Printf("Build definition parallel completed: Success=%d, Failed=%d, Duration=%v",
 		output.TotalSuccess, output.TotalFailed, output.TotalDuration)
 }
 
@@ -195,9 +182,11 @@ func runAutoSelectBuilder(c client.Client) {
 // WithVolume, WithPorts, WithLabel, WithWaitForLog, WithWaitForPort, and WithCleanup.
 func runCleanupPipeline(c client.Client) {
 	// Use WithCleanup as a constructor option
-	wb := builder.NewWorkflowBuilder("cleanup-pipeline",
+	wb := builder.NewWorkflowBuilder(
 		builder.WithCleanup(true),
-	)
+	).
+		Name("cleanup-pipeline").
+		Pipeline()
 
 	// Container with volume, ports, and label options
 	wb.Add(template.NewContainer("app-server", "alpine:latest",
@@ -367,7 +356,9 @@ func main() {
 		template.WithAutoRemove(true),
 	)
 
-	input, err := builder.NewWorkflowBuilder("additional-templates").
+	input, err := builder.NewWorkflowBuilder().
+		Name("additional-templates").
+		Pipeline().
 		Add(goScript).
 		Add(webhook).
 		Add(advancedContainer).

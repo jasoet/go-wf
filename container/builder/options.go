@@ -27,14 +27,36 @@ func WithCleanup(cleanup bool) BuilderOption {
 	}
 }
 
-// WithParallelMode enables parallel execution mode.
+// WithParallelMode selects parallel execution mode.
 //
 // Example:
 //
-//	builder := NewWorkflowBuilder("test", WithParallelMode(true))
-func WithParallelMode(parallel bool) BuilderOption {
+//	builder := NewWorkflowBuilder(WithParallelMode()).Name("test")
+func WithParallelMode() BuilderOption {
 	return func(b *WorkflowBuilder) {
-		b.parallelMode = parallel
+		b.mode = modeParallel
+	}
+}
+
+// WithPipelineMode selects sequential pipeline execution mode.
+//
+// Example:
+//
+//	builder := NewWorkflowBuilder(WithPipelineMode()).Name("test")
+func WithPipelineMode() BuilderOption {
+	return func(b *WorkflowBuilder) {
+		b.mode = modePipeline
+	}
+}
+
+// WithSingleMode selects single-container execution mode.
+//
+// Example:
+//
+//	builder := NewWorkflowBuilder(WithSingleMode()).Name("test")
+func WithSingleMode() BuilderOption {
+	return func(b *WorkflowBuilder) {
+		b.mode = modeSingle
 	}
 }
 
@@ -42,9 +64,7 @@ func WithParallelMode(parallel bool) BuilderOption {
 //
 // Example:
 //
-//	builder := NewWorkflowBuilder("test",
-//	    WithParallelMode(true),
-//	    WithFailFast(true))
+//	builder := NewWorkflowBuilder(WithParallelMode(), WithFailFast(true)).Name("test")
 func WithFailFast(failFast bool) BuilderOption {
 	return func(b *WorkflowBuilder) {
 		b.failFast = failFast
@@ -55,9 +75,7 @@ func WithFailFast(failFast bool) BuilderOption {
 //
 // Example:
 //
-//	builder := NewWorkflowBuilder("test",
-//	    WithParallelMode(true),
-//	    WithMaxConcurrency(10))
+//	builder := NewWorkflowBuilder(WithParallelMode(), WithMaxConcurrency(10)).Name("test")
 func WithMaxConcurrency(max int) BuilderOption {
 	return func(b *WorkflowBuilder) {
 		b.maxConcurrency = max
