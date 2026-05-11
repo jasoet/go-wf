@@ -94,10 +94,10 @@ func TestExecuteContainerWorkflowExecution(t *testing.T) {
 func TestRegisterWorkflows(t *testing.T) {
 	mw := new(mockWorker)
 
-	// Expect RegisterWorkflow to be called 7 times (one for each workflow)
-	// ExecuteContainerWorkflow, ContainerPipelineWorkflow, ParallelContainersWorkflow,
-	// LoopWorkflow, ParameterizedLoopWorkflow, DAGWorkflow, WorkflowWithParameters
-	mw.On("RegisterWorkflow", mock.Anything).Return().Times(7)
+	// Expect RegisterWorkflowWithOptions to be called 7 times (one for each workflow).
+	// RegisterWorkflows now routes through job.RegisterWorkflowOnce which calls
+	// RegisterWorkflowWithOptions with an explicit name.
+	mw.On("RegisterWorkflowWithOptions", mock.Anything, mock.AnythingOfType("internal.RegisterWorkflowOptions")).Return().Times(7)
 
 	RegisterWorkflows(mw)
 
@@ -122,12 +122,34 @@ func TestRegisterActivities(t *testing.T) {
 func TestRegisterAll(t *testing.T) {
 	mw := new(mockWorker)
 
-	// Expect 7 workflows + 1 activity = 8 total registrations
-	mw.On("RegisterWorkflow", mock.Anything).Return().Times(7)
+	// Expect 7 workflows + 1 activity = 8 total registrations.
+	// Workflows now use RegisterWorkflowWithOptions via job.RegisterWorkflowOnce.
+	mw.On("RegisterWorkflowWithOptions", mock.Anything, mock.AnythingOfType("internal.RegisterWorkflowOptions")).Return().Times(7)
 	mw.On("RegisterActivityWithOptions", mock.Anything, sdkactivity.RegisterOptions{
 		Name: "StartContainerActivity",
 	}).Return().Once()
 
+	RegisterAll(mw)
+
+	mw.AssertExpectations(t)
+}
+
+// TestRegisterAll_Idempotent verifies that calling RegisterAll twice on the same
+// worker is a no-op for the second call and does not panic or duplicate registrations.
+func TestRegisterAll_Idempotent(t *testing.T) {
+	mw := new(mockWorker)
+
+	// First call: all 7 workflows + 1 activity should be registered.
+	mw.On("RegisterWorkflowWithOptions", mock.Anything, mock.AnythingOfType("internal.RegisterWorkflowOptions")).Return().Times(7)
+	mw.On("RegisterActivityWithOptions", mock.Anything, sdkactivity.RegisterOptions{
+		Name: "StartContainerActivity",
+	}).Return().Once()
+
+	// First call registers everything.
+	RegisterAll(mw)
+
+	// Second call must be a no-op (job.RegisterWorkflowOnce / RegisterActivityOnce
+	// deduplicate on (worker, typeName) — no new calls expected on the mock).
 	RegisterAll(mw)
 
 	mw.AssertExpectations(t)
