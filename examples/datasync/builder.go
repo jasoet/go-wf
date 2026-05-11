@@ -14,13 +14,11 @@ import (
 	"time"
 
 	"github.com/jasoet/pkg/v2/temporal"
-	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
 	"github.com/jasoet/go-wf/datasync"
 	"github.com/jasoet/go-wf/datasync/builder"
 	"github.com/jasoet/go-wf/datasync/payload"
-	dsworkflow "github.com/jasoet/go-wf/datasync/workflow"
 )
 
 // This example demonstrates the fluent builder API for constructing sync jobs.
@@ -84,14 +82,11 @@ func (m *RecordMapper) Map(_ context.Context, records []User) ([]UserDTO, error)
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Build sync job using the fluent builder API
 	job, err := builder.NewSyncJobBuilder[User, UserDTO]("user-dto-sync").
@@ -111,9 +106,8 @@ func main() {
 	}
 
 	// Create and start worker
-	taskQueue := dsworkflow.TaskQueue(job.Name)
-	w := worker.New(c, taskQueue, worker.Options{})
-	dsworkflow.RegisterJob(w, job)
+	w := worker.New(c, job.TaskQueue, worker.Options{})
+	job.Register(w)
 
 	go func() {
 		if err := w.Run(worker.InterruptCh()); err != nil {
@@ -125,23 +119,15 @@ func main() {
 	time.Sleep(time.Second)
 
 	// Execute sync workflow
-	input := dsworkflow.BuildWorkflowInput(job)
-	we, err := c.ExecuteWorkflow(context.Background(),
-		client.StartWorkflowOptions{
-			ID:        "user-dto-sync-example",
-			TaskQueue: taskQueue,
-		},
-		job.Name,
-		input,
-	)
+	run, err := job.Execute(context.Background(), c, job.NewInput())
 	if err != nil {
 		log.Fatalf("Failed to start workflow: %v", err)
 	}
 
-	log.Printf("Started workflow ID: %s, RunID: %s", we.GetID(), we.GetRunID())
+	log.Printf("Started workflow ID: %s, RunID: %s", run.WorkflowID, run.RunID)
 
 	var result payload.SyncExecutionOutput
-	if err := we.Get(context.Background(), &result); err != nil {
+	if err := run.Get(context.Background(), &result); err != nil {
 		log.Fatalf("Workflow failed: %v", err)
 	}
 

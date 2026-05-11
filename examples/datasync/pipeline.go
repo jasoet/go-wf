@@ -86,14 +86,11 @@ func (s *OrderSink) Write(_ context.Context, records []Order) (datasync.WriteRes
 
 func main() {
 	// Create Temporal client
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	// Define two sync jobs
 	userJob := datasync.Job[User, User]{

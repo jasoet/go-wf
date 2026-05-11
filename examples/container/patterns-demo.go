@@ -31,14 +31,11 @@ import (
 // 3. Loop patterns (7 functions)
 
 func main() {
-	c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient(temporal.DefaultConfig())
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
 	defer c.Close()
-	if closer != nil {
-		defer closer.Close()
-	}
 
 	w := worker.New(c, "container-tasks", worker.Options{})
 	container.RegisterAll(w)
