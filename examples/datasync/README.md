@@ -31,6 +31,7 @@ task example:datasync -- basic.go
 task example:datasync -- pipeline.go
 task example:datasync -- parallel.go
 task example:datasync -- builder.go
+task example:datasync -- chunk_basic.go
 ```
 
 Each example is self-contained: it creates a datasync job with source/mapper/sink, registers it with a Temporal worker, executes the workflow, and prints results.
@@ -72,7 +73,15 @@ Concurrent execution of multiple sync jobs. Three independent data sources are s
 
 Fluent builder API for constructing sync jobs with custom record mapping. Transforms User records into UserDTO using a RecordMapper.
 
-**Demonstrates:** Builder pattern, custom RecordMapper, typed transformations, SyncJobBuilder API.
+**Demonstrates:** Builder pattern, custom RecordMapper, typed transformations, `SyncJobBuilder.Build()` → `*job.Definition`.
+
+---
+
+### 5. Date-Chunked Sync (`chunk_basic.go`)
+
+Date-partitioned sync using `datasync/chunk/`. Fetches orders per daily partition using `NewDateChunkedSync`, with LookBack and ChunkSize configuration.
+
+**Demonstrates:** `chunk.NewDateChunkedSync`, `chunk.TimeFetcher`, cursor-based partition walk, `ChunkedSync.Build()` → `*job.Definition`, `def.Register` / `def.Execute` pattern.
 
 ## Worker Setup
 

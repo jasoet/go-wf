@@ -407,21 +407,21 @@ go run -tags example patterns-demo.go
 **Purpose**: Demonstrates advanced builder, template, and source APIs.
 
 **Features**:
-- `BuildSingle()` for single container execution
-- `Build()` auto-select (pipeline or parallel)
+- `Build()` returning `*job.Definition` for all execution modes
+- `Single()` / `Pipeline()` / `Parallel()` mode selection on `NewWorkflowBuilder()`
 - `Cleanup()` for cleanup between steps
 - Constructor options: `WithStopOnError`, `WithParallelMode`, `WithMaxConcurrency`, `WithGlobalAutoRemove`
 - `ContainerSource` / `NewContainerSource` — wrap payload as WorkflowSource
 - `AddInput()` for raw ContainerExecutionInput
-- `ForEachParam` + `NewParameterizedLoopBuilder` with `BuildParameterizedLoop`
+- `ForEachParam` + `NewParameterizedLoopBuilder` with `.Build()` returning `*job.Definition`
 - `NewGoScript` — Go script template
 - `NewHTTPWebhook` — webhook notification template
 - Container options: `WithVolume`, `WithPorts`, `WithLabel`, `WithWaitForLog`, `WithWaitForPort`
 - Script options: `WithScriptVolume`, `WithScriptPorts`
 
 **Examples Included**:
-1. **BuildSingle**: Single container via builder with constructor options
-2. **Auto-Select Builder**: Build() with ContainerSource and AddInput
+1. **Single mode**: Single container via builder with constructor options, `Build()` → `*job.Definition`
+2. **Build() with ContainerSource**: `Build()` with ContainerSource and AddInput
 3. **Cleanup Pipeline**: Pipeline with Cleanup + rich container options
 4. **Parameterized Loop Builder**: ForEachParam and NewParameterizedLoopBuilder
 5. **Additional Templates**: NewGoScript, NewHTTPWebhook, advanced container/script options
