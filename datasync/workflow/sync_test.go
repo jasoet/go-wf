@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -61,25 +60,6 @@ func TestBuildWorkflowInput(t *testing.T) {
 	assert.Equal(t, "test-source", input.SourceName)
 	assert.Equal(t, "test-sink", input.SinkName)
 	assert.Equal(t, "test-meta", input.Metadata)
-}
-
-func TestBuildJobRegistration(t *testing.T) {
-	source := &mockSource[int]{name: "src"}
-	sink := &mockSink[int]{name: "dst"}
-	job := datasync.Job[int, int]{
-		Name:     "test-job",
-		Source:   source,
-		Mapper:   datasync.IdentityMapper[int](),
-		Sink:     sink,
-		Schedule: 5 * time.Minute,
-	}
-
-	reg := BuildJobRegistration(job, false)
-	assert.Equal(t, "test-job", reg.Name)
-	assert.Equal(t, "sync-test-job", reg.TaskQueue)
-	assert.Equal(t, 5*time.Minute, reg.Schedule)
-	assert.False(t, reg.Disabled)
-	assert.NotNil(t, reg.Register)
 }
 
 func TestSyncWorkflow_Success(t *testing.T) {

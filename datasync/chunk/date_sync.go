@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/jasoet/pkg/v2/temporal/job"
 	"go.temporal.io/sdk/temporal"
 
 	"github.com/jasoet/go-wf/datasync"
-	datasyncwf "github.com/jasoet/go-wf/datasync/workflow"
 )
 
 // DateChunkedSync wraps ChunkedSync[In, Out, int64] with a time.Time-based
@@ -121,7 +121,7 @@ func (d *DateChunkedSync[In, Out]) Disabled(b bool) *DateChunkedSync[In, Out] {
 
 // Build configures the DatePartitioner from LookBack/ChunkSize/Timezone and
 // delegates to ChunkedSync.Build.
-func (d *DateChunkedSync[In, Out]) Build() datasyncwf.FullJobRegistration {
+func (d *DateChunkedSync[In, Out]) Build() (*job.Definition, error) {
 	d.inner.Partitioner(&DatePartitioner{
 		Loc:       d.loc,
 		LookBack:  d.lookBack,

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jasoet/pkg/v2/temporal/job"
 	"go.temporal.io/sdk/activity"
+	sdkclient "go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
@@ -185,9 +187,9 @@ type cursorResult[K cmp.Ordered] struct {
 	Exists bool `json:"exists"`
 }
 
-// Build constructs the FullJobRegistration. Panics if a required field is
-// missing — caught at process startup, not in production hot paths.
-func (c *ChunkedSync[In, Out, K]) Build() datasyncwf.FullJobRegistration {
+// Build constructs a *job.Definition. Panics if a required field is missing —
+// caught at process startup, not in production hot paths.
+func (c *ChunkedSync[In, Out, K]) Build() (*job.Definition, error) {
 	c.buildValidate()
 
 	jobName := c.name
@@ -237,15 +239,11 @@ func (c *ChunkedSync[In, Out, K]) Build() datasyncwf.FullJobRegistration {
 		maxPerExec:                c.maxPerExec,
 	}
 
-	return datasyncwf.FullJobRegistration{
-		Name:      jobName,
-		TaskQueue: datasyncwf.TaskQueue(jobName),
-		Schedule:  c.schedule,
-		Disabled:  c.disabled,
-		WorkflowInput: payload.SyncExecutionInput{
-			JobName: jobName,
-		},
-		Register: func(w worker.Worker) {
+	schedule := c.schedule
+	disabled := c.disabled
+
+	opts := []job.Option{
+		job.WithRegister(func(w worker.Worker) {
 			w.RegisterWorkflowWithOptions(wfState.run, workflow.RegisterOptions{Name: jobName})
 			w.RegisterActivityWithOptions(partitionsActFn, activity.RegisterOptions{Name: partitionsActName})
 			w.RegisterActivityWithOptions(runPartitionActFn, activity.RegisterOptions{Name: runPartitionActName})
@@ -253,8 +251,20 @@ func (c *ChunkedSync[In, Out, K]) Build() datasyncwf.FullJobRegistration {
 				w.RegisterActivityWithOptions(readCursorActFn, activity.RegisterOptions{Name: readCursorActName})
 				w.RegisterActivityWithOptions(advanceCursorActFn, activity.RegisterOptions{Name: advanceCursorActName})
 			}
-		},
+		}),
+		job.WithExecute(func(ctx context.Context, c sdkclient.Client, sdkOpts sdkclient.StartWorkflowOptions, in any) (sdkclient.WorkflowRun, error) {
+			return c.ExecuteWorkflow(ctx, sdkOpts, jobName, in)
+		}),
+		job.WithNewInput(func() any { return &payload.SyncExecutionInput{} }),
 	}
+	if schedule > 0 {
+		opts = append(opts, job.WithSchedule(&job.ScheduleSpec{
+			Interval: schedule,
+			Paused:   disabled,
+		}))
+	}
+
+	return job.New(jobName, datasyncwf.TaskQueue(jobName), opts...)
 }
 
 // chunkedSyncWorkflow holds the workflow-side configuration captured at
