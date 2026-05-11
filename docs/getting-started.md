@@ -29,19 +29,20 @@ import (
     "time"
 
     "github.com/jasoet/pkg/v2/temporal"
-    "go.temporal.io/sdk/client"
     "go.temporal.io/sdk/worker"
 
     fn "github.com/jasoet/go-wf/function"
     fnactivity "github.com/jasoet/go-wf/function/activity"
+    fnbuilder "github.com/jasoet/go-wf/function/builder"
     "github.com/jasoet/go-wf/function/payload"
-    "github.com/jasoet/go-wf/function/workflow"
 )
 
 func main() {
-    c, closer, _ := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient(temporal.DefaultConfig())
+    if err != nil {
+        log.Fatal(err)
+    }
     defer c.Close()
-    if closer != nil { defer closer.Close() }
 
     // 1. Register a handler
     registry := fn.NewRegistry()
@@ -52,26 +53,38 @@ func main() {
         }, nil
     })
 
-    // 2. Create and start a worker
-    w := worker.New(c, "function-tasks", worker.Options{})
-    fn.RegisterWorkflows(w)
-    fn.RegisterActivity(w, fnactivity.NewExecuteFunctionActivity(registry))
+    // 2. Build a job Definition
+    def, err := fnbuilder.NewWorkflowBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]().
+        Name("greet-job").
+        Single().
+        Activity(fnactivity.NewExecuteFunctionActivity(registry)).
+        Build()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // 3. Register on a worker and start
+    w := worker.New(c, def.TaskQueue, worker.Options{})
+    def.Register(w)
     go func() { _ = w.Run(worker.InterruptCh()) }()
     defer w.Stop()
     time.Sleep(time.Second)
 
-    // 3. Execute the workflow
-    we, _ := c.ExecuteWorkflow(context.Background(),
-        client.StartWorkflowOptions{ID: "greet-example", TaskQueue: "function-tasks"},
-        workflow.ExecuteFunctionWorkflow,
-        payload.FunctionExecutionInput{Name: "greet", Args: map[string]string{"name": "Temporal"}},
+    // 4. Execute the workflow
+    run, err := def.Execute(context.Background(), c,
+        &payload.FunctionExecutionInput{Name: "greet", Args: map[string]string{"name": "Temporal"}},
     )
+    if err != nil {
+        log.Fatal(err)
+    }
 
     var result payload.FunctionExecutionOutput
-    _ = we.Get(context.Background(), &result)
+    _ = run.Get(context.Background(), &result)
     log.Printf("Result: %v", result.Result)
 }
 ```
+
+`def.TaskQueue` defaults to `"function-<name>"` when not overridden with `.TaskQueue(...)`. For more details see [Function Workflows](function-workflows.md) and [docs/job-definition.md](job-definition.md).
 
 ## Quick Start: Container Workflow
 
@@ -86,48 +99,81 @@ import (
     "time"
 
     "github.com/jasoet/pkg/v2/temporal"
-    "go.temporal.io/sdk/client"
     "go.temporal.io/sdk/worker"
 
-    "github.com/jasoet/go-wf/container"
+    cbuilder "github.com/jasoet/go-wf/container/builder"
     "github.com/jasoet/go-wf/container/payload"
-    "github.com/jasoet/go-wf/container/workflow"
 )
 
 func main() {
-    c, closer, _ := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient(temporal.DefaultConfig())
+    if err != nil {
+        log.Fatal(err)
+    }
     defer c.Close()
-    if closer != nil { defer closer.Close() }
 
-    // 1. Create and start a worker
-    w := worker.New(c, "container-tasks", worker.Options{})
-    container.RegisterAll(w)
+    // 1. Build a job Definition
+    def, err := cbuilder.NewWorkflowBuilder().
+        Name("postgres-example").
+        Single().
+        AddInput(payload.ContainerExecutionInput{
+            Image:      "postgres:16-alpine",
+            Env:        map[string]string{"POSTGRES_PASSWORD": "test", "POSTGRES_USER": "test"},
+            AutoRemove: true,
+            Name:       "example-postgres",
+            WaitStrategy: payload.WaitStrategyConfig{
+                Type: "log", LogMessage: "ready to accept connections",
+                StartupTimeout: 30 * time.Second,
+            },
+        }).
+        Build()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // 2. Register on a worker and start
+    w := worker.New(c, def.TaskQueue, worker.Options{})
+    def.Register(w)
     go func() { _ = w.Run(worker.InterruptCh()) }()
     defer w.Stop()
     time.Sleep(time.Second)
 
-    // 2. Define and execute the container task
-    input := payload.ContainerExecutionInput{
-        Image:      "postgres:16-alpine",
-        Env:        map[string]string{"POSTGRES_PASSWORD": "test", "POSTGRES_USER": "test"},
-        AutoRemove: true,
-        Name:       "example-postgres",
-        WaitStrategy: payload.WaitStrategyConfig{
-            Type: "log", LogMessage: "ready to accept connections",
-            StartupTimeout: 30 * time.Second,
-        },
+    // 3. Execute the workflow
+    run, err := def.Execute(context.Background(), c, def.NewInput())
+    if err != nil {
+        log.Fatal(err)
     }
 
-    we, _ := c.ExecuteWorkflow(context.Background(),
-        client.StartWorkflowOptions{ID: "postgres-example", TaskQueue: "container-tasks"},
-        workflow.ExecuteContainerWorkflow, input,
-    )
-
     var result payload.ContainerExecutionOutput
-    _ = we.Get(context.Background(), &result)
+    _ = run.Get(context.Background(), &result)
     log.Printf("Container ID: %s, Exit Code: %d", result.ContainerID, result.ExitCode)
 }
 ```
+
+`def.TaskQueue` defaults to `"container-<name>"`. For more details see [Container Workflows](container-workflows.md) and [docs/job-definition.md](job-definition.md).
+
+## Quick Start: Chunked DataSync
+
+For large datasets that must be processed in partitions (e.g., by date range), use `datasync/chunk.ChunkedSync` instead of the plain datasync builder. It walks partitions sequentially, supports cursor-based resume across executions, and issues `ContinueAsNew` when the partition list is too large for one workflow history.
+
+```go
+import (
+    "github.com/jasoet/go-wf/datasync/chunk"
+    "github.com/jasoet/pkg/v2/temporal/job"
+)
+
+def, err := chunk.NewChunkedSync[OrderRow, OrderRecord, time.Time]("orders-sync").
+    Partitioner(datePartitioner).
+    Fetcher(orderFetcher).
+    Mapper(orderMapper).
+    Sink(orderSink).
+    WithTracker(cursorStore).
+    MaxPartitionsPerExecution(50).
+    ScheduleEvery(6 * time.Hour).
+    Build()
+```
+
+`def` is a standard `*job.Definition` — use `def.Register(w)` and `def.Execute(...)` as with any other builder. For the full API see [DataSync Workflows](datasync-workflows.md).
 
 ## Running Examples
 

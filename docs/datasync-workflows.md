@@ -165,9 +165,12 @@ type Job[T any, U any] struct {
 Use `SyncJobBuilder` for fluent job construction with validation:
 
 ```go
-import "github.com/jasoet/go-wf/datasync/builder"
+import (
+    "github.com/jasoet/go-wf/datasync/builder"
+    "github.com/jasoet/pkg/v2/temporal/job"
+)
 
-job, err := builder.NewSyncJobBuilder[APIUser, DBUser]("user-sync").
+def, err := builder.NewSyncJobBuilder[APIUser, DBUser]("user-sync").
     WithSource(apiSource).
     WithMapper(mapper).
     WithSink(dbSink).
@@ -178,13 +181,40 @@ job, err := builder.NewSyncJobBuilder[APIUser, DBUser]("user-sync").
     WithRetryBackoffCoefficient(2.0).
     WithMetadata(map[string]string{"team": "platform"}).
     Build()
+if err != nil {
+    log.Fatal(err)
+}
 ```
 
-`Build()` validates that name, source, mapper, sink, and a positive schedule are all set, returning an error if any are missing.
+`Build()` returns `(*job.Definition, error)` and validates that name, source, mapper, sink, and a positive schedule are all set. A non-nil `*job.Definition` is ready to register with a worker and execute via the Temporal client.
+
+The caller registers and starts the workflow using the Definition methods directly:
+
+```go
+// Register on a worker
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)
+
+// Execute a run
+input := def.NewInput().(*payload.SyncExecutionInput)
+input.JobName = def.Name
+run, err := def.Execute(ctx, c, input)
+```
+
+For recurring execution, attach a schedule at build time and apply it:
+
+```go
+// Schedule is already embedded when WithSchedule is set in the builder.
+// Apply it to Temporal after the client is available:
+err = def.ApplySchedule(ctx, c)
+```
+
+See [Job Definition](job-definition.md) for the full `*job.Definition` API surface.
 
 ## Runner
 
-`Runner` executes a single fetch-map-write cycle in-process, useful for testing and simple sync without Temporal:
+`Runner` executes a single fetch-map-write cycle in-process, useful for testing and simple sync without Temporal.
+Unlike the builder, `Runner` does not involve Temporal at all — it is a plain Go struct.
 
 ```go
 runner := datasync.NewRunner(source, mapper, sink)
@@ -209,50 +239,21 @@ type Result struct {
 }
 ```
 
-## Registration and Temporal Workflows
+## Worker Setup
 
-### JobRegistration
-
-`BuildRegistration` extracts type-erased metadata from a typed `Job`, useful for listing registered jobs without generic type information:
-
-```go
-reg := datasync.BuildRegistration(job, false)
-// reg.Name, reg.Schedule, reg.Disabled, reg.SourceName, reg.SinkName
-```
-
-### Workflow Registration
-
-The `datasync/workflow` package provides `RegisterJob` and `BuildJobRegistration` to wire jobs into a Temporal worker:
+A complete worker setup using the builder:
 
 ```go
 import (
-    syncwf "github.com/jasoet/go-wf/datasync/workflow"
+    "github.com/jasoet/go-wf/datasync"
+    "github.com/jasoet/go-wf/datasync/builder"
+    "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 )
 
-// Register a job with a Temporal worker
-w := worker.New(client, syncwf.TaskQueue("user-sync"), worker.Options{})
-syncwf.RegisterJob(w, job)
-```
-
-`BuildJobRegistration` creates a `FullJobRegistration` that bundles everything needed to register and schedule a job:
-
-```go
-reg := syncwf.BuildJobRegistration(job, false)
-// reg.Name, reg.TaskQueue, reg.Schedule, reg.WorkflowInput
-// reg.Register(w) -- registers workflow + activities with a worker
-```
-
-Each job gets its own task queue named `sync-<jobName>`, and the workflow and activity are registered with names derived from the job name.
-
-## Worker Setup
-
-A complete worker setup typically looks like this:
-
-```go
 func main() {
-    // Build the job
-    job, err := builder.NewSyncJobBuilder[APIUser, DBUser]("user-sync").
+    // Build the Definition
+    def, err := builder.NewSyncJobBuilder[APIUser, DBUser]("user-sync").
         WithSource(newAPISource()).
         WithMapper(datasync.NewRecordMapper[APIUser, DBUser]("user-mapper", convertUser)).
         WithSink(datasync.NewInsertIfAbsentSink[DBUser, string]("user-sink", getID, findUser, createUser)).
@@ -263,12 +264,22 @@ func main() {
         log.Fatal(err)
     }
 
-    // Create Temporal client and worker
-    c, _ := client.Dial(client.Options{})
-    w := worker.New(c, syncwf.TaskQueue(job.Name), worker.Options{})
+    // Create Temporal client
+    c, err := temporal.NewClient(temporal.DefaultConfig())
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer c.Close()
 
-    // Register and start
-    syncwf.RegisterJob(w, job)
+    // Create worker and register
+    w := worker.New(c, def.TaskQueue, worker.Options{})
+    def.Register(w)
+
+    // Optionally create or update the Temporal schedule
+    if err := def.ApplySchedule(context.Background(), c); err != nil {
+        log.Printf("schedule apply: %v", err)
+    }
+
     w.Run(worker.InterruptCh())
 }
 ```
@@ -287,3 +298,9 @@ The activity layer automatically records OpenTelemetry metrics and spans:
 - **Metrics**: `syncOpsTotal` (counter with success/error status), `syncOpsDuration` (histogram), `syncRecordsFetched`, `syncRecordsWritten`.
 - **Traces**: Nested spans for Fetch, Map, and Write operations using the `pkgotel.Layers` API.
 - **Heartbeats**: Temporal activity heartbeats are sent after fetch and write phases.
+
+## Partitioned and Date-Range Sync
+
+For workloads that need to process data in date/time partitions — for example, syncing orders day-by-day over a rolling 7-day window — see [Chunked Sync Workflows](chunk-workflows.md). The `datasync/chunk` package provides cursor-based resume, `ContinueAsNew` for unbounded history, and a `DateChunkedSync` helper that handles time-to-key projection automatically.
+
+See also [Job Definition](job-definition.md) for the `*job.Definition` type that every builder produces.

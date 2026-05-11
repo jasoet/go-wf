@@ -109,55 +109,85 @@ placeholders like `{{item}}` are allowed and validated at execution time).
 
 ## Builder API
 
-The `function/builder` package provides a fluent API to construct workflow
-inputs without manually assembling structs.
+The `function/builder` package provides a fluent API that produces a `*job.Definition`
+ready for registration and execution. Using the builder is preferred over constructing
+workflow inputs manually.
 
-### WorkflowBuilder / NewFunctionBuilder
+### WorkflowBuilder
+
+`NewWorkflowBuilder[I, O]()` is generic. `NewFunctionBuilder()` is a convenience
+alias pre-specialized for `*payload.FunctionExecutionInput` / `payload.FunctionExecutionOutput`.
 
 ```go
-import "github.com/jasoet/go-wf/function/builder"
+import (
+    "github.com/jasoet/go-wf/function/builder"
+    "github.com/jasoet/go-wf/function/activity"
+    "github.com/jasoet/pkg/v2/temporal/job"
+)
 
-pipelineInput, err := builder.NewFunctionBuilder("my-pipeline").
+activityFn := activity.NewExecuteFunctionActivity(registry)
+
+def, err := builder.NewFunctionBuilder().
+    Name("my-pipeline").
+    Activity(activityFn).
+    Pipeline().           // select execution mode
     Add(&payload.FunctionExecutionInput{Name: "step-a", Args: map[string]string{"key": "val"}}).
     Add(&payload.FunctionExecutionInput{Name: "step-b"}).
     StopOnError(true).
-    BuildPipeline()
+    Build()               // returns (*job.Definition, error)
+if err != nil {
+    log.Fatal(err)
+}
 ```
 
-`NewFunctionBuilder` is a convenience wrapper around the generic
-`NewWorkflowBuilder` pre-specialized for function execution types.
-
-Key methods:
+**Identity setters (required before `Build`):**
 
 | Method | Description |
 |---|---|
-| `Add(input)` | Append a task input |
-| `StopOnError(bool)` | Stop pipeline on first error |
-| `Parallel(bool)` | Switch to parallel mode |
-| `FailFast(bool)` | Stop parallel execution on first failure |
-| `MaxConcurrency(int)` | Limit concurrent parallel tasks |
-| `BuildPipeline()` | Build a `workflow.PipelineInput` |
-| `BuildParallel()` | Build a `workflow.ParallelInput` |
-| `BuildSingle()` | Build a single-task input |
-| `Build()` | Build pipeline or parallel based on mode |
+| `.Name(string)` | Job name — also used as workflow ID prefix |
+| `.Activity(fn)` | The activity function returned by `activity.NewExecuteFunctionActivity` |
+| `.TaskQueue(string)` | Override task queue (default: `"function-<name>"`) |
+
+**Mode setters (pick exactly one before calling `Build`):**
+
+| Method | Registered Temporal workflow |
+|---|---|
+| `.Pipeline()` | `FunctionPipelineWorkflow` — sequential, stop-on-error |
+| `.Parallel()` | `ParallelFunctionsWorkflow` — concurrent |
+| `.Single()` | `ExecuteFunctionWorkflow` — single function |
+
+**Configuration:** `StopOnError(bool)`, `FailFast(bool)`, `MaxConcurrency(int)`.
+
+**`.Build()` returns `(*job.Definition, error)`.** Consume the Definition like this:
+
+```go
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)               // calls fn.RegisterAll internally; idempotent
+
+run, err := def.Execute(ctx, c, def.NewInput())
+```
+
+`def.Register(w)` calls `fn.RegisterAll(w, activityFn)` via idempotent helpers.
+`fn.RegisterAll` is safe to call multiple times — repeated registrations for an
+already-registered (worker, type) pair are silently ignored.
 
 ### LoopBuilder
 
-Loop builders construct loop workflow inputs from a template and a set of items
-or parameter combinations.
+`LoopBuilder` produces a `*job.Definition` for item-based or parameterized loops.
+`Build()` returns `(*job.Definition, error)`.
 
 ```go
 // Simple item loop — {{item}} in template args is replaced per iteration
-loopInput, err := builder.ForEach(
+def, err := builder.ForEach(
     []string{"file1.csv", "file2.csv"},
     payload.FunctionExecutionInput{
         Name: "process-file",
         Args: map[string]string{"file": "{{item}}"},
     },
-).Parallel(true).BuildLoop()
+).Name("process-files").Activity(activityFn).Parallel(true).Build()
 
 // Parameterized loop — {{.key}} placeholders are replaced with cross-product values
-paramInput, err := builder.ForEachParam(
+def, err := builder.ForEachParam(
     map[string][]string{
         "environment": {"dev", "staging"},
         "region":      {"us-west", "eu-central"},
@@ -169,11 +199,14 @@ paramInput, err := builder.ForEachParam(
             "region":      "{{.region}}",
         },
     },
-).Parallel(true).FailFast(true).BuildParameterizedLoop()
+).Name("multi-region-deploy").Activity(activityFn).Parallel(true).FailFast(true).Build()
 ```
 
 Convenience constructors: `NewFunctionLoopBuilder(items)` and
 `NewFunctionParameterizedLoopBuilder(params)`.
+
+`BuildLoop()` and `BuildParameterizedLoop()` return raw input structs (without a
+Definition), for callers that manage Temporal options manually.
 
 ### DAG Builder
 
@@ -284,7 +317,52 @@ input, err := patterns.CIPipeline()
 
 ## Worker Setup
 
-Register all function workflows and the activity on your Temporal worker:
+### Builder-based (preferred)
+
+When you use `function.WorkflowBuilder` or `function.LoopBuilder`, the resulting
+`*job.Definition` handles registration automatically:
+
+```go
+import (
+    fn "github.com/jasoet/go-wf/function"
+    "github.com/jasoet/go-wf/function/activity"
+    "github.com/jasoet/go-wf/function/builder"
+    "github.com/jasoet/pkg/v2/temporal"
+    "go.temporal.io/sdk/worker"
+)
+
+registry := fn.NewRegistry()
+// ... register handlers ...
+activityFn := activity.NewExecuteFunctionActivity(registry)
+
+def, err := builder.NewFunctionBuilder().
+    Name("greet-pipeline").
+    Activity(activityFn).
+    Pipeline().
+    Add(&fn.FunctionExecutionInput{Name: "greet"}).
+    Build()
+if err != nil {
+    log.Fatal(err)
+}
+
+c, err := temporal.NewClient(temporal.DefaultConfig())
+if err != nil {
+    log.Fatal(err)
+}
+defer c.Close()
+
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)   // calls fn.RegisterAll internally; idempotent
+w.Run(worker.InterruptCh())
+```
+
+`def.Register(w)` calls `fn.RegisterAll(w, activityFn)` via idempotent helpers.
+`fn.RegisterAll` is safe to call multiple times — repeated (worker, type) pairs
+are silently deduped.
+
+### Manual registration
+
+For lower-level use or when registering DAG workflows separately:
 
 ```go
 import (
@@ -329,3 +407,5 @@ Call `fn.SetActivityInstrumenter(wrapper)` during initialization to wrap the
 activity with OpenTelemetry spans. This must be called once before
 `RegisterActivity`; subsequent calls are ignored. See
 [Observability](observability.md) for details.
+
+See [Job Definition](job-definition.md) for the full `*job.Definition` API.

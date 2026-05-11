@@ -180,28 +180,28 @@ go run -tags example loop.go
 
 ### 5. Builder API (`builder.go`)
 
-Fluent builder API for composing workflows programmatically.
+Fluent builder API for composing workflows programmatically. All builder paths end with `Build()` returning a `*job.Definition`.
 
 **Demonstrates 4 patterns:**
 
-| # | Pattern | Builder Method | Build Method |
-|---|---------|---------------|--------------|
-| 1 | ETL pipeline | `AddInput()` | `BuildPipeline()` |
-| 2 | Parallel pre-flight | `Parallel(true)`, `MaxConcurrency()`, `FailFast()` | `BuildParallel()` |
-| 3 | Reusable components | `Add(FunctionSource)` | `BuildPipeline()` |
-| 4 | Dynamic inputs | `Add(WorkflowSourceFunc)` | `BuildParallel()` |
+| # | Pattern | Builder Method | Mode |
+|---|---------|---------------|------|
+| 1 | ETL pipeline | `Add()`, `StopOnError()` | `.Pipeline()` |
+| 2 | Parallel pre-flight | `MaxConcurrency()`, `FailFast()` | `.Parallel()` |
+| 3 | Single function | `Add()` | `.Single()` |
+| 4 | Loop over items | `ForEach(items, template)` | `.Loop()` |
 
 **Key builder APIs:**
-- `NewWorkflowBuilder(name)` — create builder
-- `AddInput(FunctionExecutionInput)` — add input directly
-- `Add(WorkflowSource)` — add via source interface
+- `NewFunctionBuilder()` — create a builder typed for function execution
+- `Name(string)` — set the job name (required; default task queue is `"function-<name>"`)
+- `Activity(fn)` — set the activity function to register (required)
+- `Pipeline()` / `Parallel()` / `Single()` — select execution mode (required)
+- `Add(input)` — append an input to the builder
 - `StopOnError(bool)` — pipeline error handling
-- `Parallel(bool)` / `MaxConcurrency(int)` / `FailFast(bool)` — parallel config
-- `BuildPipeline()` / `BuildParallel()` / `BuildSingle()` / `Build()` — build output
-- `NewFunctionSource(input)` — wrap input as reusable source
-- `WorkflowSourceFunc(fn)` — dynamic input generation at build time
-- `ForEach(items, template)` — loop builder shortcut
-- `ForEachParam(params, template)` — parameterized loop builder shortcut
+- `MaxConcurrency(int)` / `FailFast(bool)` — parallel config
+- `Build()` — validate and return `*job.Definition`
+- `ForEach(items, template)` — shortcut for loop builder
+- `ForEachParam(params, template)` — shortcut for parameterized loop builder
 
 **Use case:** Programmatic workflow construction, reusable components, dynamic input generation.
 

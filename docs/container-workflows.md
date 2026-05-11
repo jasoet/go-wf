@@ -149,13 +149,23 @@ Options include `WithHTTPMethod`, `WithHTTPHeader`, `WithHTTPBody`,
 
 ## Builder API
 
+The `container/builder` package provides a fluent API that produces a `*job.Definition`
+ready for registration and execution. Using the builder is preferred over constructing
+workflow inputs manually.
+
 ### WorkflowBuilder
 
-Fluent builder for composing `ContainerExecutionInput` lists from
-`WorkflowSource` objects:
+`NewWorkflowBuilder()` takes no arguments. Set the name with `.Name(string)`.
 
 ```go
-pipeline, err := builder.NewWorkflowBuilder("ci-pipeline").
+import (
+    "github.com/jasoet/go-wf/container/builder"
+    "github.com/jasoet/pkg/v2/temporal/job"
+)
+
+def, err := builder.NewWorkflowBuilder().
+    Name("ci-pipeline").
+    Pipeline().          // select execution mode
     Add(buildStep).      // WorkflowSource
     Add(testStep).
     Add(deployStep).
@@ -163,54 +173,100 @@ pipeline, err := builder.NewWorkflowBuilder("ci-pipeline").
     StopOnError(true).
     WithTimeout(5 * time.Minute).
     WithAutoRemove(true).
-    BuildPipeline()      // returns *payload.PipelineInput
+    Build()              // returns (*job.Definition, error)
+if err != nil {
+    log.Fatal(err)
+}
 ```
 
-Build methods:
+**Identity setters (required):**
 
-| Method | Returns | Description |
-|---|---|---|
-| `BuildPipeline()` | `*payload.PipelineInput` | Sequential execution |
-| `BuildParallel()` | `*payload.ParallelInput` | Concurrent execution |
-| `BuildSingle()` | `*payload.ContainerExecutionInput` | First container only |
-| `Build()` | `interface{}` | Auto-selects based on `Parallel()` flag |
-| `BuildGenericPipeline()` | `*workflow.PipelineInput[...]` | Generic pipeline type |
-| `BuildGenericParallel()` | `*workflow.ParallelInput[...]` | Generic parallel type |
+| Method | Description |
+|---|---|
+| `.Name(string)` | Job name — also used as workflow ID prefix |
+| `.TaskQueue(string)` | Override task queue (default: `"container-<name>"`) |
 
-Configuration: `StopOnError(bool)`, `Cleanup(bool)`, `Parallel(bool)`,
-`FailFast(bool)`, `MaxConcurrency(int)`, `WithTimeout(Duration)`,
-`WithAutoRemove(bool)`.
+**Mode setters (pick exactly one before calling Build):**
+
+| Method | Registered Temporal workflow |
+|---|---|
+| `.Pipeline()` | `ContainerPipelineWorkflow` — sequential, stop-on-error |
+| `.Parallel()` | `ParallelContainersWorkflow` — concurrent |
+| `.Single()` | `ExecuteContainerWorkflow` — single container |
+
+**Configuration:**
+
+`StopOnError(bool)`, `Cleanup(bool)`, `FailFast(bool)`, `MaxConcurrency(int)`,
+`WithTimeout(time.Duration)`, `WithAutoRemove(bool)`.
+
+**`.Build()` returns `(*job.Definition, error)`.** The Definition handles
+worker registration and workflow execution. Consume it like this:
+
+```go
+// Register with a Temporal worker
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)
+
+// Execute a workflow run
+run, err := def.Execute(ctx, c, def.NewInput())
+```
+
+`def.Register(w)` is idempotent — `container.RegisterAll(w)` is called
+internally via `job.RegisterWorkflowOnce` / `job.RegisterActivityOnce`, so
+multiple Definitions sharing the same worker will not double-register workflows
+or activities.
+
+**Lower-level raw-input helpers** (`BuildPipeline()`, `BuildParallel()`, `BuildSingle()`,
+`BuildGenericPipeline()`, `BuildGenericParallel()`) remain available on
+`WorkflowBuilder` for callers that only need the payload struct without a full
+`job.Definition`. Prefer `Build()` for new code.
 
 ### LoopBuilder
 
-Builds loop workflow inputs for iterating over items or parameter matrices:
+Builds loop workflow inputs for iterating over items or parameter matrices. `Build()` returns
+`(*job.Definition, error)`.
 
 ```go
-loop, err := builder.ForEach(
+def, err := builder.NewLoopBuilder([]string{"file1.csv", "file2.csv"}).
+    Name("process-files").
+    WithTemplate(containerTemplate).
+    Parallel(true).
+    MaxConcurrency(3).
+    Build()
+```
+
+Or use the convenience constructor:
+
+```go
+def, err := builder.ForEach(
     []string{"file1.csv", "file2.csv"},
     containerTemplate,
-).Parallel(true).MaxConcurrency(3).BuildLoop()
+).Name("process-files").Parallel(true).MaxConcurrency(3).Build()
 ```
 
 For parameterized loops (cartesian product of parameters):
 
 ```go
-loop, err := builder.ForEachParam(
+def, err := builder.ForEachParam(
     map[string][]string{
         "env":    {"staging", "prod"},
         "region": {"us-west", "eu-central"},
     },
     deployTemplate,
-).Parallel(true).FailFast(true).BuildParameterizedLoop()
+).Name("multi-region-deploy").Parallel(true).FailFast(true).Build()
 ```
 
 Template substitution placeholders: `{{item}}`, `{{index}}`, and `{{.paramName}}`
 for parameterized loops.
 
+`BuildLoop()` and `BuildParameterizedLoop()` return raw input structs without
+a Definition, for callers that manage Temporal options manually.
+
 ### GenericBuilder
 
 For non-container use cases, `GenericBuilder[I, O]` provides the same fluent API
-over arbitrary `TaskInput`/`TaskOutput` types:
+over arbitrary `TaskInput`/`TaskOutput` types and returns raw input structs
+(not a `*job.Definition`):
 
 ```go
 gb := builder.NewGenericBuilder[*MyInput, MyOutput]()
@@ -469,7 +525,45 @@ container.QueryWorkflow(ctx, client, workflowID, runID, "status", &result)
 
 ## Worker Setup
 
-Register all container workflows and activities with a single call:
+### Builder-based (preferred)
+
+When you use `container.WorkflowBuilder` or `container.LoopBuilder`, the resulting
+`*job.Definition` handles registration automatically:
+
+```go
+import (
+    "github.com/jasoet/go-wf/container/builder"
+    "github.com/jasoet/pkg/v2/temporal"
+    "go.temporal.io/sdk/worker"
+)
+
+def, err := builder.NewWorkflowBuilder().
+    Name("nightly-deploy").
+    Pipeline().
+    Add(deployStep).
+    Build()
+if err != nil {
+    log.Fatal(err)
+}
+
+c, err := temporal.NewClient(temporal.DefaultConfig())
+if err != nil {
+    log.Fatal(err)
+}
+defer c.Close()
+
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)   // calls container.RegisterAll internally; idempotent
+w.Run(worker.InterruptCh())
+```
+
+`def.Register(w)` calls `container.RegisterAll(w)` via idempotent helpers, so
+multiple Definitions on the same worker register the shared workflow/activity
+types only once.
+
+### Manual registration
+
+If you are dispatching workflows via the lower-level `c.ExecuteWorkflow` path:
 
 ```go
 w := worker.New(temporalClient, "container-queue", worker.Options{})
@@ -480,7 +574,10 @@ w.Run(worker.InterruptCh())
 `RegisterAll` calls `RegisterWorkflows` (which registers `ExecuteContainerWorkflow`,
 `ContainerPipelineWorkflow`, `ParallelContainersWorkflow`, `LoopWorkflow`,
 `ParameterizedLoopWorkflow`, `DAGWorkflow`, and `WorkflowWithParameters`) and
-`RegisterActivities` (which registers the OTel-instrumented
-`StartContainerActivity`).
+`RegisterActivities` (which registers the OTel-instrumented `StartContainerActivity`).
+`container.RegisterAll` is now safe to call multiple times — repeated calls for an
+already-registered (worker, type) pair are silently ignored.
 
 For finer control, call `RegisterWorkflows` and `RegisterActivities` separately.
+
+See [Job Definition](job-definition.md) for the full `*job.Definition` API.

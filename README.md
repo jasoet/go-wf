@@ -10,12 +10,50 @@ Temporal workflow library providing reusable, production-ready workflows for com
 
 - **Container Workflows** - Execute containers (Podman/Docker) with Temporal orchestration
 - **Function Workflows** - Execute registered Go functions with Temporal orchestration
-- **DataSync Workflows** - Generic Source/Mapper/Sink data synchronization pipelines
+- **DataSync Workflows** - Generic Source/Mapper/Sink data synchronization pipelines, including partitioned/chunked sync via `datasync/chunk`
 - **Type-Safe Payloads** - Validated input/output structures
+- **Unified Builder API** - All builders produce `*job.Definition` (from `github.com/jasoet/pkg/v2/temporal/job`), providing a single type for registration, execution, scheduling, and lifecycle management
 - **Production-Ready** - Built-in retries, timeouts, error handling
 - **Observable** - Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled
 - **Comprehensive Testing** - 85%+ coverage with integration tests
 - **Full CI/CD** - Automated releases and quality checks
+
+## job.Definition — Unified Workflow Handle
+
+Every builder in go-wf (`container/builder`, `function/builder`, `datasync/builder`, `datasync/chunk`) returns a `*job.Definition` from its `Build()` method. A `*job.Definition` is the single type you need for all per-job operations:
+
+```go
+import "github.com/jasoet/pkg/v2/temporal/job"
+
+def, err := container.NewWorkflowBuilder().Name("deploy").Single().Add(myContainer).Build()
+if err != nil { log.Fatal(err) }
+
+// Register workflows + activities on a worker (idempotent)
+def.Register(w)
+
+// Start a workflow run
+run, err := def.Execute(ctx, c, def.NewInput())
+
+// Manage lifecycle
+def.Cancel(ctx, c, wfID, runID, "reason")
+def.Describe(ctx, c, wfID, runID)
+def.ListRuns(ctx, c, opts)
+
+// Schedule management
+def.ApplySchedule(ctx, c, opts)
+def.PauseSchedule(ctx, c, scheduleID, "reason")
+```
+
+A `job.Registry` aggregates multiple Definitions, allowing you to register all jobs at once and dispatch by name:
+
+```go
+registry := job.NewRegistry()
+registry.Add(ordersJobDef)
+registry.Add(usersJobDef)
+registry.RegisterAll(w) // registers every Definition on the worker
+
+registry.MustGet("orders").Execute(ctx, c, input)
+```
 
 ## Documentation
 
@@ -49,6 +87,10 @@ Temporal workflows for executing registered Go functions: function registry, pip
 
 Generic data synchronization workflows using a `Source[T] -> Mapper[T,U] -> Sink[U]` pipeline with helpers for record mapping, deduplication, and Temporal scheduling. See [DataSync Workflows](./docs/datasync-workflows.md) for details.
 
+### [datasync/chunk](./datasync/chunk/)
+
+Partitioned sync builder for large datasets. `ChunkedSync` walks a sequence of partitions (e.g., date ranges), runs fetch/map/write per partition with cursor-based resume and `ContinueAsNew` for long partition lists. See [DataSync Workflows](./docs/datasync-workflows.md) for details.
+
 ## Observability
 
 Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled. See [Observability](./docs/observability.md) for details.
@@ -71,55 +113,56 @@ import (
     "log"
 
     "github.com/jasoet/go-wf/container"
+    "github.com/jasoet/go-wf/container/builder"
     "github.com/jasoet/go-wf/container/payload"
-    "github.com/jasoet/go-wf/container/workflow"
     "github.com/jasoet/pkg/v2/temporal"
-    "go.temporal.io/sdk/client"
     "go.temporal.io/sdk/worker"
 )
 
 func main() {
     // Create Temporal client
-    c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient(temporal.DefaultConfig())
     if err != nil {
         log.Fatal(err)
     }
     defer c.Close()
-    if closer != nil {
-        defer closer.Close()
+
+    // Build a job Definition (recommended pattern)
+    def, err := builder.NewWorkflowBuilder().
+        Name("postgres-setup").
+        Single().
+        AddInput(payload.ContainerExecutionInput{
+            Image: "postgres:16-alpine",
+            Env: map[string]string{
+                "POSTGRES_PASSWORD": "test",
+            },
+            Ports:      []string{"5432:5432"},
+            AutoRemove: true,
+        }).
+        Build()
+    if err != nil {
+        log.Fatal(err)
     }
 
-    // Create and start worker
-    w := worker.New(c, "container-tasks", worker.Options{})
-    container.RegisterAll(w)
-
-    go w.Run(nil)
+    // Register and start worker
+    w := worker.New(c, def.TaskQueue, worker.Options{})
+    def.Register(w)
+    go func() { _ = w.Run(worker.InterruptCh()) }()
     defer w.Stop()
 
     // Execute workflow
-    input := payload.ContainerExecutionInput{
-        Image: "postgres:16-alpine",
-        Env: map[string]string{
-            "POSTGRES_PASSWORD": "test",
-        },
-        Ports:      []string{"5432:5432"},
-        AutoRemove: true,
+    run, err := def.Execute(context.Background(), c, def.NewInput())
+    if err != nil {
+        log.Fatal(err)
     }
 
-    we, _ := c.ExecuteWorkflow(context.Background(),
-        client.StartWorkflowOptions{
-            ID:        "postgres-setup",
-            TaskQueue: "container-tasks",
-        },
-        workflow.ExecuteContainerWorkflow,
-        input,
-    )
-
     var result payload.ContainerExecutionOutput
-    we.Get(context.Background(), &result)
+    _ = run.Get(context.Background(), &result)
     log.Printf("Container executed: %s", result.ContainerID)
 }
 ```
+
+For callers that register workflows manually, `container.RegisterAll(w)` is also available (idempotent — safe to call multiple times).
 
 ### Function Workflow
 
@@ -132,57 +175,57 @@ import (
 
     fn "github.com/jasoet/go-wf/function"
     fnactivity "github.com/jasoet/go-wf/function/activity"
+    fnbuilder "github.com/jasoet/go-wf/function/builder"
     "github.com/jasoet/go-wf/function/payload"
-    "github.com/jasoet/go-wf/function/workflow"
     "github.com/jasoet/pkg/v2/temporal"
-    "go.temporal.io/sdk/client"
     "go.temporal.io/sdk/worker"
 )
 
 func main() {
     // Create Temporal client
-    c, closer, err := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient(temporal.DefaultConfig())
     if err != nil {
         log.Fatal(err)
     }
     defer c.Close()
-    if closer != nil {
-        defer closer.Close()
-    }
 
-    // Create function registry and register handlers
+    // Register a handler
     registry := fn.NewRegistry()
-    registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+    _ = registry.Register("greet", func(ctx context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
         return &fn.FunctionOutput{
             Result: map[string]string{"greeting": "Hello, " + input.Args["name"] + "!"},
         }, nil
     })
 
-    // Create and start worker
-    w := worker.New(c, "function-tasks", worker.Options{})
-    fn.RegisterWorkflows(w)
-    fn.RegisterActivity(w, fnactivity.NewExecuteFunctionActivity(registry))
+    // Build a job Definition
+    def, err := fnbuilder.NewWorkflowBuilder[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput]().
+        Name("greet-job").
+        Single().
+        Activity(fnactivity.NewExecuteFunctionActivity(registry)).
+        Build()
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    go w.Run(nil)
+    // Register and start worker
+    w := worker.New(c, def.TaskQueue, worker.Options{})
+    def.Register(w)
+    go func() { _ = w.Run(worker.InterruptCh()) }()
     defer w.Stop()
 
     // Execute workflow
-    input := payload.FunctionExecutionInput{
-        Name: "greet",
-        Args: map[string]string{"name": "Temporal"},
+    run, err := def.Execute(context.Background(), c,
+        &payload.FunctionExecutionInput{
+            Name: "greet",
+            Args: map[string]string{"name": "Temporal"},
+        },
+    )
+    if err != nil {
+        log.Fatal(err)
     }
 
-    we, _ := c.ExecuteWorkflow(context.Background(),
-        client.StartWorkflowOptions{
-            ID:        "greet-example",
-            TaskQueue: "function-tasks",
-        },
-        workflow.ExecuteFunctionWorkflow,
-        input,
-    )
-
     var result payload.FunctionExecutionOutput
-    we.Get(context.Background(), &result)
+    _ = run.Get(context.Background(), &result)
     log.Printf("Result: %v", result.Result)
 }
 ```
@@ -209,6 +252,9 @@ go-wf/
 ├── datasync/         # Generic data sync (Source → Mapper → Sink)
 │   ├── activity/     # SyncData activity with OTel
 │   ├── builder/      # Fluent builder for Job construction
+│   ├── chunk/        # Partitioned/chunked sync builder (ChunkedSync, DateChunkedSync)
+│   ├── internal/
+│   │   └── heartbeat/ # Shared heartbeat helpers (used by activity and chunk)
 │   ├── payload/      # Temporal payload types
 │   └── workflow/     # Workflow function and registration
 ├── examples/container/    # Container examples (see [README](./examples/container/README.md))

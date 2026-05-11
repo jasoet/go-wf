@@ -20,7 +20,7 @@ Temporal workflow activities for dispatching arbitrary Go functions. Uses a regi
 ## Quick Example
 
 ```go
-// Register a handler
+// 1. Build a registry and register handlers
 registry := function.NewRegistry()
 registry.Register("greet", func(ctx context.Context, input function.FunctionInput) (*function.FunctionOutput, error) {
     name := input.Args["name"]
@@ -29,9 +29,23 @@ registry.Register("greet", func(ctx context.Context, input function.FunctionInpu
     }, nil
 })
 
-// Execute via Temporal
-input := function.FunctionExecutionInput{
-    Name: "greet",
-    Args: map[string]string{"name": "World"},
-}
+// 2. Build a *job.Definition via the fluent builder
+activityFn := activity.NewExecuteFunctionActivity(registry)
+
+def, err := builder.NewFunctionBuilder().
+    Name("greet-job").
+    Activity(activityFn).
+    Single().
+    Add(&payload.FunctionExecutionInput{
+        Name: "greet",
+        Args: map[string]string{"name": "World"},
+    }).
+    Build()
+
+// 3. Register and execute
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)
+run, err := def.Execute(ctx, c, def.NewInput())
 ```
+
+See [docs/job-definition.md](../docs/job-definition.md) for the full `*job.Definition` API (lifecycle, scheduling, registry).

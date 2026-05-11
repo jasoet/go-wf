@@ -13,6 +13,7 @@ go-wf — a Go library providing a generic workflow orchestration core with Dock
 **Repository Type:** Library (Go module)
 **Module:** `github.com/jasoet/go-wf`
 **Key Dependencies:** Temporal SDK, testcontainers-go, pkg/v2, validator/v10, aws-sdk-go-v2
+**Convergence Type:** All builders return `*job.Definition` from `github.com/jasoet/pkg/v2/temporal/job`. This is the single type for registration, execution, scheduling, and lifecycle management across all workflow kinds.
 
 ## ABSOLUTE RULE — Git Authorship
 
@@ -59,7 +60,9 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `function/workflow/` | Workflow implementations (function, pipeline, parallel, loop, DAG) |
 | `datasync/` | Generic data sync core (Source, Sink, Mapper, Job, Runner) |
 | `datasync/activity/` | SyncData activity with OTel instrumentation |
-| `datasync/builder/` | Fluent builder for Job construction |
+| `datasync/builder/` | Fluent builder for Job construction — returns `*job.Definition` |
+| `datasync/chunk/` | Partitioned/chunked sync builder (ChunkedSync, DateChunkedSync) — returns `*job.Definition` |
+| `datasync/internal/heartbeat/` | Shared heartbeat helpers used by `datasync/activity` and `datasync/chunk` |
 | `datasync/payload/` | Temporal payload types (SyncExecutionInput/Output) |
 | `datasync/workflow/` | Sync workflow function, registration, scheduling helpers |
 | `workflow/otel.go` | Instrumented workflow orchestration wrappers |
@@ -87,6 +90,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `docs/contributing.md` | Contributing guide |
 | `INSTRUCTION.md` | AI context (this file) |
 | `README.md` | Human documentation |
+| `github.com/jasoet/pkg/v2/temporal/job` | External package — `*job.Definition`, `job.Registry`, `job.ScheduleSpec`. All go-wf builders return `*job.Definition` from this package. |
 
 ## Taskfile Commands
 
@@ -144,8 +148,8 @@ Multi-layer architecture organized as package-per-feature:
 **Container Module (`container/`)** — concrete implementation
 - **Activities** wrap `github.com/jasoet/pkg/v2/docker` for container execution
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs (`go-playground/validator`)
-- **Workflows** register with Temporal workers via `container.RegisterAll(w)`, using generic core for orchestration
-- **Builder** provides a fluent API to compose container → pipeline → parallel → DAG; generic builder alternative available
+- **Workflows** register with Temporal workers via `container.RegisterAll(w)` (idempotent), using generic core for orchestration
+- **Builder** (`container/builder.WorkflowBuilder`) provides a fluent API: `.Name()`, `.Pipeline()/.Parallel()/.Single()`, `.Add()`, `.Build() (*job.Definition, error)`. Default `TaskQueue`: `"container-<name>"`.
 - **Templates** (container, script, HTTP) generate payload structs from higher-level config
 - **Patterns** are pre-built workflow compositions (CI/CD pipelines, fan-out/fan-in, etc.)
 
@@ -153,8 +157,8 @@ Multi-layer architecture organized as package-per-feature:
 - **Registry** maps named Go handler functions (`func(ctx, FunctionInput) (*FunctionOutput, error)`) for dispatch
 - **Activity** dispatches to registered handlers via closure over the registry
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs
-- **Workflows** register with Temporal workers, using generic core for orchestration (pipeline, parallel, loop, DAG)
-- **Builder** provides a fluent API to compose function → pipeline → parallel → loop → DAG; generic builder alternative available
+- **Workflows** register with Temporal workers via `function.RegisterAll(w, activityFn)` (idempotent), using generic core for orchestration (pipeline, parallel, loop, DAG)
+- **Builder** (`function/builder.WorkflowBuilder`) provides a fluent API: `.Name()`, `.TaskQueue()`, `.Activity(fn)`, `.Pipeline()/.Parallel()/.Single()`, `.Build() (*job.Definition, error)`. Default `TaskQueue`: `"function-<name>"`. Loop/parameterized-loop variants available via `LoopBuilder`.
 - **Patterns** are pre-built workflow compositions (ETL, fan-out/fan-in, batch processing, CI/CD DAG, etc.)
 
 **DataSync Module (`datasync/`)** — concrete implementation
@@ -164,8 +168,10 @@ Multi-layer architecture organized as package-per-feature:
 - **Runner** provides in-process test execution (no Temporal needed)
 - **Activity** runs the Source→Mapper→Sink pipeline with full OTel instrumentation (`go_wf.datasync.*` metrics)
 - **Workflow** wraps the activity in a Temporal workflow with scheduling support
-- **Builder** provides a fluent API for Job construction
+- **Builder** (`datasync/builder.SyncJobBuilder`) provides a fluent API; `Build()` returns `(*job.Definition, error)`
+- **Chunk** (`datasync/chunk.ChunkedSync`) partitioned-sync builder for large datasets; walks partitions with cursor-based resume and `ContinueAsNew`; schedule via `.ScheduleEvery()`, `.ScheduleCron()`, or `.ScheduleRaw()`; `Build()` returns `(*job.Definition, error)`
 - **Payloads** (`SyncExecutionInput`/`SyncExecutionOutput`) implement `TaskInput`/`TaskOutput` for composition with Pipeline, Parallel, and DAG
+- **Internal heartbeat** (`datasync/internal/heartbeat`) shared helpers ensuring consistent heartbeat behavior across `datasync/activity` and `datasync/chunk`
 
 **Observability (`jasoet/pkg/v2/otel`)**
 - Activities get full OTel spans + metrics via `Layers.StartService` (container: `go_wf.container.task.*`, function: `go_wf.function.task.*`, datasync: `go_wf.datasync.*`)

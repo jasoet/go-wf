@@ -9,25 +9,37 @@ library and for AI agents navigating the codebase.
 go-wf is organized in four layers. Each layer depends only on layers below it.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Layer 4 — Workers & Operations                         │
-│  Worker registration (RegisterAll), workflow submit,    │
-│  cancel, watch, schedule                                │
-├─────────────────────────────────────────────────────────┤
-│  Layer 3 — Builder / Pattern APIs                       │
-│  Fluent builders, pre-built patterns (CI/CD, ETL, etc.) │
-│  container/builder  function/builder  datasync/builder  │
-│  container/patterns function/patterns                   │
-├─────────────────────────────────────────────────────────┤
-│  Layer 2 — Concrete Implementations                     │
-│  container/   function/   datasync/                     │
-│  Payloads, activities, workflow wrappers                 │
-├─────────────────────────────────────────────────────────┤
-│  Layer 1 — Generic Workflow Core (workflow/)             │
-│  TaskInput/TaskOutput constraints, orchestration logic,  │
-│  Store, Artifacts, Errors, OTel wrappers                │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  Layer 4 — Workers & Operations                                 │
+│  def.Register(w), def.Execute(ctx, c, input), def.Cancel(...)  │
+│  job.Registry — aggregate Definitions, RegisterAll, MustGet    │
+│  All via *job.Definition (github.com/jasoet/pkg/v2/temporal/job)│
+├─────────────────────────────────────────────────────────────────┤
+│  Layer 3 — Builder / Pattern APIs                               │
+│  Fluent builders — all Build() → (*job.Definition, error)       │
+│  container/builder  function/builder                            │
+│  datasync/builder   datasync/chunk                              │
+│  container/patterns function/patterns                           │
+├─────────────────────────────────────────────────────────────────┤
+│  Layer 2 — Concrete Implementations                             │
+│  container/   function/   datasync/                             │
+│  Payloads, activities, workflow wrappers                         │
+├─────────────────────────────────────────────────────────────────┤
+│  Layer 1 — Generic Workflow Core (workflow/)                     │
+│  TaskInput/TaskOutput constraints, orchestration logic,          │
+│  Store, Artifacts, Errors, OTel wrappers                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+### pkg/v2/temporal/job — Shared Abstraction
+
+All go-wf builders converge on `*job.Definition` from `github.com/jasoet/pkg/v2/temporal/job`. This external package (in the `pkg/v2` base library) provides:
+
+- **`*job.Definition`** — the single handle for a named workflow job. Key methods: `Register(w)`, `Execute(ctx, c, input, opts...)`, `NewInput()`, `Describe`, `History`, `Cancel`, `Terminate`, `Signal`, `Query`, `ListRuns`, `Stats`, `ApplySchedule`, `PauseSchedule`, `ResumeSchedule`, `TriggerSchedule`, `DeleteSchedule`, `DescribeSchedule`.
+- **`job.Registry`** — aggregates Definitions by name. `Add`, `Get`, `MustGet`, `List`, `Names`, `RegisterAll`, `ApplySchedules`.
+- **`job.ScheduleSpec`** — portable schedule descriptor (interval, cron, calendar, jitter, overlap policy).
+
+See [docs/job-definition.md](job-definition.md) for the full API reference.
 
 ## Package Relationship Map
 
@@ -55,9 +67,12 @@ function/                          ← Concrete: Go function dispatch
 
 datasync/                          ← Concrete: Source→Mapper→Sink
 ├── activity/                      ← SyncData activity + OTel
+├── builder/                       ← Fluent Job builder → *job.Definition
+├── chunk/                         ← Partitioned/chunked sync → *job.Definition
+├── internal/
+│   └── heartbeat/                 ← Shared heartbeat helpers (activity + chunk)
 ├── payload/                       ← SyncExecutionInput/Output
-├── workflow/                      ← Sync workflow + scheduling
-└── builder/                       ← Fluent Job builder
+└── workflow/                      ← Sync workflow + scheduling
 ```
 
 **Dependency flow (imports go downward only):**
@@ -67,8 +82,11 @@ container/builder ──→ container/workflow ──→ workflow/
 container/workflow ──→ container/activity ──→ container/payload
 function/builder  ──→ function/workflow  ──→ workflow/
 function/workflow  ──→ function/activity  ──→ function/payload
-datasync/workflow  ──→ datasync/activity  ──→ datasync/ (core interfaces)
+datasync/builder  ──→ datasync/workflow  ──→ datasync/activity  ──→ datasync/
+datasync/chunk    ──→ datasync/internal/heartbeat
+datasync/chunk    ──→ datasync/ (core interfaces)
 All payloads       ──→ workflow/ (satisfy TaskInput/TaskOutput)
+All builders       ──→ github.com/jasoet/pkg/v2/temporal/job (*job.Definition)
 ```
 
 ## Data Flow: Workflow Execution
@@ -335,12 +353,23 @@ Each module registers these wrapper functions as Temporal workflows.
 
 ### Workers
 
-Worker registration follows a consistent pattern across modules:
+The recommended pattern is to use a `*job.Definition` returned by a builder. `def.Register(w)`
+is idempotent — calling it multiple times on the same worker is safe:
+
+```go
+def, err := builder.NewWorkflowBuilder().Name("deploy").Single().AddInput(input).Build()
+// ...
+w := worker.New(client, def.TaskQueue, worker.Options{})
+def.Register(w)  // registers workflows + activities for this Definition
+```
+
+For callers that register manually without a builder, the package-level helpers are still
+available (also idempotent):
 
 **Container:**
 ```go
 w := worker.New(client, "container-tasks", worker.Options{})
-container.RegisterAll(w)  // registers all workflows + activities
+container.RegisterAll(w)  // registers all container workflows + activities
 ```
 
 **Function:**
@@ -402,9 +431,27 @@ A `Job[T, U]` bundles Source + Mapper + Sink with scheduling and retry configura
 `Runner[T, U]` executes the pipeline in-process (useful for testing), while the Temporal
 activity wraps the same pipeline with full observability.
 
+Both `datasync/builder.SyncJobBuilder` and `datasync/chunk.ChunkedSync` return `(*job.Definition, error)`
+from their `Build()` methods. There is no separate `FullJobRegistration` type — `*job.Definition`
+handles registration, execution, and scheduling uniformly.
+
 DataSync payloads (`SyncExecutionInput`/`SyncExecutionOutput`) also implement
 `TaskInput`/`TaskOutput`, so sync jobs can be composed into Pipeline, Parallel, and DAG
 orchestrations alongside container and function tasks.
+
+### datasync/chunk — Partitioned Sync
+
+`ChunkedSync[In, Out, K]` extends the basic datasync pattern for large datasets by walking an
+ordered sequence of `Partition[K]` values. Each partition is processed as a separate activity
+invocation. Key features:
+
+- **Cursor-based resume** — with `WithTracker(t)`, a `ProgressTracker` persists the last
+  completed partition key. On the next execution, already-processed partitions are skipped.
+- **ContinueAsNew** — `MaxPartitionsPerExecution(n)` caps history growth; the workflow
+  continues from the cursor position in a fresh execution.
+- **Schedule API** — `.ScheduleEvery(d)`, `.ScheduleCron(expr)`, `.ScheduleRaw(spec)`.
+- **Heartbeat** — shared helpers in `datasync/internal/heartbeat` keep the activity heartbeat
+  alive consistently across both plain datasync and chunked workflows.
 
 ## Observability
 

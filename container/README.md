@@ -20,12 +20,40 @@ Temporal workflows for executing Docker containers with advanced orchestration p
 
 ## Quick Example
 
+### Builder path (preferred)
+
 ```go
-input := container.ContainerExecutionInput{
+def, err := builder.NewWorkflowBuilder().
+    Name("pg-start").
+    Single().
+    AddInput(payload.ContainerExecutionInput{
+        Image:      "postgres:16-alpine",
+        Env:        map[string]string{"POSTGRES_PASSWORD": "test"},
+        Ports:      []string{"5432:5432"},
+        WaitStrategy: payload.WaitStrategyConfig{
+            Type:       "log",
+            LogMessage: "ready to accept connections",
+        },
+        AutoRemove: true,
+    }).
+    Build()
+
+// def is a *job.Definition — register it with a worker and execute it.
+w := worker.New(c, def.TaskQueue, worker.Options{})
+def.Register(w)
+run, err := def.Execute(ctx, c, def.NewInput())
+```
+
+See [docs/job-definition.md](../docs/job-definition.md) for the full `*job.Definition` API (lifecycle, scheduling, registry).
+
+### Low-level path
+
+```go
+input := payload.ContainerExecutionInput{
     Image:      "postgres:16-alpine",
     Env:        map[string]string{"POSTGRES_PASSWORD": "test"},
     Ports:      []string{"5432:5432"},
-    WaitStrategy: container.WaitStrategyConfig{
+    WaitStrategy: payload.WaitStrategyConfig{
         Type:       "log",
         LogMessage: "ready to accept connections",
     },
@@ -33,7 +61,7 @@ input := container.ContainerExecutionInput{
 }
 
 we, _ := c.ExecuteWorkflow(ctx,
-    client.StartWorkflowOptions{ID: "pg", TaskQueue: "container-tasks"},
+    client.StartWorkflowOptions{ID: "pg", TaskQueue: "container-pg-start"},
     container.ExecuteContainerWorkflow, input)
 ```
 
