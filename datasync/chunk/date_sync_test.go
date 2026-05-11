@@ -24,7 +24,7 @@ func TestDateChunkedSync_Build_ConfiguresDatePartitioner(t *testing.T) {
 		}).
 		Mapper(datasync.IdentityMapper[string]()).
 		Sink(&stubSink{name: "sink"}).
-		Schedule(15 * time.Minute).
+		ScheduleEvery(15 * time.Minute).
 		Build()
 
 	require.NoError(t, buildErr)

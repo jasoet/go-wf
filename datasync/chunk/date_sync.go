@@ -89,8 +89,18 @@ func (d *DateChunkedSync[In, Out]) PartitionSleep(s time.Duration) *DateChunkedS
 	return d
 }
 
-func (d *DateChunkedSync[In, Out]) Schedule(s time.Duration) *DateChunkedSync[In, Out] {
-	d.inner.Schedule(s)
+func (d *DateChunkedSync[In, Out]) ScheduleEvery(dur time.Duration) *DateChunkedSync[In, Out] {
+	d.inner.ScheduleEvery(dur)
+	return d
+}
+
+func (d *DateChunkedSync[In, Out]) ScheduleCron(expr string) *DateChunkedSync[In, Out] {
+	d.inner.ScheduleCron(expr)
+	return d
+}
+
+func (d *DateChunkedSync[In, Out]) ScheduleRaw(spec *job.ScheduleSpec) *DateChunkedSync[In, Out] {
+	d.inner.ScheduleRaw(spec)
 	return d
 }
 

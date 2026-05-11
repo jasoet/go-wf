@@ -20,7 +20,7 @@
 //	    Mapper(myMapper).
 //	    Sink(myDBSink).
 //	    WithTracker(myPostgresTracker).
-//	    Schedule(15 * time.Minute).
+//	    ScheduleEvery(15 * time.Minute).
 //	    MaxPartitionsPerExecution(50).
 //	    Build()
 //

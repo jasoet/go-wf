@@ -54,7 +54,7 @@ type ChunkedSync[In, Out any, K cmp.Ordered] struct {
 	sink           datasync.Sink[Out]
 	tracker        ProgressTracker[K]
 	partitionSleep time.Duration
-	schedule       time.Duration
+	schedule       *job.ScheduleSpec
 	rateLimitOpts  *RateLimitOpts
 	activityRetry  *temporal.RetryPolicy
 	startToClose   time.Duration
@@ -99,8 +99,22 @@ func (c *ChunkedSync[In, Out, K]) PartitionSleep(d time.Duration) *ChunkedSync[I
 	return c
 }
 
-func (c *ChunkedSync[In, Out, K]) Schedule(d time.Duration) *ChunkedSync[In, Out, K] {
-	c.schedule = d
+// ScheduleEvery configures the workflow to fire at fixed intervals.
+func (c *ChunkedSync[In, Out, K]) ScheduleEvery(d time.Duration) *ChunkedSync[In, Out, K] {
+	c.schedule = &job.ScheduleSpec{Interval: d}
+	return c
+}
+
+// ScheduleCron configures the workflow to fire on a cron expression.
+func (c *ChunkedSync[In, Out, K]) ScheduleCron(expr string) *ChunkedSync[In, Out, K] {
+	c.schedule = &job.ScheduleSpec{Cron: expr}
+	return c
+}
+
+// ScheduleRaw configures the workflow with a fully customized schedule spec
+// (e.g., calendar specs, overlap policy, jitter).
+func (c *ChunkedSync[In, Out, K]) ScheduleRaw(spec *job.ScheduleSpec) *ChunkedSync[In, Out, K] {
+	c.schedule = spec
 	return c
 }
 
@@ -257,11 +271,11 @@ func (c *ChunkedSync[In, Out, K]) Build() (*job.Definition, error) {
 		}),
 		job.WithNewInput(func() any { return &payload.SyncExecutionInput{} }),
 	}
-	if schedule > 0 {
-		opts = append(opts, job.WithSchedule(&job.ScheduleSpec{
-			Interval: schedule,
-			Paused:   disabled,
-		}))
+	if schedule != nil {
+		if disabled {
+			schedule.Paused = true
+		}
+		opts = append(opts, job.WithSchedule(schedule))
 	}
 
 	return job.New(jobName, datasyncwf.TaskQueue(jobName), opts...)

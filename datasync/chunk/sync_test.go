@@ -68,7 +68,7 @@ func TestChunkedSync_Build_PopulatesRegistration(t *testing.T) {
 		Fetcher(func(_ context.Context, _, _ int64) ([]string, error) { return nil, nil }).
 		Mapper(datasync.IdentityMapper[string]()).
 		Sink(&stubSink{name: "sink"}).
-		Schedule(15 * time.Minute).
+		ScheduleEvery(15 * time.Minute).
 		Disabled(true).
 		Build()
 	require.NoError(t, err)
