@@ -94,7 +94,7 @@ func TestIntegration_ChunkedSync_EndToEnd_NoTracker(t *testing.T) {
 
 	jobName := "integration-test-chunk-no-tracker"
 
-	reg := NewDateChunkedSync[Order, Order](jobName).
+	reg, err := NewDateChunkedSync[Order, Order](jobName).
 		LookBack(lookBack).
 		ChunkSize(chunkSize).
 		Timezone(time.UTC).
@@ -107,6 +107,7 @@ func TestIntegration_ChunkedSync_EndToEnd_NoTracker(t *testing.T) {
 		Mapper(datasync.IdentityMapper[Order]()).
 		Sink(sink).
 		Build()
+	require.NoError(t, err)
 
 	w := worker.New(tc.Client, reg.TaskQueue, worker.Options{})
 	reg.Register(w)
@@ -117,7 +118,7 @@ func TestIntegration_ChunkedSync_EndToEnd_NoTracker(t *testing.T) {
 	we, err := tc.Client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
 		ID:        "test-" + reg.Name,
 		TaskQueue: reg.TaskQueue,
-	}, reg.Name, reg.WorkflowInput)
+	}, reg.Name, reg.NewInput())
 	require.NoError(t, err)
 
 	var result SyncResult[int64]
@@ -153,7 +154,7 @@ func TestIntegration_ChunkedSync_EndToEnd_WithTracker(t *testing.T) {
 
 	jobName := "integration-test-chunk-with-tracker"
 
-	reg := NewDateChunkedSync[Order, Order](jobName).
+	reg, err := NewDateChunkedSync[Order, Order](jobName).
 		LookBack(lookBack).
 		ChunkSize(chunkSize).
 		Timezone(time.UTC).
@@ -177,7 +178,7 @@ func TestIntegration_ChunkedSync_EndToEnd_WithTracker(t *testing.T) {
 	we, err := tc.Client.ExecuteWorkflow(ctx, client.StartWorkflowOptions{
 		ID:        "test-" + reg.Name,
 		TaskQueue: reg.TaskQueue,
-	}, reg.Name, reg.WorkflowInput)
+	}, reg.Name, reg.NewInput())
 	require.NoError(t, err)
 
 	var result SyncResult[int64]
