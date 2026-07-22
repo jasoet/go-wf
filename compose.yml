@@ -53,6 +53,9 @@ services:
     environment:
       RUSTFS_ACCESS_KEY: rustfsadmin
       RUSTFS_SECRET_KEY: rustfsadmin
+      # rustfs refuses default credentials on non-loopback listeners since
+      # recent images; local dev stack, so opt in explicitly.
+      RUSTFS_ALLOW_INSECURE_DEFAULT_CREDENTIALS: "true"
     command: /data
     volumes:
       - objectstore-data:/data

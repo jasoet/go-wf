@@ -27,6 +27,9 @@ func TestMain(m *testing.M) {
 		Env: map[string]string{
 			"RUSTFS_ACCESS_KEY": "rustfsadmin",
 			"RUSTFS_SECRET_KEY": "rustfsadmin",
+			// rustfs refuses default credentials on non-loopback listeners since
+			// recent images; tests bind to localhost, so opt in explicitly.
+			"RUSTFS_ALLOW_INSECURE_DEFAULT_CREDENTIALS": "true",
 		},
 		Cmd:        []string{"/data"},
 		WaitingFor: wait.ForListeningPort("9000").WithStartupTimeout(60 * time.Second),
