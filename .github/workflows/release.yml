@@ -16,6 +16,8 @@ jobs:
           set-safe-directory: false
       - name: Test
         run: nix develop --command task ci:test
+      - name: Check pkg/v2 pin
+        run: nix develop --command bash scripts/check-pkg-version.sh
 
   release:
     name: Release

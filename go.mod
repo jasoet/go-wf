@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.2
 	github.com/aws/smithy-go v1.24.2
 	github.com/go-playground/validator/v10 v10.30.1
-	github.com/jasoet/pkg/v2 v2.12.1-0.20260511023026-f8ae822218ab
+	github.com/jasoet/pkg/v2 v2.13.1
 	github.com/nexus-rpc/sdk-go v0.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.40.0

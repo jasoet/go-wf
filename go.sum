@@ -98,8 +98,8 @@ github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 h1:B+8ClL/kCQkRiU82d9xajR
 github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3/go.mod h1:NbCUVmiS4foBGBHOYlCT25+YmGpJ32dZPi75pGEUpj4=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 h1:HWRh5R2+9EifMyIHV7ZV+MIZqgz+PMpZ14Jynv3O2Zs=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0/go.mod h1:JfhWUomR1baixubs02l85lZYYOm7LV6om4ceouMv45c=
-github.com/jasoet/pkg/v2 v2.12.1-0.20260511023026-f8ae822218ab h1:K1WW7yt2AIRH7nQKaGzT2I0WCV23ph9c+TqcdN+lXNA=
-github.com/jasoet/pkg/v2 v2.12.1-0.20260511023026-f8ae822218ab/go.mod h1:U+NrzK22p+ALn290PAHD5UCbugDNMOYfpke1RfeSXgs=
+github.com/jasoet/pkg/v2 v2.13.1 h1:+kfn4bevYSN+S3NkeljAmOBpv/ghEroBDk/D7dNesCY=
+github.com/jasoet/pkg/v2 v2.13.1/go.mod h1:U+NrzK22p+ALn290PAHD5UCbugDNMOYfpke1RfeSXgs=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.18.5 h1:/h1gH5Ce+VWNLSWqPzOVn6XBO+vJbCNGvjoaGBFW2IE=

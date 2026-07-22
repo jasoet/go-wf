@@ -178,6 +178,14 @@ Steps:
 1. **Lint** -- `task lint` via Nix
 2. **Test** -- `task ci:test` (unit tests, no coverage HTML)
 
+## Dependency Pinning (pkg/v2)
+
+go-wf releases may only pin **tagged releases** of `github.com/jasoet/pkg/v2` (which provides
+`temporal/job` and the container execution layer). During development a pseudo-version is fine,
+but the release workflow runs `scripts/check-pkg-version.sh` and fails the release if go.mod
+sits on a pseudo-version. If that happens, tag a pkg/v2 release containing the needed commit,
+then `go get github.com/jasoet/pkg/v2@latest` here before re-running the release.
+
 ## Project Structure
 
 See `INSTRUCTION.md` for the full architecture overview and key paths. The codebase follows a package-per-feature layout:
