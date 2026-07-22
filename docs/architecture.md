@@ -27,7 +27,7 @@ go-wf is organized in four layers. Each layer depends only on layers below it.
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 1 — Generic Workflow Core (workflow/)                     │
 │  TaskInput/TaskOutput constraints, orchestration logic,          │
-│  Store, Artifacts, Errors, OTel wrappers                        │
+│  Store, Errors, OTel wrappers                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,8 +45,7 @@ See [docs/job-definition.md](job-definition.md) for the full API reference.
 
 ```
 workflow/                          ← Generic core (no concrete types)
-├── store/                         ← RawStore, Store[T], Codec[T]
-├── artifacts/                     ← Legacy artifact store (DAG)
+├── store/                         ← RawStore, Store[T], Codec[T], archive/file ops (DAG artifacts)
 ├── errors/                        ← Shared error types
 └── testutil/                      ← Temporal testcontainer helpers
 

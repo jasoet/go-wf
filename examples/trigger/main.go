@@ -24,7 +24,6 @@ import (
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
 	wftype "github.com/jasoet/go-wf/workflow"
-	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
 func main() {
@@ -290,20 +289,20 @@ func runAll(ctx context.Context, c client.Client) error {
 				{
 					Name:            "generate",
 					Function:        fnpayload.FunctionExecutionInput{Name: "generate-report", Args: map[string]string{"type": "sales"}},
-					OutputArtifacts: []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					OutputArtifacts: []fnpayload.ArtifactRef{{Name: "report-data", Type: "bytes"}},
 				},
 				{
 					Name:            "process",
 					Function:        fnpayload.FunctionExecutionInput{Name: "process-report"},
 					Dependencies:    []string{"generate"},
-					InputArtifacts:  []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
-					OutputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+					InputArtifacts:  []fnpayload.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					OutputArtifacts: []fnpayload.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
 				},
 				{
 					Name:           "archive",
 					Function:       fnpayload.FunctionExecutionInput{Name: "archive-report"},
 					Dependencies:   []string{"process"},
-					InputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+					InputArtifacts: []fnpayload.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
 				},
 			},
 			FailFast: true,
@@ -317,20 +316,20 @@ func runAll(ctx context.Context, c client.Client) error {
 				{
 					Name:            "generate",
 					Function:        fnpayload.FunctionExecutionInput{Name: "generate-report", Args: map[string]string{"type": "inventory"}},
-					OutputArtifacts: []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					OutputArtifacts: []fnpayload.ArtifactRef{{Name: "report-data", Type: "bytes"}},
 				},
 				{
 					Name:            "process",
 					Function:        fnpayload.FunctionExecutionInput{Name: "process-report"},
 					Dependencies:    []string{"generate"},
-					InputArtifacts:  []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
-					OutputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+					InputArtifacts:  []fnpayload.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+					OutputArtifacts: []fnpayload.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
 				},
 				{
 					Name:           "archive",
 					Function:       fnpayload.FunctionExecutionInput{Name: "archive-report"},
 					Dependencies:   []string{"process"},
-					InputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+					InputArtifacts: []fnpayload.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
 				},
 			},
 			FailFast: true,
@@ -576,20 +575,20 @@ func createSchedules(ctx context.Context, c client.Client) {
 					{
 						Name:            "generate",
 						Function:        fnpayload.FunctionExecutionInput{Name: "generate-report", Args: map[string]string{"type": "scheduled"}},
-						OutputArtifacts: []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+						OutputArtifacts: []fnpayload.ArtifactRef{{Name: "report-data", Type: "bytes"}},
 					},
 					{
 						Name:            "process",
 						Function:        fnpayload.FunctionExecutionInput{Name: "process-report"},
 						Dependencies:    []string{"generate"},
-						InputArtifacts:  []artifacts.ArtifactRef{{Name: "report-data", Type: "bytes"}},
-						OutputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+						InputArtifacts:  []fnpayload.ArtifactRef{{Name: "report-data", Type: "bytes"}},
+						OutputArtifacts: []fnpayload.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
 					},
 					{
 						Name:           "archive",
 						Function:       fnpayload.FunctionExecutionInput{Name: "archive-report"},
 						Dependencies:   []string{"process"},
-						InputArtifacts: []artifacts.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
+						InputArtifacts: []fnpayload.ArtifactRef{{Name: "processed-data", Type: "bytes"}},
 					},
 				},
 				FailFast: true,

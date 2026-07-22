@@ -11,7 +11,7 @@ import (
 
 	"github.com/jasoet/go-wf/container/payload"
 	"github.com/jasoet/go-wf/container/workflow"
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 // This example demonstrates artifact storage and retrieval in workflows.
@@ -52,11 +52,11 @@ func main() {
 
 func buildTestPipeline(ctx context.Context, c client.Client) {
 	// Create local file store for artifacts
-	store, err := artifacts.NewLocalFileStore("/tmp/workflow-artifacts")
+	artifactStore, err := store.NewLocalStore("/tmp/workflow-artifacts")
 	if err != nil {
 		log.Fatalln("Failed to create artifact store", err)
 	}
-	defer store.Close()
+	defer artifactStore.Close()
 
 	input := payload.DAGWorkflowInput{
 		Nodes: []payload.DAGNode{
@@ -104,7 +104,7 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 				Dependencies: []string{"build"},
 			},
 		},
-		ArtifactStore: store,
+		ArtifactStore: artifactStore,
 		FailFast:      true,
 	}
 
@@ -132,11 +132,11 @@ func buildTestPipeline(ctx context.Context, c client.Client) {
 
 func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 	// Create local file store for artifacts
-	store, err := artifacts.NewLocalFileStore("/tmp/workflow-artifacts")
+	artifactStore, err := store.NewLocalStore("/tmp/workflow-artifacts")
 	if err != nil {
 		log.Fatalln("Failed to create artifact store", err)
 	}
-	defer store.Close()
+	defer artifactStore.Close()
 
 	input := payload.DAGWorkflowInput{
 		Nodes: []payload.DAGNode{
@@ -248,7 +248,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 				Dependencies: []string{"test"},
 			},
 		},
-		ArtifactStore: store,
+		ArtifactStore: artifactStore,
 		FailFast:      true,
 	}
 
@@ -286,7 +286,7 @@ func buildTestDeployPipeline(ctx context.Context, c client.Client) {
 func s3ArtifactStorage(ctx context.Context, c client.Client) {
 	// Create S3 store for artifacts
 	// In production, these would come from configuration
-	s3Config := artifacts.S3Config{
+	s3Config := store.S3Config{
 		Endpoint:  "localhost:9000",
 		AccessKey: "rustfsadmin",
 		SecretKey: "rustfsadmin",
@@ -296,11 +296,11 @@ func s3ArtifactStorage(ctx context.Context, c client.Client) {
 		Region:    "us-east-1",
 	}
 
-	store, err := artifacts.NewS3Store(ctx, s3Config)
+	artifactStore, err := store.NewS3Store(ctx, s3Config)
 	if err != nil {
 		log.Fatalln("Failed to create S3 store", err)
 	}
-	defer store.Close()
+	defer artifactStore.Close()
 
 	input := payload.DAGWorkflowInput{
 		Nodes: []payload.DAGNode{
@@ -346,7 +346,7 @@ func s3ArtifactStorage(ctx context.Context, c client.Client) {
 				Dependencies: []string{"process-data"},
 			},
 		},
-		ArtifactStore: store,
+		ArtifactStore: artifactStore,
 		FailFast:      true,
 	}
 
@@ -374,23 +374,11 @@ func s3ArtifactStorage(ctx context.Context, c client.Client) {
 
 func artifactCleanupExample(ctx context.Context, c client.Client) {
 	// Create local file store
-	store, err := artifacts.NewLocalFileStore("/tmp/workflow-artifacts")
+	artifactStore, err := store.NewLocalStore("/tmp/workflow-artifacts")
 	if err != nil {
 		log.Fatalln("Failed to create artifact store", err)
 	}
-	defer store.Close()
-
-	// Showcase ArtifactConfig with cleanup settings
-	artifactConfig := artifacts.ArtifactConfig{
-		Store:         store,
-		WorkflowID:    "archive-cleanup-demo",
-		RunID:         "run-001",
-		EnableCleanup: true,
-		RetentionDays: 7,
-	}
-
-	fmt.Printf("Artifact config: Cleanup=%v, Retention=%d days\n",
-		artifactConfig.EnableCleanup, artifactConfig.RetentionDays)
+	defer artifactStore.Close()
 
 	input := payload.DAGWorkflowInput{
 		Nodes: []payload.DAGNode{
@@ -438,7 +426,7 @@ func artifactCleanupExample(ctx context.Context, c client.Client) {
 				Dependencies: []string{"build-archive"},
 			},
 		},
-		ArtifactStore: store,
+		ArtifactStore: artifactStore,
 		FailFast:      true,
 	}
 
@@ -465,5 +453,5 @@ func artifactCleanupExample(ctx context.Context, c client.Client) {
 
 	// Demonstrate cleanup reference
 	fmt.Println("\nTo cleanup workflow artifacts programmatically:")
-	fmt.Println("  artifacts.CleanupWorkflowArtifacts(ctx, store, workflowID, runID)")
+	fmt.Println(`  store.DeletePrefix(ctx, raw, workflowID+"/"+runID+"/")`)
 }

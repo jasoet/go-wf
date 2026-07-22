@@ -42,8 +42,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 |------|---------|
 | `workflow/` | Generic workflow core (interfaces, orchestration logic) |
 | `workflow/errors/` | Error types and handling |
-| `workflow/store/` | Generic typed store (RawStore, Store[T], Codec[T]) |
-| `workflow/artifacts/` | Artifact store (local + S3) — used by DAG workflows |
+| `workflow/store/` | Generic typed store (RawStore, Store[T], Codec[T]) + archive/file operations for DAG artifacts |
 | `workflow/testutil/` | Shared test helpers (Temporal testcontainer) |
 | `container/` | Container workflows (concrete implementation) |
 | `container/activity/` | Temporal activities for container execution |
@@ -68,7 +67,6 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `workflow/otel.go` | Instrumented workflow orchestration wrappers |
 | `container/activity/otel.go` | Container activity OTel spans + metrics |
 | `function/activity/otel.go` | Function activity OTel spans + metrics |
-| `workflow/artifacts/otel.go` | Instrumented artifact store decorator |
 | `compose.yml` | Compose file for local Temporal infrastructure (works with docker compose or podman-compose) |
 | `examples/container/` | Container example code (build tag: `//go:build example`) |
 | `examples/function/` | Function example code (build tag: `//go:build example`) |
@@ -142,7 +140,7 @@ Multi-layer architecture organized as package-per-feature:
 - Activity dispatch via `ActivityName()` (string-based, not function reference) for Temporal compatibility
 - Generic store package (`workflow/store/`): `RawStore` (byte-level), `Store[T]` (typed with `Codec[T]`), with local filesystem and S3 implementations
 - Orchestration input types carry both `I` (input) and `O` (output) type parameters for type-safe pipeline composition
-- Legacy artifact storage (`workflow/artifacts/`) still used by DAG workflows
+- DAG workflow artifacts use `workflow/store/` file operations (upload/download/archive) keyed by workflow/run/step/name
 - Error types shared across all implementations
 
 **Container Module (`container/`)** — concrete implementation

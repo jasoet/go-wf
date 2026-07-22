@@ -24,7 +24,7 @@ import (
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
 	gowfworker "github.com/jasoet/go-wf/worker"
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 func main() {
@@ -399,11 +399,11 @@ func registerAllHandlers(registry *fn.Registry) {
 	log.Printf("Registered %d handler functions", 24)
 }
 
-func createLocalArtifactStore() (artifacts.ArtifactStore, error) {
-	return artifacts.NewLocalFileStore("/tmp/go-wf-artifacts")
+func createLocalArtifactStore() (store.RawStore, error) {
+	return store.NewLocalStore("/tmp/go-wf-artifacts")
 }
 
-func createS3ArtifactStore() artifacts.ArtifactStore {
+func createS3ArtifactStore() store.RawStore {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -420,7 +420,7 @@ func createS3ArtifactStore() artifacts.ArtifactStore {
 		secretKey = k
 	}
 
-	store, err := artifacts.NewS3Store(ctx, artifacts.S3Config{
+	s3Store, err := store.NewS3Store(ctx, store.S3Config{
 		Endpoint:  endpoint,
 		AccessKey: accessKey,
 		SecretKey: secretKey,
@@ -432,12 +432,12 @@ func createS3ArtifactStore() artifacts.ArtifactStore {
 		log.Printf("Warning: S3-compatible storage not available, skipping artifact store: %v", err)
 		return nil
 	}
-	return store
+	return s3Store
 }
 
-func newArtifactDAGWorkflow(store artifacts.ArtifactStore) func(wf.Context, fnpayload.DAGWorkflowInput) (*fnpayload.FunctionDAGWorkflowOutput, error) {
+func newArtifactDAGWorkflow(raw store.RawStore) func(wf.Context, fnpayload.DAGWorkflowInput) (*fnpayload.FunctionDAGWorkflowOutput, error) {
 	return func(ctx wf.Context, input fnpayload.DAGWorkflowInput) (*fnpayload.FunctionDAGWorkflowOutput, error) {
-		input.ArtifactStore = store
+		input.ArtifactStore = raw
 		return fnwf.InstrumentedDAGWorkflow(ctx, input)
 	}
 }

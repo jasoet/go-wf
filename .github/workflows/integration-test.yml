@@ -53,7 +53,7 @@ jobs:
             container) echo "packages=./container/..." >> "$GITHUB_OUTPUT" ;;
             function)  echo "packages=./function/..." >> "$GITHUB_OUTPUT" ;;
             datasync)  echo "packages=./datasync/..." >> "$GITHUB_OUTPUT" ;;
-            store)     echo "packages=./workflow/store/... ./workflow/artifacts/..." >> "$GITHUB_OUTPUT" ;;
+            store)     echo "packages=./workflow/store/..." >> "$GITHUB_OUTPUT" ;;
           esac
 
       - name: Run Integration Tests
