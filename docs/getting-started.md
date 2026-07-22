@@ -234,6 +234,8 @@ task local:down       # stop everything
 task local:clean      # stop and remove volumes
 ```
 
+The workers in this stack are created via `github.com/jasoet/go-wf/worker`.New, which enables Temporal Worker Versioning (Worker Deployments, Pinned behavior) when `TEMPORAL_DEPLOYMENT_NAME` and `TEMPORAL_BUILD_ID` are set — the compose stack sets both (`BUILD_ID` env overrides the default `dev`). In-flight executions finish on the worker build they started with, so redeploying workflow code never breaks replay; without the env vars, the helper behaves exactly like the SDK's `worker.New`. See [Architecture](architecture.md#workflow-versioning) for details.
+
 ## Next Steps
 
 - [Function Workflows](function-workflows.md) — handlers, pipelines, parallel execution, loops

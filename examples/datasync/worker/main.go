@@ -13,6 +13,7 @@ import (
 
 	"github.com/jasoet/go-wf/datasync"
 	dsworkflow "github.com/jasoet/go-wf/datasync/workflow"
+	gowfworker "github.com/jasoet/go-wf/worker"
 )
 
 // Shared worker that registers multiple datasync jobs.
@@ -147,13 +148,13 @@ func main() {
 		MaxConcurrentWorkflowTaskExecutionSize: 10,
 	}
 
-	w1 := worker.New(c, dsworkflow.TaskQueue(userJob.Name), workerOpts)
+	w1 := gowfworker.New(c, dsworkflow.TaskQueue(userJob.Name), workerOpts)
 	dsworkflow.RegisterJob(w1, userJob)
 
-	w2 := worker.New(c, dsworkflow.TaskQueue(productJob.Name), workerOpts)
+	w2 := gowfworker.New(c, dsworkflow.TaskQueue(productJob.Name), workerOpts)
 	dsworkflow.RegisterJob(w2, productJob)
 
-	w3 := worker.New(c, dsworkflow.TaskQueue(orderJob.Name), workerOpts)
+	w3 := gowfworker.New(c, dsworkflow.TaskQueue(orderJob.Name), workerOpts)
 	dsworkflow.RegisterJob(w3, orderJob)
 
 	log.Println("Registered sync jobs:")

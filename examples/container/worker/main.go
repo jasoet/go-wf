@@ -15,6 +15,7 @@ import (
 	"go.temporal.io/sdk/worker"
 
 	"github.com/jasoet/go-wf/container"
+	gowfworker "github.com/jasoet/go-wf/worker"
 )
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 	log.Println("Starting Docker Temporal Worker...")
 
 	// Create worker
-	w := worker.New(c, "container-tasks", worker.Options{
+	w := gowfworker.New(c, "container-tasks", worker.Options{
 		MaxConcurrentActivityExecutionSize:     10,
 		MaxConcurrentWorkflowTaskExecutionSize: 10,
 	})

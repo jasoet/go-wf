@@ -385,6 +385,15 @@ function.RegisterAll(w, activityFn)  // needs the activity closure
 The function module differs because its activity closes over a `Registry` instance, so the
 caller must construct the activity function and pass it in.
 
+### Workflow Versioning
+
+Workers created via `github.com/jasoet/go-wf/worker`.New enable Temporal Worker
+Versioning (Worker Deployments) when `TEMPORAL_DEPLOYMENT_NAME` and
+`TEMPORAL_BUILD_ID` are set. The default behavior is Pinned: in-flight
+executions finish on the worker build they started with, so workflow-code
+deploys never break replay. Without the env vars, workers behave exactly as
+`worker.New` from the Temporal SDK.
+
 ### Task Queues
 
 Each module typically uses its own task queue (e.g., `"container-tasks"`,

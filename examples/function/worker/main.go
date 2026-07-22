@@ -23,6 +23,7 @@ import (
 	fnactivity "github.com/jasoet/go-wf/function/activity"
 	fnpayload "github.com/jasoet/go-wf/function/payload"
 	fnwf "github.com/jasoet/go-wf/function/workflow"
+	gowfworker "github.com/jasoet/go-wf/worker"
 	"github.com/jasoet/go-wf/workflow/artifacts"
 )
 
@@ -41,7 +42,7 @@ func main() {
 	log.Println("Starting Function Temporal Worker...")
 
 	// Create worker
-	w := worker.New(c, "function-tasks", worker.Options{
+	w := gowfworker.New(c, "function-tasks", worker.Options{
 		MaxConcurrentActivityExecutionSize:     10,
 		MaxConcurrentWorkflowTaskExecutionSize: 10,
 	})
