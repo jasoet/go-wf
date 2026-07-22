@@ -15,7 +15,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 - **Unified Builder API** - All builders produce `*job.Definition` (from `github.com/jasoet/pkg/v2/temporal/job`), providing a single type for registration, execution, scheduling, and lifecycle management
 - **Production-Ready** - Built-in retries, timeouts, error handling
 - **Observable** - Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled
-- **Comprehensive Testing** - ~89% total coverage (unit + integration); CI enforces a minimum of 85%
+- **Comprehensive Testing** - 91.2% total coverage (unit + integration); CI enforces a minimum of 85%
 - **Full CI/CD** - Automated releases and quality checks
 
 ## job.Definition — Unified Workflow Handle
@@ -291,7 +291,7 @@ go-wf/
 6. **Security first** - No hardcoded secrets, validate inputs
 
 **Testing Strategy:**
-- Coverage: ~89% measured (unit + integration); CI enforces a minimum of 85% via `scripts/check-coverage.sh`
+- Coverage: 91.2% measured (unit + integration); CI enforces a minimum of 85% via `scripts/check-coverage.sh`
 - Unit tests: `task test:unit` (fast, no container engine)
 - Integration tests: `task test:integration` (requires Docker/Podman)
 - All tests: `task test` (unit + integration, requires Docker/Podman)
