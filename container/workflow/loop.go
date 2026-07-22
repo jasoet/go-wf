@@ -37,6 +37,7 @@ func LoopWorkflow(ctx wf.Context, input payload.LoopInput) (*payload.LoopOutput,
 		Parallel:        input.Parallel,
 		MaxConcurrency:  input.MaxConcurrency,
 		FailureStrategy: input.FailureStrategy,
+		Options:         input.Options,
 	}
 
 	return toLoopOutput(
@@ -52,6 +53,7 @@ func ParameterizedLoopWorkflow(ctx wf.Context, input payload.ParameterizedLoopIn
 		Parallel:        input.Parallel,
 		MaxConcurrency:  input.MaxConcurrency,
 		FailureStrategy: input.FailureStrategy,
+		Options:         input.Options,
 	}
 
 	return toLoopOutput(

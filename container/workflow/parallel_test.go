@@ -1,15 +1,19 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	temporal "go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/container/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // TestParallelContainersWorkflow_Success tests parallel execution.
@@ -308,4 +312,33 @@ func TestParallelContainersWorkflow_ResultCountMatchesInput(t *testing.T) {
 
 	assert.Len(t, result.Results, 3, "Expected 3 results matching input count")
 	assert.Equal(t, 3, result.TotalSuccess, "Expected 3 successful containers")
+}
+
+// TestParallelContainersWorkflow_ForwardsOptions tests that input.Options reaches the generic input.
+func TestParallelContainersWorkflow_ForwardsOptions(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
+
+	var callCount atomic.Int32
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			callCount.Add(1)
+			return nil, fmt.Errorf("docker daemon error")
+		})
+
+	input := payload.ParallelInput{
+		Containers:      []payload.ContainerExecutionInput{{Image: "alpine:latest"}},
+		FailureStrategy: "fail_fast",
+		Options: &generic.ExecutionOptions{
+			RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1},
+		},
+	}
+
+	env.ExecuteWorkflow(ParallelContainersWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted(), "Workflow did not complete")
+	require.Error(t, env.GetWorkflowError())
+	assert.Equal(t, int32(1), callCount.Load(),
+		"MaximumAttempts=1 from forwarded Options must disable retries (default policy allows 3)")
 }

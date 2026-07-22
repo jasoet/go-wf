@@ -13,6 +13,7 @@ func ContainerPipelineWorkflow(ctx wf.Context, input payload.PipelineInput) (*pa
 		Tasks:       toTaskPtrs(input.Containers),
 		StopOnError: input.StopOnError,
 		Cleanup:     input.Cleanup,
+		Options:     input.Options,
 	}
 
 	genericOutput, err := generic.InstrumentedPipelineWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput)

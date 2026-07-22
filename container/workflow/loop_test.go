@@ -2,15 +2,18 @@ package workflow
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	temporal "go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/container/payload"
+	generic "github.com/jasoet/go-wf/workflow"
 )
 
 // TestLoopInput_Validate tests loop input validation.
@@ -928,4 +931,72 @@ func BenchmarkSubstituteContainerInput(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = substituteContainerInput(template, "file.csv", i, params)
 	}
+}
+
+// TestLoopWorkflow_ForwardsOptions tests that input.Options reaches the generic input.
+func TestLoopWorkflow_ForwardsOptions(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
+
+	var callCount atomic.Int32
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			callCount.Add(1)
+			return nil, fmt.Errorf("docker daemon error")
+		})
+
+	input := payload.LoopInput{
+		Items: []string{"only"},
+		Template: payload.ContainerExecutionInput{
+			Image: "alpine:latest",
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+		Options: &generic.ExecutionOptions{
+			RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1},
+		},
+	}
+
+	env.ExecuteWorkflow(LoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	assert.Equal(t, int32(1), callCount.Load(),
+		"MaximumAttempts=1 from forwarded Options must disable retries (default policy allows 3)")
+}
+
+// TestParameterizedLoopWorkflow_ForwardsOptions tests that input.Options reaches the generic input.
+func TestParameterizedLoopWorkflow_ForwardsOptions(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+	registerContainerActivity(env)
+
+	var callCount atomic.Int32
+	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
+		func(_ context.Context, _ payload.ContainerExecutionInput) (*payload.ContainerExecutionOutput, error) {
+			callCount.Add(1)
+			return nil, fmt.Errorf("docker daemon error")
+		})
+
+	input := payload.ParameterizedLoopInput{
+		Parameters: map[string][]string{
+			"env": {"dev"},
+		},
+		Template: payload.ContainerExecutionInput{
+			Image: "deployer:v1",
+		},
+		Parallel:        false,
+		FailureStrategy: "fail_fast",
+		Options: &generic.ExecutionOptions{
+			RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 1},
+		},
+	}
+
+	env.ExecuteWorkflow(ParameterizedLoopWorkflow, input)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	assert.Equal(t, int32(1), callCount.Load(),
+		"MaximumAttempts=1 from forwarded Options must disable retries (default policy allows 3)")
 }

@@ -105,9 +105,10 @@ type ContainerExecutionOutput struct {
 
 // PipelineInput defines sequential container execution.
 type PipelineInput struct {
-	Containers  []ContainerExecutionInput `json:"containers" validate:"required,min=1"`
-	StopOnError bool                      `json:"stop_on_error"`
-	Cleanup     bool                      `json:"cleanup"` // Cleanup after each step
+	Containers  []ContainerExecutionInput  `json:"containers" validate:"required,min=1"`
+	StopOnError bool                       `json:"stop_on_error"`
+	Cleanup     bool                       `json:"cleanup"` // Cleanup after each step
+	Options     *workflow.ExecutionOptions `json:"options,omitempty"`
 }
 
 // PipelineOutput defines pipeline execution results.
@@ -123,8 +124,9 @@ type ParallelInput struct {
 	Containers []ContainerExecutionInput `json:"containers" validate:"required,min=1"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
-	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int                        `json:"max_concurrency,omitempty"`
+	FailureStrategy string                     `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	Options         *workflow.ExecutionOptions `json:"options,omitempty"`
 }
 
 // ParallelOutput defines parallel execution results.
@@ -175,6 +177,9 @@ type LoopInput struct {
 
 	// FailureStrategy determines how to handle failures
 	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+
+	// Options overrides the default Temporal activity options for this run.
+	Options *workflow.ExecutionOptions `json:"options,omitempty"`
 }
 
 // ParameterizedLoopInput defines loop iteration with multiple parameters (withParam pattern).
@@ -195,6 +200,9 @@ type ParameterizedLoopInput struct {
 
 	// FailureStrategy determines how to handle failures
 	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+
+	// Options overrides the default Temporal activity options for this run.
+	Options *workflow.ExecutionOptions `json:"options,omitempty"`
 }
 
 // LoopOutput defines loop execution results.

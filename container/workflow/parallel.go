@@ -13,6 +13,7 @@ func ParallelContainersWorkflow(ctx wf.Context, input payload.ParallelInput) (*p
 		Tasks:           toTaskPtrs(input.Containers),
 		MaxConcurrency:  input.MaxConcurrency,
 		FailureStrategy: input.FailureStrategy,
+		Options:         input.Options,
 	}
 
 	genericOutput, err := generic.InstrumentedParallelWorkflow[*payload.ContainerExecutionInput, payload.ContainerExecutionOutput](ctx, genericInput)
