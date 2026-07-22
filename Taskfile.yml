@@ -168,6 +168,12 @@ tasks:
     cmds:
       - "{{.N}} go test -race -count=1 ./..."
 
+  ci:coverage:
+    desc: Fail if total coverage is below the threshold (usage: task ci:coverage -- [profile] [threshold])
+    silent: true
+    cmds:
+      - "bash scripts/check-coverage.sh {{.CLI_ARGS}}"
+
   ci:lint:
     desc: Run golangci-lint for CI
     silent: true

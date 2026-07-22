@@ -23,4 +23,7 @@ jobs:
         run: nix develop --command task lint
 
       - name: Test
-        run: nix develop --command task ci:test
+        run: nix develop --command task test
+
+      - name: Coverage gate
+        run: nix develop --command bash scripts/check-coverage.sh output/coverage.out 85
