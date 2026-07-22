@@ -21,6 +21,24 @@ const (
 	FailureStrategyFailFast = "fail_fast"
 )
 
+// runTimeoutMargin is added to the max container RunTimeout when Build derives
+// StartToCloseTimeout, so the activity outlives the container's own timeout.
+const runTimeoutMargin = 2 * time.Minute
+
+// resolveExecutionOptions derives activity options from the max container
+// RunTimeout when none are set explicitly, and validates that an explicit
+// StartToCloseTimeout exceeds the max RunTimeout.
+func resolveExecutionOptions(explicit *workflow.ExecutionOptions, maxRunTimeout time.Duration) (*workflow.ExecutionOptions, error) {
+	opts := explicit
+	if opts == nil && maxRunTimeout > 0 {
+		opts = &workflow.ExecutionOptions{StartToCloseTimeout: maxRunTimeout + runTimeoutMargin}
+	}
+	if opts != nil && maxRunTimeout > 0 && opts.StartToCloseTimeout > 0 && opts.StartToCloseTimeout <= maxRunTimeout {
+		return opts, fmt.Errorf("start_to_close_timeout (%s) must exceed max container run_timeout (%s)", opts.StartToCloseTimeout, maxRunTimeout)
+	}
+	return opts, nil
+}
+
 // workflowMode selects the execution pattern for a WorkflowBuilder.
 type workflowMode int
 
@@ -177,16 +195,17 @@ func (b *GenericBuilder[I, O]) Errors() []error {
 //	    AddExitHandler(cleanupStep).
 //	    Build()
 type WorkflowBuilder struct {
-	name           string
-	taskQueue      string
-	mode           workflowMode
-	containers     []payload.ContainerExecutionInput
-	exitHandlers   []payload.ContainerExecutionInput
-	stopOnError    bool
-	cleanup        bool
-	failFast       bool
-	maxConcurrency int
-	errors         []error
+	name             string
+	taskQueue        string
+	mode             workflowMode
+	containers       []payload.ContainerExecutionInput
+	exitHandlers     []payload.ContainerExecutionInput
+	stopOnError      bool
+	cleanup          bool
+	failFast         bool
+	maxConcurrency   int
+	executionOptions *workflow.ExecutionOptions
+	errors           []error
 }
 
 // NewWorkflowBuilder creates a new workflow builder.
@@ -300,6 +319,14 @@ func (b *WorkflowBuilder) FailFast(failFast bool) *WorkflowBuilder {
 // MaxConcurrency sets the maximum number of concurrent containers for parallel workflows.
 func (b *WorkflowBuilder) MaxConcurrency(max int) *WorkflowBuilder {
 	b.maxConcurrency = max
+	return b
+}
+
+// WithExecutionOptions sets Temporal activity options for the built workflow.
+// When nil and any container sets RunTimeout, Build derives
+// StartToCloseTimeout = max(RunTimeout) + 2 minutes.
+func (b *WorkflowBuilder) WithExecutionOptions(opts *workflow.ExecutionOptions) *WorkflowBuilder {
+	b.executionOptions = opts
 	return b
 }
 
@@ -485,6 +512,17 @@ func (b *WorkflowBuilder) Build() (*job.Definition, error) {
 		tq = "container-" + b.name
 	}
 
+	maxRunTimeout := time.Duration(0)
+	for _, c := range b.containers {
+		if c.RunTimeout > maxRunTimeout {
+			maxRunTimeout = c.RunTimeout
+		}
+	}
+	execOpts, err := resolveExecutionOptions(b.executionOptions, maxRunTimeout)
+	if err != nil {
+		b.errors = append(b.errors, err)
+	}
+
 	var wfType string
 	var newInputFn func() any
 
@@ -497,11 +535,13 @@ func (b *WorkflowBuilder) Build() (*job.Definition, error) {
 		containers := b.containers
 		stopOnError := b.stopOnError
 		cleanup := b.cleanup
+		opts := execOpts
 		newInputFn = func() any {
 			return payload.PipelineInput{
 				Containers:  containers,
 				StopOnError: stopOnError,
 				Cleanup:     cleanup,
+				Options:     opts,
 			}
 		}
 
@@ -517,11 +557,13 @@ func (b *WorkflowBuilder) Build() (*job.Definition, error) {
 		containers := b.containers
 		maxConcurrency := b.maxConcurrency
 		fs := failureStrategy
+		opts := execOpts
 		newInputFn = func() any {
 			return payload.ParallelInput{
 				Containers:      containers,
 				MaxConcurrency:  maxConcurrency,
 				FailureStrategy: fs,
+				Options:         opts,
 			}
 		}
 
@@ -580,16 +622,17 @@ func (b *WorkflowBuilder) WithAutoRemove(autoRemove bool) *WorkflowBuilder {
 // LoopBuilder provides a fluent API for constructing loop workflow inputs
 // and producing a *job.Definition ready for registration with a Temporal worker.
 type LoopBuilder struct {
-	name           string
-	taskQueue      string
-	mode           loopMode
-	items          []string
-	parameters     map[string][]string
-	template       payload.ContainerExecutionInput
-	parallel       bool
-	maxConcurrency int
-	failFast       bool
-	errors         []error
+	name             string
+	taskQueue        string
+	mode             loopMode
+	items            []string
+	parameters       map[string][]string
+	template         payload.ContainerExecutionInput
+	parallel         bool
+	maxConcurrency   int
+	failFast         bool
+	executionOptions *workflow.ExecutionOptions
+	errors           []error
 }
 
 // NewLoopBuilder creates a new loop builder with the specified items.
@@ -667,6 +710,14 @@ func (lb *LoopBuilder) MaxConcurrency(max int) *LoopBuilder {
 // FailFast configures fail-fast behavior.
 func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
 	lb.failFast = failFast
+	return lb
+}
+
+// WithExecutionOptions sets Temporal activity options for the built workflow.
+// When nil and the container template sets RunTimeout, Build derives
+// StartToCloseTimeout = RunTimeout + 2 minutes.
+func (lb *LoopBuilder) WithExecutionOptions(opts *workflow.ExecutionOptions) *LoopBuilder {
+	lb.executionOptions = opts
 	return lb
 }
 
@@ -760,6 +811,11 @@ func (lb *LoopBuilder) Build() (*job.Definition, error) {
 		tq = "container-" + lb.name
 	}
 
+	execOpts, err := resolveExecutionOptions(lb.executionOptions, lb.template.RunTimeout)
+	if err != nil {
+		lb.errors = append(lb.errors, err)
+	}
+
 	var wfType string
 	var newInputFn func() any
 
@@ -778,6 +834,7 @@ func (lb *LoopBuilder) Build() (*job.Definition, error) {
 		parallel := lb.parallel
 		maxConcurrency := lb.maxConcurrency
 		fs := failureStrategy
+		opts := execOpts
 		newInputFn = func() any {
 			return payload.LoopInput{
 				Items:           items,
@@ -785,6 +842,7 @@ func (lb *LoopBuilder) Build() (*job.Definition, error) {
 				Parallel:        parallel,
 				MaxConcurrency:  maxConcurrency,
 				FailureStrategy: fs,
+				Options:         opts,
 			}
 		}
 
@@ -802,6 +860,7 @@ func (lb *LoopBuilder) Build() (*job.Definition, error) {
 		parallel := lb.parallel
 		maxConcurrency := lb.maxConcurrency
 		fs := failureStrategy
+		opts := execOpts
 		newInputFn = func() any {
 			return payload.ParameterizedLoopInput{
 				Parameters:      params,
@@ -809,6 +868,7 @@ func (lb *LoopBuilder) Build() (*job.Definition, error) {
 				Parallel:        parallel,
 				MaxConcurrency:  maxConcurrency,
 				FailureStrategy: fs,
+				Options:         opts,
 			}
 		}
 	}

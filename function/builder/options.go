@@ -37,3 +37,10 @@ func WithMaxConcurrency[I workflow.TaskInput, O workflow.TaskOutput](max int) Bu
 		b.maxConcurrency = max
 	}
 }
+
+// WithExecutionOptions sets Temporal activity options for the built workflow.
+func WithExecutionOptions[I workflow.TaskInput, O workflow.TaskOutput](opts *workflow.ExecutionOptions) BuilderOption[I, O] {
+	return func(b *WorkflowBuilder[I, O]) {
+		b.executionOptions = opts
+	}
+}

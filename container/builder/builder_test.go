@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/workflow"
 )
 
 func TestNewWorkflowBuilder(t *testing.T) {
@@ -549,4 +550,99 @@ func TestWorkflowSourceFunc(t *testing.T) {
 	result := source.ToInput()
 	assert.Equal(t, "alpine:latest", result.Image)
 	assert.Equal(t, []string{"echo", "test"}, result.Command)
+}
+
+func TestWorkflowBuilder_ExecutionOptions(t *testing.T) {
+	t.Run("single mode builds with RunTimeout without error", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("derive").Single().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 45 * time.Minute}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.ContainerExecutionInput)
+		require.True(t, ok)
+		_ = in // single mode: options live on the wrapper input; see pipeline case
+	})
+
+	t.Run("pipeline input carries derived options", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("derive-pipe").Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 45 * time.Minute}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.PipelineInput)
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 47*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("derivation uses max RunTimeout across containers", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("derive-max").Parallel().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 5 * time.Minute}).
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 30 * time.Minute}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.ParallelInput)
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 32*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("no RunTimeout means no derived options", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			Name("no-derive").Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine"}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.PipelineInput)
+		require.True(t, ok)
+		assert.Nil(t, in.Options)
+	})
+
+	t.Run("explicit StartToClose below max RunTimeout fails Build", func(t *testing.T) {
+		_, err := NewWorkflowBuilder(WithExecutionOptions(&workflow.ExecutionOptions{StartToCloseTimeout: 5 * time.Minute})).
+			Name("bad").Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 10 * time.Minute}).
+			Build()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "start_to_close_timeout")
+	})
+
+	t.Run("explicit StartToClose above max RunTimeout passes", func(t *testing.T) {
+		def, err := NewWorkflowBuilder().
+			WithExecutionOptions(&workflow.ExecutionOptions{StartToCloseTimeout: 15 * time.Minute}).
+			Name("good").Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 10 * time.Minute}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.PipelineInput)
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 15*time.Minute, in.Options.StartToCloseTimeout)
+	})
+}
+
+func TestLoopBuilder_ExecutionOptions(t *testing.T) {
+	t.Run("loop input carries derived options from template", func(t *testing.T) {
+		def, err := NewLoopBuilder([]string{"a", "b"}).
+			Name("loop-derive").
+			WithTemplate(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 10 * time.Minute}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.LoopInput)
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 12*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("explicit StartToClose below template RunTimeout fails Build", func(t *testing.T) {
+		_, err := NewParameterizedLoopBuilder(map[string][]string{"env": {"dev"}}).
+			Name("loop-bad").
+			WithTemplate(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 10 * time.Minute}).
+			WithExecutionOptions(&workflow.ExecutionOptions{StartToCloseTimeout: 5 * time.Minute}).
+			Build()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "start_to_close_timeout")
+	})
 }

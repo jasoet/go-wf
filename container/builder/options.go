@@ -1,6 +1,10 @@
 package builder
 
-import "time"
+import (
+	"time"
+
+	"github.com/jasoet/go-wf/workflow"
+)
 
 // BuilderOption is a functional option for configuring WorkflowBuilder.
 type BuilderOption func(*WorkflowBuilder)
@@ -105,5 +109,19 @@ func WithGlobalTimeout(timeout time.Duration) BuilderOption {
 func WithGlobalAutoRemove(autoRemove bool) BuilderOption {
 	return func(b *WorkflowBuilder) {
 		b.WithAutoRemove(autoRemove)
+	}
+}
+
+// WithExecutionOptions sets Temporal activity options for the built workflow.
+// When nil and any container sets RunTimeout, Build derives
+// StartToCloseTimeout = max(RunTimeout) + 2 minutes.
+//
+// Example:
+//
+//	builder := NewWorkflowBuilder(
+//	    WithExecutionOptions(&workflow.ExecutionOptions{StartToCloseTimeout: 45 * time.Minute}))
+func WithExecutionOptions(opts *workflow.ExecutionOptions) BuilderOption {
+	return func(b *WorkflowBuilder) {
+		b.executionOptions = opts
 	}
 }

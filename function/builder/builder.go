@@ -42,15 +42,16 @@ const (
 // WorkflowBuilder provides a fluent API for constructing generic workflow inputs
 // and producing a *job.Definition ready for registration with a Temporal worker.
 type WorkflowBuilder[I workflow.TaskInput, O workflow.TaskOutput] struct {
-	name           string
-	taskQueue      string
-	activityFn     any
-	mode           workflowMode
-	inputs         []I
-	stopOnError    bool
-	failFast       bool
-	maxConcurrency int
-	errors         []error
+	name             string
+	taskQueue        string
+	activityFn       any
+	mode             workflowMode
+	inputs           []I
+	stopOnError      bool
+	failFast         bool
+	maxConcurrency   int
+	executionOptions *workflow.ExecutionOptions
+	errors           []error
 }
 
 // NewWorkflowBuilder creates a new generic workflow builder.
@@ -123,6 +124,14 @@ func (b *WorkflowBuilder[I, O]) FailFast(failFast bool) *WorkflowBuilder[I, O] {
 // MaxConcurrency sets the maximum number of concurrent tasks for parallel workflows.
 func (b *WorkflowBuilder[I, O]) MaxConcurrency(max int) *WorkflowBuilder[I, O] {
 	b.maxConcurrency = max
+	return b
+}
+
+// WithExecutionOptions sets Temporal activity options for the built workflow.
+// Unlike the container builder, no timeout is derived — function inputs have
+// no enforced timeout.
+func (b *WorkflowBuilder[I, O]) WithExecutionOptions(opts *workflow.ExecutionOptions) *WorkflowBuilder[I, O] {
+	b.executionOptions = opts
 	return b
 }
 
@@ -227,10 +236,12 @@ func (b *WorkflowBuilder[I, O]) Build() (*job.Definition, error) {
 		}
 		snapshot := b.inputs
 		stopOnError := b.stopOnError
+		opts := b.executionOptions
 		newInputFn = func() any {
 			return &workflow.PipelineInput[I, O]{
 				Tasks:       snapshot,
 				StopOnError: stopOnError,
+				Options:     opts,
 			}
 		}
 
@@ -246,11 +257,13 @@ func (b *WorkflowBuilder[I, O]) Build() (*job.Definition, error) {
 		snapshot := b.inputs
 		maxConcurrency := b.maxConcurrency
 		fs := failureStrategy
+		opts := b.executionOptions
 		newInputFn = func() any {
 			return &workflow.ParallelInput[I, O]{
 				Tasks:           snapshot,
 				MaxConcurrency:  maxConcurrency,
 				FailureStrategy: fs,
+				Options:         opts,
 			}
 		}
 
@@ -281,17 +294,18 @@ func (b *WorkflowBuilder[I, O]) Build() (*job.Definition, error) {
 // LoopBuilder provides a fluent API for constructing loop workflow inputs
 // and producing a *job.Definition ready for registration with a Temporal worker.
 type LoopBuilder[I workflow.TaskInput, O workflow.TaskOutput] struct {
-	name           string
-	taskQueue      string
-	activityFn     any
-	mode           loopMode
-	items          []string
-	parameters     map[string][]string
-	template       I
-	parallel       bool
-	maxConcurrency int
-	failFast       bool
-	errors         []error
+	name             string
+	taskQueue        string
+	activityFn       any
+	mode             loopMode
+	items            []string
+	parameters       map[string][]string
+	template         I
+	parallel         bool
+	maxConcurrency   int
+	failFast         bool
+	executionOptions *workflow.ExecutionOptions
+	errors           []error
 }
 
 // NewLoopBuilder creates a new generic loop builder for iterating over string items.
@@ -371,6 +385,14 @@ func (lb *LoopBuilder[I, O]) MaxConcurrency(max int) *LoopBuilder[I, O] {
 // FailFast configures fail-fast behavior.
 func (lb *LoopBuilder[I, O]) FailFast(failFast bool) *LoopBuilder[I, O] {
 	lb.failFast = failFast
+	return lb
+}
+
+// WithExecutionOptions sets Temporal activity options for the built workflow.
+// Unlike the container builder, no timeout is derived — function inputs have
+// no enforced timeout.
+func (lb *LoopBuilder[I, O]) WithExecutionOptions(opts *workflow.ExecutionOptions) *LoopBuilder[I, O] {
+	lb.executionOptions = opts
 	return lb
 }
 
@@ -484,6 +506,7 @@ func (lb *LoopBuilder[I, O]) Build() (*job.Definition, error) {
 		parallel := lb.parallel
 		maxConcurrency := lb.maxConcurrency
 		fs := failureStrategy
+		opts := lb.executionOptions
 		newInputFn = func() any {
 			return &workflow.LoopInput[I, O]{
 				Items:           items,
@@ -491,6 +514,7 @@ func (lb *LoopBuilder[I, O]) Build() (*job.Definition, error) {
 				Parallel:        parallel,
 				MaxConcurrency:  maxConcurrency,
 				FailureStrategy: fs,
+				Options:         opts,
 			}
 		}
 
@@ -508,6 +532,7 @@ func (lb *LoopBuilder[I, O]) Build() (*job.Definition, error) {
 		parallel := lb.parallel
 		maxConcurrency := lb.maxConcurrency
 		fs := failureStrategy
+		opts := lb.executionOptions
 		newInputFn = func() any {
 			return &workflow.ParameterizedLoopInput[I, O]{
 				Parameters:      params,
@@ -515,6 +540,7 @@ func (lb *LoopBuilder[I, O]) Build() (*job.Definition, error) {
 				Parallel:        parallel,
 				MaxConcurrency:  maxConcurrency,
 				FailureStrategy: fs,
+				Options:         opts,
 			}
 		}
 	}

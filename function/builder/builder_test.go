@@ -2,11 +2,13 @@ package builder
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow"
 )
 
 // dummyActivity is a no-op stand-in for the activity function required by Build.
@@ -182,4 +184,83 @@ func TestWorkflowBuilder_WithSource(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, def)
 	assert.Equal(t, "with-source", def.Name)
+}
+
+func TestWorkflowBuilder_ExecutionOptions(t *testing.T) {
+	t.Run("fluent option lands on pipeline input", func(t *testing.T) {
+		opts := &workflow.ExecutionOptions{StartToCloseTimeout: 20 * time.Minute}
+		def, err := NewFunctionBuilder().
+			Name("exec-opts").
+			Activity(dummyActivity).
+			Pipeline().
+			Add(&payload.FunctionExecutionInput{Name: "step1"}).
+			WithExecutionOptions(opts).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(*workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 20*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("generic BuilderOption lands on parallel input", func(t *testing.T) {
+		opts := &workflow.ExecutionOptions{StartToCloseTimeout: 30 * time.Minute}
+		b := NewFunctionBuilder().
+			Name("exec-opts-opt").
+			Activity(dummyActivity).
+			Parallel().
+			Add(&payload.FunctionExecutionInput{Name: "step1"})
+		WithExecutionOptions[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput](opts)(b)
+		def, err := b.Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(*workflow.ParallelInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 30*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("nil options leave input options nil", func(t *testing.T) {
+		def, err := NewFunctionBuilder().
+			Name("exec-opts-nil").
+			Activity(dummyActivity).
+			Pipeline().
+			Add(&payload.FunctionExecutionInput{Name: "step1"}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(*workflow.PipelineInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
+		require.True(t, ok)
+		assert.Nil(t, in.Options)
+	})
+}
+
+func TestLoopBuilder_ExecutionOptions(t *testing.T) {
+	t.Run("options land on loop input", func(t *testing.T) {
+		opts := &workflow.ExecutionOptions{StartToCloseTimeout: 25 * time.Minute}
+		def, err := NewFunctionLoopBuilder([]string{"a", "b"}).
+			Name("fn-loop-opts").
+			Activity(dummyActivity).
+			WithTemplate(&payload.FunctionExecutionInput{Name: "t"}).
+			WithExecutionOptions(opts).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(*workflow.LoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 25*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("options land on parameterized loop input", func(t *testing.T) {
+		opts := &workflow.ExecutionOptions{StartToCloseTimeout: 35 * time.Minute}
+		def, err := NewFunctionParameterizedLoopBuilder(map[string][]string{"env": {"dev"}}).
+			Name("fn-ploop-opts").
+			Activity(dummyActivity).
+			WithTemplate(&payload.FunctionExecutionInput{Name: "t"}).
+			WithExecutionOptions(opts).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(*workflow.ParameterizedLoopInput[*payload.FunctionExecutionInput, payload.FunctionExecutionOutput])
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 35*time.Minute, in.Options.StartToCloseTimeout)
+	})
 }
