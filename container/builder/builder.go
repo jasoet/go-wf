@@ -27,8 +27,15 @@ const runTimeoutMargin = 2 * time.Minute
 
 // resolveExecutionOptions derives activity options from the max container
 // RunTimeout when none are set explicitly, and validates that an explicit
-// StartToCloseTimeout exceeds the max RunTimeout.
+// StartToCloseTimeout exceeds the max RunTimeout. Explicit options that set
+// other fields (e.g. RetryPolicy) but leave StartToCloseTimeout zero also get
+// a derived StartToCloseTimeout; the caller's struct is never mutated.
 func resolveExecutionOptions(explicit *workflow.ExecutionOptions, maxRunTimeout time.Duration) (*workflow.ExecutionOptions, error) {
+	if explicit != nil && explicit.StartToCloseTimeout == 0 && maxRunTimeout > 0 {
+		derived := *explicit
+		derived.StartToCloseTimeout = maxRunTimeout + runTimeoutMargin
+		return &derived, nil
+	}
 	opts := explicit
 	if opts == nil && maxRunTimeout > 0 {
 		opts = &workflow.ExecutionOptions{StartToCloseTimeout: maxRunTimeout + runTimeoutMargin}
@@ -323,8 +330,12 @@ func (b *WorkflowBuilder) MaxConcurrency(max int) *WorkflowBuilder {
 }
 
 // WithExecutionOptions sets Temporal activity options for the built workflow.
-// When nil and any container sets RunTimeout, Build derives
-// StartToCloseTimeout = max(RunTimeout) + 2 minutes.
+// It applies to Pipeline/Parallel/Loop modes only — Single mode has no Options
+// field. When nil and any container sets RunTimeout, Build derives
+// StartToCloseTimeout = max(RunTimeout) + 2 minutes. Explicit options that
+// leave StartToCloseTimeout zero (e.g. RetryPolicy-only) also get
+// StartToCloseTimeout derived from RunTimeout; the caller's struct is not
+// mutated.
 func (b *WorkflowBuilder) WithExecutionOptions(opts *workflow.ExecutionOptions) *WorkflowBuilder {
 	b.executionOptions = opts
 	return b
@@ -715,7 +726,10 @@ func (lb *LoopBuilder) FailFast(failFast bool) *LoopBuilder {
 
 // WithExecutionOptions sets Temporal activity options for the built workflow.
 // When nil and the container template sets RunTimeout, Build derives
-// StartToCloseTimeout = RunTimeout + 2 minutes.
+// StartToCloseTimeout = RunTimeout + 2 minutes. Explicit options that leave
+// StartToCloseTimeout zero (e.g. RetryPolicy-only) also get
+// StartToCloseTimeout derived from RunTimeout; the caller's struct is not
+// mutated.
 func (lb *LoopBuilder) WithExecutionOptions(opts *workflow.ExecutionOptions) *LoopBuilder {
 	lb.executionOptions = opts
 	return lb

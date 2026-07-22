@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/temporal"
 
 	"github.com/jasoet/go-wf/container/payload"
 	"github.com/jasoet/go-wf/workflow"
@@ -620,6 +621,24 @@ func TestWorkflowBuilder_ExecutionOptions(t *testing.T) {
 		require.True(t, ok)
 		require.NotNil(t, in.Options)
 		assert.Equal(t, 15*time.Minute, in.Options.StartToCloseTimeout)
+	})
+
+	t.Run("RetryPolicy-only explicit options derive StartToClose from RunTimeout", func(t *testing.T) {
+		rp := &temporal.RetryPolicy{MaximumAttempts: 5}
+		explicit := &workflow.ExecutionOptions{RetryPolicy: rp}
+		def, err := NewWorkflowBuilder().
+			WithExecutionOptions(explicit).
+			Name("retry-only").Pipeline().
+			AddInput(payload.ContainerExecutionInput{Image: "alpine", RunTimeout: 45 * time.Minute}).
+			Build()
+		require.NoError(t, err)
+		in, ok := def.NewInput().(payload.PipelineInput)
+		require.True(t, ok)
+		require.NotNil(t, in.Options)
+		assert.Equal(t, 47*time.Minute, in.Options.StartToCloseTimeout)
+		assert.Equal(t, rp, in.Options.RetryPolicy)
+		// The caller's struct must not be mutated.
+		assert.Zero(t, explicit.StartToCloseTimeout)
 	})
 }
 
