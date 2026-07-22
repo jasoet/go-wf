@@ -228,24 +228,20 @@ func findArtifactProducer(artifactName string, allNodes []payload.DAGNode) strin
 	return ""
 }
 
-// downloadArtifactActivity downloads an artifact from the store to the local filesystem.
-// Registered implicitly by function reference when the DAG workflow executes it.
-func downloadArtifactActivity(ctx context.Context, raw store.RawStore, key, destPath, typ string) error {
-	return store.DownloadFile(ctx, raw, key, destPath, typ)
-}
-
-// uploadArtifactActivity uploads an artifact from the local filesystem to the store.
-// Registered implicitly by function reference when the DAG workflow executes it.
-func uploadArtifactActivity(ctx context.Context, raw store.RawStore, key, sourcePath, typ string) error {
-	return store.UploadFile(ctx, raw, key, sourcePath, typ)
-}
-
+// downloadInputArtifacts fetches the node's input artifacts from the store.
+// Transfer runs as local activities closing over the ArtifactStore — the store
+// is injected worker-side (json:"-") and must never be an activity argument.
 func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...interface{}) }, input *payload.DAGWorkflowInput, node *payload.DAGNode) error {
 	if input.ArtifactStore == nil || len(node.Container.InputArtifacts) == 0 {
 		return nil
 	}
 
+	raw := input.ArtifactStore
 	info := wf.GetInfo(ctx)
+	laCtx := wf.WithLocalActivityOptions(ctx, wf.LocalActivityOptions{
+		StartToCloseTimeout: 5 * time.Minute,
+	})
+
 	for _, artifact := range node.Container.InputArtifacts {
 		producerStep := findArtifactProducer(artifact.Name, input.Nodes)
 		key := store.NewKeyBuilder().
@@ -255,7 +251,9 @@ func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...in
 			WithName(artifact.Name).
 			Build()
 
-		err := wf.ExecuteActivity(ctx, downloadArtifactActivity, input.ArtifactStore, key, artifact.Path, artifact.Type).Get(ctx, nil)
+		err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
+			return store.DownloadFile(ctx, raw, key, artifact.Path, artifact.Type)
+		}).Get(ctx, nil)
 		if err != nil && !artifact.Optional {
 			return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
 		}
@@ -287,6 +285,8 @@ func extractAndStoreOutputs(logger interface {
 	logger.Info("Extracted outputs", "name", node.Name, "outputs", outputs)
 }
 
+// uploadOutputArtifacts stores the node's output artifacts. Like downloads,
+// uploads run as local activities closing over the ArtifactStore.
 func uploadOutputArtifacts(ctx wf.Context, logger interface {
 	Info(string, ...interface{})
 	Error(string, ...interface{})
@@ -296,7 +296,12 @@ func uploadOutputArtifacts(ctx wf.Context, logger interface {
 		return
 	}
 
+	raw := input.ArtifactStore
 	info := wf.GetInfo(ctx)
+	laCtx := wf.WithLocalActivityOptions(ctx, wf.LocalActivityOptions{
+		StartToCloseTimeout: 5 * time.Minute,
+	})
+
 	for _, artifact := range node.Container.OutputArtifacts {
 		key := store.NewKeyBuilder().
 			WithWorkflow(info.WorkflowExecution.ID).
@@ -305,7 +310,9 @@ func uploadOutputArtifacts(ctx wf.Context, logger interface {
 			WithName(artifact.Name).
 			Build()
 
-		err := wf.ExecuteActivity(ctx, uploadArtifactActivity, input.ArtifactStore, key, artifact.Path, artifact.Type).Get(ctx, nil)
+		err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
+			return store.UploadFile(ctx, raw, key, artifact.Path, artifact.Type)
+		}).Get(ctx, nil)
 		if err != nil && !artifact.Optional {
 			logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
 		} else if err == nil {

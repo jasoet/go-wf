@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,43 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 	wf "go.temporal.io/sdk/workflow"
 
 	"github.com/jasoet/go-wf/container/payload"
 	"github.com/jasoet/go-wf/workflow/store"
 )
-
-func TestArtifactActivities_DirectRoundTrip(t *testing.T) {
-	raw, err := store.NewLocalStore(t.TempDir())
-	require.NoError(t, err)
-	defer raw.Close() //nolint:errcheck // test cleanup
-
-	ctx := context.Background()
-	src := filepath.Join(t.TempDir(), "report.txt")
-	require.NoError(t, os.WriteFile(src, []byte("artifact-content"), 0o600))
-
-	err = uploadArtifactActivity(ctx, raw, "wf/run/step/report.txt", src, "file")
-	require.NoError(t, err)
-
-	dest := filepath.Join(t.TempDir(), "downloaded.txt")
-	err = downloadArtifactActivity(ctx, raw, "wf/run/step/report.txt", dest, "file")
-	require.NoError(t, err)
-
-	got, err := os.ReadFile(dest)
-	require.NoError(t, err)
-	assert.Equal(t, "artifact-content", string(got))
-}
-
-func TestDownloadArtifactActivity_NotFound(t *testing.T) {
-	raw, err := store.NewLocalStore(t.TempDir())
-	require.NoError(t, err)
-	defer raw.Close() //nolint:errcheck // test cleanup
-
-	err = downloadArtifactActivity(context.Background(), raw, "missing/key", filepath.Join(t.TempDir(), "x"), "file")
-	require.Error(t, err)
-}
 
 // withContainerArtifactStore wraps DAGWorkflow to inject the artifact store
 // after the test environment deserializes the input (ArtifactStore is json:"-").
@@ -56,40 +24,6 @@ func withContainerArtifactStore(raw store.RawStore) func(wf.Context, payload.DAG
 		in.ArtifactStore = raw
 		return DAGWorkflow(ctx, in)
 	}
-}
-
-// artifactActivityAdapters registers downloadArtifactActivity /
-// uploadArtifactActivity under the names the DAG workflow uses, backed by raw.
-// The store argument is accepted as `any` because a RawStore cannot cross the
-// activity serialization boundary; the real store is captured in the closure.
-type artifactActivityAdapters struct {
-	uploadErr    error
-	downloadErr  error
-	uploadKeys   []string
-	downloadKeys []string
-}
-
-func (a *artifactActivityAdapters) register(env *testsuite.TestWorkflowEnvironment, raw store.RawStore) {
-	env.RegisterActivityWithOptions(
-		func(_ context.Context, _ any, key, destPath, typ string) error {
-			a.downloadKeys = append(a.downloadKeys, key)
-			if a.downloadErr != nil {
-				return a.downloadErr
-			}
-			return store.DownloadFile(context.Background(), raw, key, destPath, typ)
-		},
-		activity.RegisterOptions{Name: "downloadArtifactActivity"},
-	)
-	env.RegisterActivityWithOptions(
-		func(_ context.Context, _ any, key, sourcePath, typ string) error {
-			a.uploadKeys = append(a.uploadKeys, key)
-			if a.uploadErr != nil {
-				return a.uploadErr
-			}
-			return store.UploadFile(context.Background(), raw, key, sourcePath, typ)
-		},
-		activity.RegisterOptions{Name: "uploadArtifactActivity"},
-	)
 }
 
 func dagWithArtifacts(producerPath, consumerPath string, consumerOptional bool) payload.DAGWorkflowInput {
@@ -123,12 +57,11 @@ func TestDAGWorkflow_Artifacts_EndToEnd(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerContainerActivity(env)
 
+	// Real store in a temp dir: artifact transfer runs as local activities
+	// against this store, so bytes must actually travel through it.
 	raw, err := store.NewLocalStore(t.TempDir())
 	require.NoError(t, err)
 	defer raw.Close() //nolint:errcheck // test cleanup
-
-	adapters := &artifactActivityAdapters{}
-	adapters.register(env, raw)
 
 	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
@@ -146,12 +79,12 @@ func TestDAGWorkflow_Artifacts_EndToEnd(t *testing.T) {
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.TotalSuccess)
 
-	// The producer uploaded and the consumer downloaded the same store key.
-	require.Len(t, adapters.uploadKeys, 1)
-	require.Len(t, adapters.downloadKeys, 1)
-	assert.Equal(t, adapters.uploadKeys[0], adapters.downloadKeys[0])
-	assert.Contains(t, adapters.uploadKeys[0], "producer")
-	assert.Contains(t, adapters.uploadKeys[0], "binary")
+	// The producer uploaded exactly one key under its step name.
+	keys, err := raw.List(context.Background(), "")
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	assert.Contains(t, keys[0], "producer")
+	assert.Contains(t, keys[0], "binary")
 
 	// The file content traveled through the store end to end.
 	got, err := os.ReadFile(dest)
@@ -164,12 +97,10 @@ func TestDAGWorkflow_ArtifactDownloadFailure_NotOptional(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerContainerActivity(env)
 
+	// Empty store — nothing was ever uploaded, so the download misses for real.
 	raw, err := store.NewLocalStore(t.TempDir())
 	require.NoError(t, err)
 	defer raw.Close() //nolint:errcheck // test cleanup
-
-	adapters := &artifactActivityAdapters{downloadErr: errors.New("object not found")}
-	adapters.register(env, raw)
 
 	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
@@ -188,12 +119,10 @@ func TestDAGWorkflow_ArtifactDownloadFailure_Optional(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerContainerActivity(env)
 
+	// Empty store — the optional download misses and is skipped.
 	raw, err := store.NewLocalStore(t.TempDir())
 	require.NoError(t, err)
 	defer raw.Close() //nolint:errcheck // test cleanup
-
-	adapters := &artifactActivityAdapters{downloadErr: errors.New("object not found")}
-	adapters.register(env, raw)
 
 	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
@@ -218,12 +147,10 @@ func TestDAGWorkflow_ArtifactUploadFailure_OnlyLogged(t *testing.T) {
 	require.NoError(t, err)
 	defer raw.Close() //nolint:errcheck // test cleanup
 
-	adapters := &artifactActivityAdapters{uploadErr: errors.New("store unavailable")}
-	adapters.register(env, raw)
-
 	env.OnActivity("StartContainerActivity", mock.Anything, mock.Anything).Return(
 		&payload.ContainerExecutionOutput{Success: true, ExitCode: 0, Duration: time.Second}, nil)
 
+	// The producer's source path does not exist, so the upload fails for real.
 	env.ExecuteWorkflow(withContainerArtifactStore(raw), dagWithArtifacts(
 		filepath.Join(t.TempDir(), "binary"), filepath.Join(t.TempDir(), "binary"), true))
 
@@ -234,4 +161,9 @@ func TestDAGWorkflow_ArtifactUploadFailure_OnlyLogged(t *testing.T) {
 	var result payload.DAGWorkflowOutput
 	require.NoError(t, env.GetWorkflowResult(&result))
 	assert.Equal(t, 2, result.TotalSuccess)
+
+	// Nothing reached the store.
+	keys, err := raw.List(context.Background(), "")
+	require.NoError(t, err)
+	assert.Empty(t, keys)
 }
