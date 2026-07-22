@@ -9,7 +9,7 @@ Temporal workflows for executing Docker containers with advanced orchestration p
 - **Wait strategies** — log, port, HTTP, and health-check based readiness detection
 - **Pre-built patterns** — CI/CD, fan-out/fan-in, map-reduce, parallel testing
 - **Workflow lifecycle** — submit, wait, watch, cancel, terminate, signal, query
-- **Resource management** — CPU, memory, GPU limits, artifacts, and secrets
+- **Resource management** — CPU, memory, GPU limits, artifacts, and `secret://` env references (resolved worker-side; see [docs/security.md](../docs/security.md))
 
 ## Documentation
 

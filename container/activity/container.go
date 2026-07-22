@@ -8,6 +8,7 @@ import (
 	"go.temporal.io/sdk/activity"
 
 	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/workflow/secrets"
 )
 
 const maxOutputSize = 1 << 20 // 1MB
@@ -49,7 +50,19 @@ func StartContainerActivity(ctx context.Context, input payload.ContainerExecutio
 	}
 
 	if len(input.Env) > 0 {
-		opts = append(opts, dockerpkg.WithEnvMap(input.Env))
+		// Resolve secret:// references worker-side so plaintext secrets
+		// never enter Temporal workflow history.
+		env, err := secrets.ResolveMap(ctx, input.Env)
+		if err != nil {
+			return &payload.ContainerExecutionOutput{
+				Name:       input.Name,
+				StartedAt:  startTime,
+				FinishedAt: time.Now(),
+				Success:    false,
+				Error:      err.Error(),
+			}, err
+		}
+		opts = append(opts, dockerpkg.WithEnvMap(env))
 	}
 
 	if len(input.Ports) > 0 {

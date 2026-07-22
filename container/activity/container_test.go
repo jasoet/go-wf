@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/container/payload"
 )
@@ -343,4 +344,17 @@ func TestWaitStrategyConfig_AllTypes(t *testing.T) {
 			t.Errorf("Config %d should be valid: %v", i, err)
 		}
 	}
+}
+
+func TestStartContainerActivity_SecretRefMissing(t *testing.T) {
+	suite := &testsuite.WorkflowTestSuite{}
+	env := suite.NewTestActivityEnvironment()
+	env.RegisterActivity(StartContainerActivity)
+
+	_, err := env.ExecuteActivity(StartContainerActivity, payload.ContainerExecutionInput{
+		Image: "alpine",
+		Env:   map[string]string{"PASSWORD": "secret://DEFINITELY_NOT_SET"},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "DEFINITELY_NOT_SET")
 }

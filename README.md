@@ -66,6 +66,7 @@ registry.MustGet("orders").Execute(ctx, c, input)
 | [Function Workflows](./docs/function-workflows.md) | Function workflow guide |
 | [DataSync Workflows](./docs/datasync-workflows.md) | Data synchronization guide |
 | [Store](./docs/store.md) | Store API (RawStore, Store[T]) |
+| [Security](./docs/security.md) | Trust boundaries and secret handling |
 | [Observability](./docs/observability.md) | OpenTelemetry integration |
 | [Contributing](./docs/contributing.md) | Development and contribution guide |
 
@@ -134,7 +135,7 @@ func main() {
         AddInput(payload.ContainerExecutionInput{
             Image: "postgres:16-alpine",
             Env: map[string]string{
-                "POSTGRES_PASSWORD": "test",
+                "POSTGRES_PASSWORD": "test", // see docs/security.md for secret:// references
             },
             Ports:      []string{"5432:5432"},
             AutoRemove: true,

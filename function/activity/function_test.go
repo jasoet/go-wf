@@ -132,3 +132,41 @@ func TestExecuteFunctionActivity_WithData(t *testing.T) {
 	assert.True(t, output.Success)
 	assert.Equal(t, []byte("raw bytes"), output.Data)
 }
+
+func TestExecuteFunctionActivity_SecretRefEnv(t *testing.T) {
+	t.Setenv("SECRET_API_KEY", "resolved-key")
+	registry := fn.NewRegistry()
+	_ = registry.Register("env-reader", func(_ context.Context, input fn.FunctionInput) (*fn.FunctionOutput, error) {
+		return &fn.FunctionOutput{
+			Result: map[string]string{"key": input.Env["API_KEY"], "plain": input.Env["PLAIN"]},
+		}, nil
+	})
+
+	activity := NewExecuteFunctionActivity(registry)
+
+	output, err := activity(context.Background(), payload.FunctionExecutionInput{
+		Name: "env-reader",
+		Env:  map[string]string{"API_KEY": "secret://API_KEY", "PLAIN": "x"},
+	})
+	require.NoError(t, err)
+	assert.True(t, output.Success)
+	assert.Equal(t, "resolved-key", output.Result["key"])
+	assert.Equal(t, "x", output.Result["plain"])
+}
+
+func TestExecuteFunctionActivity_SecretRefMissing(t *testing.T) {
+	registry := fn.NewRegistry()
+	_ = registry.Register("noop", func(_ context.Context, _ fn.FunctionInput) (*fn.FunctionOutput, error) {
+		return &fn.FunctionOutput{}, nil
+	})
+
+	activity := NewExecuteFunctionActivity(registry)
+
+	output, err := activity(context.Background(), payload.FunctionExecutionInput{
+		Name: "noop",
+		Env:  map[string]string{"MISSING": "secret://DEFINITELY_NOT_SET"},
+	})
+	require.Error(t, err)
+	assert.False(t, output.Success)
+	assert.Contains(t, output.Error, "DEFINITELY_NOT_SET")
+}

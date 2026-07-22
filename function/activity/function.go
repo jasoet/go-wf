@@ -7,6 +7,7 @@ import (
 
 	fn "github.com/jasoet/go-wf/function"
 	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/workflow/secrets"
 )
 
 // NewExecuteFunctionActivity creates a Temporal activity that dispatches to registered handlers.
@@ -42,11 +43,24 @@ func NewExecuteFunctionActivity(registry *fn.Registry) func(ctx context.Context,
 			}, err
 		}
 
+		// Resolve secret:// references in env worker-side so plaintext
+		// secrets never enter Temporal workflow history.
+		env, err := secrets.ResolveMap(ctx, input.Env)
+		if err != nil {
+			return &payload.FunctionExecutionOutput{
+				Name:       input.Name,
+				StartedAt:  startTime,
+				FinishedAt: time.Now(),
+				Success:    false,
+				Error:      err.Error(),
+			}, err
+		}
+
 		// Build function input from payload
 		fnInput := fn.FunctionInput{
 			Args:    input.Args,
 			Data:    input.Data,
-			Env:     input.Env,
+			Env:     env,
 			WorkDir: input.WorkDir,
 		}
 
