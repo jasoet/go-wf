@@ -32,6 +32,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           set-safe-directory: false
+      - name: Configure git for semantic-release
+        # Runner's global gitconfig sets tag.forceAnnotated/tag.gpgsign, which
+        # breaks non-interactive `git tag` (EDITOR unset / GPG prompt).
+        run: |
+          git config tag.forceAnnotated false
+          git config tag.gpgsign false
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
