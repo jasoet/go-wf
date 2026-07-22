@@ -391,7 +391,9 @@ Versioning (Worker Deployments) when `TEMPORAL_DEPLOYMENT_NAME` and
 `TEMPORAL_BUILD_ID` are set. The default behavior is Pinned: in-flight
 executions finish on the worker build they started with, so workflow-code
 deploys never break replay. Without the env vars, workers behave exactly as
-`worker.New` from the Temporal SDK.
+`worker.New` from the Temporal SDK. Deploying a new `TEMPORAL_BUILD_ID` is not
+enough on its own — the build must be promoted (e.g. `temporal
+worker-deployment set-current-version`) before new workflow executions use it.
 
 ### Task Queues
 

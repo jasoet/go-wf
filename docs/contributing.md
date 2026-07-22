@@ -176,7 +176,8 @@ The GitHub Actions CI pipeline (`.github/workflows/ci.yml`) runs on:
 
 Steps:
 1. **Lint** -- `task lint` via Nix
-2. **Test** -- `task ci:test` (unit tests, no coverage HTML)
+2. **Test** -- `task test` (unit + integration tests)
+3. **Coverage gate** -- `scripts/check-coverage.sh output/coverage.out 85` (fails below 85% total)
 
 ## Dependency Pinning (pkg/v2)
 
