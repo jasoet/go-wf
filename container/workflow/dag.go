@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -10,7 +11,7 @@ import (
 	wf "go.temporal.io/sdk/workflow"
 
 	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 // dagState holds shared mutable state for DAG execution.
@@ -227,28 +228,34 @@ func findArtifactProducer(artifactName string, allNodes []payload.DAGNode) strin
 	return ""
 }
 
+// downloadArtifactActivity downloads an artifact from the store to the local filesystem.
+// Registered implicitly by function reference when the DAG workflow executes it.
+func downloadArtifactActivity(ctx context.Context, raw store.RawStore, key, destPath, typ string) error {
+	return store.DownloadFile(ctx, raw, key, destPath, typ)
+}
+
+// uploadArtifactActivity uploads an artifact from the local filesystem to the store.
+// Registered implicitly by function reference when the DAG workflow executes it.
+func uploadArtifactActivity(ctx context.Context, raw store.RawStore, key, sourcePath, typ string) error {
+	return store.UploadFile(ctx, raw, key, sourcePath, typ)
+}
+
 func downloadInputArtifacts(ctx wf.Context, logger interface{ Info(string, ...interface{}) }, input *payload.DAGWorkflowInput, node *payload.DAGNode) error {
 	if input.ArtifactStore == nil || len(node.Container.InputArtifacts) == 0 {
 		return nil
 	}
 
+	info := wf.GetInfo(ctx)
 	for _, artifact := range node.Container.InputArtifacts {
 		producerStep := findArtifactProducer(artifact.Name, input.Nodes)
-		metadata := artifacts.ArtifactMetadata{
-			Name:       artifact.Name,
-			Path:       artifact.Path,
-			Type:       artifact.Type,
-			WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
-			RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
-			StepName:   producerStep,
-		}
+		key := store.NewKeyBuilder().
+			WithWorkflow(info.WorkflowExecution.ID).
+			WithRun(info.WorkflowExecution.RunID).
+			WithStep(producerStep).
+			WithName(artifact.Name).
+			Build()
 
-		downloadInput := artifacts.DownloadArtifactInput{
-			Metadata: metadata,
-			DestPath: artifact.Path,
-		}
-
-		err := wf.ExecuteActivity(ctx, artifacts.DownloadArtifactActivity, input.ArtifactStore, downloadInput).Get(ctx, nil)
+		err := wf.ExecuteActivity(ctx, downloadArtifactActivity, input.ArtifactStore, key, artifact.Path, artifact.Type).Get(ctx, nil)
 		if err != nil && !artifact.Optional {
 			return fmt.Errorf("failed to download artifact %s: %w", artifact.Name, err)
 		}
@@ -289,22 +296,16 @@ func uploadOutputArtifacts(ctx wf.Context, logger interface {
 		return
 	}
 
+	info := wf.GetInfo(ctx)
 	for _, artifact := range node.Container.OutputArtifacts {
-		metadata := artifacts.ArtifactMetadata{
-			Name:       artifact.Name,
-			Path:       artifact.Path,
-			Type:       artifact.Type,
-			WorkflowID: wf.GetInfo(ctx).WorkflowExecution.ID,
-			RunID:      wf.GetInfo(ctx).WorkflowExecution.RunID,
-			StepName:   node.Name,
-		}
+		key := store.NewKeyBuilder().
+			WithWorkflow(info.WorkflowExecution.ID).
+			WithRun(info.WorkflowExecution.RunID).
+			WithStep(node.Name).
+			WithName(artifact.Name).
+			Build()
 
-		uploadInput := artifacts.UploadArtifactInput{
-			Metadata:   metadata,
-			SourcePath: artifact.Path,
-		}
-
-		err := wf.ExecuteActivity(ctx, artifacts.UploadArtifactActivity, input.ArtifactStore, uploadInput).Get(ctx, nil)
+		err := wf.ExecuteActivity(ctx, uploadArtifactActivity, input.ArtifactStore, key, artifact.Path, artifact.Type).Get(ctx, nil)
 		if err != nil && !artifact.Optional {
 			logger.Error("Failed to upload artifact", "name", artifact.Name, "error", err)
 		} else if err == nil {

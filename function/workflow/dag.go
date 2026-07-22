@@ -11,7 +11,7 @@ import (
 	wf "go.temporal.io/sdk/workflow"
 
 	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 // dagState holds shared mutable state for function DAG execution.
@@ -318,8 +318,8 @@ func findFnArtifactProducer(artifactName string, allNodes []payload.FunctionDAGN
 	return ""
 }
 
-func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, node *payload.FunctionDAGNode, fnInput *payload.FunctionExecutionInput, allNodes []payload.FunctionDAGNode) error {
-	if store == nil || len(node.InputArtifacts) == 0 {
+func downloadFnInputArtifacts(ctx wf.Context, raw store.RawStore, node *payload.FunctionDAGNode, fnInput *payload.FunctionExecutionInput, allNodes []payload.FunctionDAGNode) error {
+	if raw == nil || len(node.InputArtifacts) == 0 {
 		return nil
 	}
 
@@ -331,19 +331,17 @@ func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, nod
 
 	for _, ref := range node.InputArtifacts {
 		producerStep := findFnArtifactProducer(ref.Name, allNodes)
-		metadata := artifacts.ArtifactMetadata{
-			Name:       ref.Name,
-			Path:       ref.Path,
-			Type:       ref.Type,
-			WorkflowID: info.WorkflowExecution.ID,
-			RunID:      info.WorkflowExecution.RunID,
-			StepName:   producerStep,
-		}
+		key := store.NewKeyBuilder().
+			WithWorkflow(info.WorkflowExecution.ID).
+			WithRun(info.WorkflowExecution.RunID).
+			WithStep(producerStep).
+			WithName(ref.Name).
+			Build()
 
 		if ref.Type == "bytes" {
 			var data []byte
 			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) ([]byte, error) {
-				return artifacts.DownloadBytes(ctx, store, metadata)
+				return store.NewBytesStore(raw).Load(ctx, key)
 			}).Get(ctx, &data)
 			if err != nil {
 				if ref.Optional {
@@ -353,12 +351,8 @@ func downloadFnInputArtifacts(ctx wf.Context, store artifacts.ArtifactStore, nod
 			}
 			fnInput.Data = data
 		} else {
-			downloadInput := artifacts.DownloadArtifactInput{
-				Metadata: metadata,
-				DestPath: ref.Path,
-			}
 			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
-				return artifacts.DownloadArtifactActivity(ctx, store, downloadInput)
+				return store.DownloadFile(ctx, raw, key, ref.Path, ref.Type)
 			}).Get(ctx, nil)
 			if err != nil && !ref.Optional {
 				return fmt.Errorf("failed to download artifact %s: %w", ref.Name, err)
@@ -374,11 +368,11 @@ func uploadFnOutputArtifacts(
 		Info(string, ...interface{})
 		Error(string, ...interface{})
 	},
-	store artifacts.ArtifactStore,
+	raw store.RawStore,
 	node *payload.FunctionDAGNode,
 	result *payload.FunctionExecutionOutput,
 ) {
-	if store == nil || len(node.OutputArtifacts) == 0 || !result.Success {
+	if raw == nil || len(node.OutputArtifacts) == 0 || !result.Success {
 		return
 	}
 
@@ -389,18 +383,16 @@ func uploadFnOutputArtifacts(
 	laCtx := wf.WithLocalActivityOptions(ctx, lao)
 
 	for _, ref := range node.OutputArtifacts {
-		metadata := artifacts.ArtifactMetadata{
-			Name:       ref.Name,
-			Path:       ref.Path,
-			Type:       ref.Type,
-			WorkflowID: info.WorkflowExecution.ID,
-			RunID:      info.WorkflowExecution.RunID,
-			StepName:   node.Name,
-		}
+		key := store.NewKeyBuilder().
+			WithWorkflow(info.WorkflowExecution.ID).
+			WithRun(info.WorkflowExecution.RunID).
+			WithStep(node.Name).
+			WithName(ref.Name).
+			Build()
 
 		if ref.Type == "bytes" {
 			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
-				return artifacts.UploadBytes(ctx, store, metadata, result.Data)
+				return store.NewBytesStore(raw).Save(ctx, key, result.Data)
 			}).Get(ctx, nil)
 			if err != nil {
 				if ref.Optional {
@@ -412,12 +404,8 @@ func uploadFnOutputArtifacts(
 				logger.Info("Uploaded bytes artifact", "name", ref.Name)
 			}
 		} else {
-			uploadInput := artifacts.UploadArtifactInput{
-				Metadata:   metadata,
-				SourcePath: ref.Path,
-			}
 			err := wf.ExecuteLocalActivity(laCtx, func(ctx context.Context) error {
-				return artifacts.UploadArtifactActivity(ctx, store, uploadInput)
+				return store.UploadFile(ctx, raw, key, ref.Path, ref.Type)
 			}).Get(ctx, nil)
 			if err != nil {
 				if ref.Optional {

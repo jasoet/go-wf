@@ -12,7 +12,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 
 	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow/artifacts"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 func TestDAGWorkflow_Success(t *testing.T) {
@@ -379,10 +379,10 @@ func TestDAGWorkflow_WithNilArtifactStore(t *testing.T) {
 			{
 				Name:     "node1",
 				Function: payload.FunctionExecutionInput{Name: "test-func"},
-				InputArtifacts: []artifacts.ArtifactRef{
+				InputArtifacts: []payload.ArtifactRef{
 					{Name: "input-data", Type: "bytes"},
 				},
-				OutputArtifacts: []artifacts.ArtifactRef{
+				OutputArtifacts: []payload.ArtifactRef{
 					{Name: "output-data", Type: "bytes"},
 				},
 			},
@@ -405,9 +405,9 @@ func TestDAGWorkflow_WithArtifactStore_BytesUpload(t *testing.T) {
 	env := testSuite.NewTestWorkflowEnvironment()
 	registerFunctionActivity(env)
 
-	store, err := artifacts.NewLocalFileStore(t.TempDir())
+	rawStore, err := store.NewLocalStore(t.TempDir())
 	require.NoError(t, err)
-	defer store.Close()
+	defer rawStore.Close()
 
 	outputData := []byte(`{"result": "processed"}`)
 
@@ -421,12 +421,12 @@ func TestDAGWorkflow_WithArtifactStore_BytesUpload(t *testing.T) {
 		}, nil)
 
 	input := payload.DAGWorkflowInput{
-		ArtifactStore: store,
+		ArtifactStore: rawStore,
 		Nodes: []payload.FunctionDAGNode{
 			{
 				Name:     "producer",
 				Function: payload.FunctionExecutionInput{Name: "producer-func"},
-				OutputArtifacts: []artifacts.ArtifactRef{
+				OutputArtifacts: []payload.ArtifactRef{
 					{Name: "result-data", Type: "bytes"},
 				},
 			},
@@ -450,9 +450,9 @@ func TestDAGWorkflow_ArtifactDownloadOptionalSkipped(t *testing.T) {
 	registerFunctionActivity(env)
 
 	// Empty store — no artifacts exist, but artifact ref is optional.
-	store, err := artifacts.NewLocalFileStore(t.TempDir())
+	rawStore, err := store.NewLocalStore(t.TempDir())
 	require.NoError(t, err)
-	defer store.Close()
+	defer rawStore.Close()
 
 	env.OnActivity("ExecuteFunctionActivity", mock.Anything, mock.Anything).Return(
 		&payload.FunctionExecutionOutput{
@@ -462,12 +462,12 @@ func TestDAGWorkflow_ArtifactDownloadOptionalSkipped(t *testing.T) {
 		}, nil)
 
 	input := payload.DAGWorkflowInput{
-		ArtifactStore: store,
+		ArtifactStore: rawStore,
 		Nodes: []payload.FunctionDAGNode{
 			{
 				Name:     "consumer",
 				Function: payload.FunctionExecutionInput{Name: "consumer-func"},
-				InputArtifacts: []artifacts.ArtifactRef{
+				InputArtifacts: []payload.ArtifactRef{
 					{Name: "missing-data", Type: "bytes", Optional: true},
 				},
 			},

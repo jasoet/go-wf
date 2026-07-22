@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/workflow/errors"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 var safeNodeName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -184,7 +184,7 @@ type DAGWorkflowInput struct {
 
 	// ArtifactStore is the artifact storage backend (optional)
 	// If provided, artifacts will be automatically uploaded/downloaded
-	ArtifactStore artifacts.ArtifactStore `json:"-"`
+	ArtifactStore store.RawStore `json:"-"`
 }
 
 // Validate validates DAG workflow input including cycle detection.

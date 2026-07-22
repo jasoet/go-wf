@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jasoet/go-wf/workflow/artifacts"
 	"github.com/jasoet/go-wf/workflow/errors"
+	"github.com/jasoet/go-wf/workflow/store"
 )
 
 var safeNodeName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -47,6 +47,22 @@ type DataMapping struct {
 	Optional bool `json:"optional"`
 }
 
+// ArtifactRef defines a reference to an artifact on a workflow node.
+// Used by DAG nodes to declare input/output artifacts.
+type ArtifactRef struct {
+	// Name is the artifact identifier
+	Name string `json:"name" validate:"required"`
+
+	// Path is the file/directory path (used for file-based artifacts)
+	Path string `json:"path,omitempty"`
+
+	// Type can be "file", "directory", "archive", or "bytes"
+	Type string `json:"type" validate:"required,oneof=file directory archive bytes"`
+
+	// Optional indicates if the artifact is optional
+	Optional bool `json:"optional"`
+}
+
 // FunctionDAGNode represents a node in a function DAG workflow.
 type FunctionDAGNode struct {
 	// Name is the node identifier.
@@ -68,10 +84,10 @@ type FunctionDAGNode struct {
 	DataInput *DataMapping `json:"data_input,omitempty"`
 
 	// InputArtifacts defines artifacts to download before execution.
-	InputArtifacts []artifacts.ArtifactRef `json:"input_artifacts,omitempty"`
+	InputArtifacts []ArtifactRef `json:"input_artifacts,omitempty"`
 
 	// OutputArtifacts defines artifacts to upload after execution.
-	OutputArtifacts []artifacts.ArtifactRef `json:"output_artifacts,omitempty"`
+	OutputArtifacts []ArtifactRef `json:"output_artifacts,omitempty"`
 }
 
 // DAGWorkflowInput defines a DAG (Directed Acyclic Graph) workflow for functions.
@@ -87,7 +103,7 @@ type DAGWorkflowInput struct {
 
 	// ArtifactStore is the artifact storage backend (optional).
 	// If nil, artifact operations are skipped.
-	ArtifactStore artifacts.ArtifactStore `json:"-"`
+	ArtifactStore store.RawStore `json:"-"`
 }
 
 // Validate validates DAG workflow input including structural integrity checks.
