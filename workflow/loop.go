@@ -18,7 +18,7 @@ func LoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input LoopInput[I, 
 		return nil, fmt.Errorf("invalid input: %w", err)
 	}
 
-	ctx = wf.WithActivityOptions(ctx, DefaultActivityOptions())
+	ctx = wf.WithActivityOptions(ctx, ResolveActivityOptions(input.Options))
 	startTime := wf.Now(ctx)
 
 	output := &LoopOutput[O]{
@@ -90,7 +90,7 @@ func ParameterizedLoopWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input 
 	}
 
 	combinations := GenerateParameterCombinations(input.Parameters)
-	ctx = wf.WithActivityOptions(ctx, DefaultActivityOptions())
+	ctx = wf.WithActivityOptions(ctx, ResolveActivityOptions(input.Options))
 	startTime := wf.Now(ctx)
 
 	output := &LoopOutput[O]{

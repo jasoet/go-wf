@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/temporal"
 )
 
 func TestSubstituteTemplate(t *testing.T) {
@@ -309,4 +311,29 @@ func TestDefaultActivityOptions(t *testing.T) {
 func TestFailureStrategyConstants(t *testing.T) {
 	assert.Equal(t, "fail_fast", FailureStrategyFailFast)
 	assert.Equal(t, "continue", FailureStrategyContinue)
+}
+
+func TestResolveActivityOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		opts *ExecutionOptions
+		want time.Duration
+	}{
+		{"nil keeps default", nil, 10 * time.Minute},
+		{"override timeout", &ExecutionOptions{StartToCloseTimeout: 45 * time.Minute}, 45 * time.Minute},
+		{"zero timeout keeps default", &ExecutionOptions{}, 10 * time.Minute},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ao := ResolveActivityOptions(tt.opts)
+			assert.Equal(t, tt.want, ao.StartToCloseTimeout)
+			require.NotNil(t, ao.RetryPolicy)
+		})
+	}
+
+	t.Run("retry policy override", func(t *testing.T) {
+		rp := &temporal.RetryPolicy{MaximumAttempts: 5}
+		ao := ResolveActivityOptions(&ExecutionOptions{RetryPolicy: rp})
+		assert.Equal(t, int32(5), ao.RetryPolicy.MaximumAttempts)
+	})
 }

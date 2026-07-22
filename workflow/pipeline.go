@@ -20,7 +20,7 @@ func PipelineWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input PipelineI
 		Results: make([]O, 0, len(input.Tasks)),
 	}
 
-	ctx = wf.WithActivityOptions(ctx, DefaultActivityOptions())
+	ctx = wf.WithActivityOptions(ctx, ResolveActivityOptions(input.Options))
 
 	for i, task := range input.Tasks {
 		logger.Info("Executing pipeline step", "step", i+1)

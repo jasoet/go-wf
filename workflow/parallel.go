@@ -16,7 +16,7 @@ func ParallelWorkflow[I TaskInput, O TaskOutput](ctx wf.Context, input ParallelI
 	}
 
 	startTime := wf.Now(ctx)
-	ctx = wf.WithActivityOptions(ctx, DefaultActivityOptions())
+	ctx = wf.WithActivityOptions(ctx, ResolveActivityOptions(input.Options))
 
 	// NOTE: All tasks are launched simultaneously. MaxConcurrency is not yet enforced;
 	// use Temporal's MaxConcurrentActivityExecutionSize for worker-level limiting.

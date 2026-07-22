@@ -33,6 +33,21 @@ func DefaultActivityOptions() wf.ActivityOptions {
 	}
 }
 
+// ResolveActivityOptions returns DefaultActivityOptions() with any non-nil overrides applied.
+func ResolveActivityOptions(opts *ExecutionOptions) wf.ActivityOptions {
+	ao := DefaultActivityOptions()
+	if opts == nil {
+		return ao
+	}
+	if opts.StartToCloseTimeout > 0 {
+		ao.StartToCloseTimeout = opts.StartToCloseTimeout
+	}
+	if opts.RetryPolicy != nil {
+		ao.RetryPolicy = opts.RetryPolicy
+	}
+	return ao
+}
+
 // SubstituteTemplate replaces template variables in a string.
 // Supports: {{item}}, {{index}}, and {{.paramName}}/{{paramName}} syntax.
 func SubstituteTemplate(tmpl, item string, index int, params map[string]string) string {

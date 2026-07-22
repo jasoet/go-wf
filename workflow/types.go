@@ -5,16 +5,28 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	temporal "go.temporal.io/sdk/temporal"
 )
 
 // pkgValidator is a package-level validator instance to avoid repeated instantiation.
 var pkgValidator = validator.New()
 
+// ExecutionOptions overrides the default Temporal activity options for an orchestration run.
+// It travels inside the orchestration input so builders can control activity behavior
+// without changing workflow wrapper signatures.
+type ExecutionOptions struct {
+	// StartToCloseTimeout caps a single activity attempt. Zero keeps the default (10m).
+	StartToCloseTimeout time.Duration `json:"start_to_close_timeout,omitempty"`
+	// RetryPolicy replaces the default retry policy (3 attempts, 2.0 backoff) when set.
+	RetryPolicy *temporal.RetryPolicy `json:"retry_policy,omitempty"`
+}
+
 // PipelineInput defines sequential task execution.
 type PipelineInput[I TaskInput, O TaskOutput] struct {
-	Tasks       []I  `json:"tasks" validate:"required,min=1"`
-	StopOnError bool `json:"stop_on_error"`
-	Cleanup     bool `json:"cleanup"`
+	Tasks       []I               `json:"tasks" validate:"required,min=1"`
+	StopOnError bool              `json:"stop_on_error"`
+	Cleanup     bool              `json:"cleanup"`
+	Options     *ExecutionOptions `json:"options,omitempty"`
 }
 
 // Validate validates pipeline input.
@@ -43,8 +55,9 @@ type ParallelInput[I TaskInput, O TaskOutput] struct {
 	Tasks []I `json:"tasks" validate:"required,min=1"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
-	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int               `json:"max_concurrency,omitempty"`
+	FailureStrategy string            `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	Options         *ExecutionOptions `json:"options,omitempty"`
 }
 
 // Validate validates parallel input.
@@ -75,8 +88,9 @@ type LoopInput[I TaskInput, O TaskOutput] struct {
 	Parallel bool     `json:"parallel"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
-	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int               `json:"max_concurrency,omitempty"`
+	FailureStrategy string            `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	Options         *ExecutionOptions `json:"options,omitempty"`
 }
 
 // Validate validates loop input.
@@ -94,8 +108,9 @@ type ParameterizedLoopInput[I TaskInput, O TaskOutput] struct {
 	Parallel   bool                `json:"parallel"`
 	// MaxConcurrency is not currently enforced. Use Temporal worker-level
 	// concurrency settings (MaxConcurrentActivityExecutionSize) instead.
-	MaxConcurrency  int    `json:"max_concurrency,omitempty"`
-	FailureStrategy string `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	MaxConcurrency  int               `json:"max_concurrency,omitempty"`
+	FailureStrategy string            `json:"failure_strategy" validate:"oneof='' continue fail_fast"`
+	Options         *ExecutionOptions `json:"options,omitempty"`
 }
 
 // Validate validates parameterized loop input.
