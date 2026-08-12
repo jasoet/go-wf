@@ -216,3 +216,17 @@ Key patterns:
 - OTelConfig injected via functional options, never serialized (`yaml:"-" mapstructure:"-"`)
 - LayerContext for automatic span + logger correlation
 - No-op provider pattern: OTel gracefully defaults to no-op when nil
+
+## Module path and releases
+
+The module path is `github.com/jasoet/go-wf/v2`. Go requires the major version
+in the path from v2 onward — without it, every v2+ tag is rejected by the proxy
+and consumers silently resolve to the newest v1 instead. That happened here:
+v2.0.0 through v2.1.1 were unusable until the path was corrected in v2.2.0.
+
+**When semantic-release next cuts a major (v3.0.0), the module path must move to
+`/v3` in the same change.** A `BREAKING CHANGE:` footer is enough to trigger the
+bump, so check the resulting tag matches the path suffix before announcing a
+release. Verify with:
+
+    go list -m github.com/jasoet/go-wf/vN@latest
