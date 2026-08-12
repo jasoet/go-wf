@@ -19,12 +19,12 @@ import (
 	"go.temporal.io/sdk/worker"
 	wf "go.temporal.io/sdk/workflow"
 
-	fn "github.com/jasoet/go-wf/function"
-	fnactivity "github.com/jasoet/go-wf/function/activity"
-	fnpayload "github.com/jasoet/go-wf/function/payload"
-	fnwf "github.com/jasoet/go-wf/function/workflow"
-	gowfworker "github.com/jasoet/go-wf/worker"
-	"github.com/jasoet/go-wf/workflow/store"
+	fn "github.com/jasoet/go-wf/v2/function"
+	fnactivity "github.com/jasoet/go-wf/v2/function/activity"
+	fnpayload "github.com/jasoet/go-wf/v2/function/payload"
+	fnwf "github.com/jasoet/go-wf/v2/function/workflow"
+	gowfworker "github.com/jasoet/go-wf/v2/worker"
+	"github.com/jasoet/go-wf/v2/workflow/store"
 )
 
 func main() {

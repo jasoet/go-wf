@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/go-wf/workflow/errors"
+	"github.com/jasoet/go-wf/v2/workflow/errors"
 )
 
 // DAGNode defines a single node in a DAG workflow.

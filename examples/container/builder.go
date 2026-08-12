@@ -18,11 +18,11 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/container"
-	"github.com/jasoet/go-wf/container/builder"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/template"
-	"github.com/jasoet/go-wf/container/workflow"
+	"github.com/jasoet/go-wf/v2/container"
+	"github.com/jasoet/go-wf/v2/container/builder"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/template"
+	"github.com/jasoet/go-wf/v2/container/workflow"
 )
 
 func main() {

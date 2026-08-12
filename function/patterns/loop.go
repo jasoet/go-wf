@@ -3,9 +3,9 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/function/builder"
-	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/function/builder"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v2/workflow"
 )
 
 // BatchProcess creates a parallel loop workflow for batch processing items.

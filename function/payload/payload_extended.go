@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jasoet/go-wf/workflow/errors"
-	"github.com/jasoet/go-wf/workflow/store"
+	"github.com/jasoet/go-wf/v2/workflow/errors"
+	"github.com/jasoet/go-wf/v2/workflow/store"
 )
 
 var safeNodeName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)

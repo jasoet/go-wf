@@ -9,9 +9,9 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	sdkworkflow "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/container/activity"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/workflow"
+	"github.com/jasoet/go-wf/v2/container/activity"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/workflow"
 )
 
 // mockWorker is a mock implementation of worker.Worker for testing registration.

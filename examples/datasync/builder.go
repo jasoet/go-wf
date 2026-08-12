@@ -16,9 +16,9 @@ import (
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/datasync/builder"
-	"github.com/jasoet/go-wf/datasync/payload"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/datasync/builder"
+	"github.com/jasoet/go-wf/v2/datasync/payload"
 )
 
 // This example demonstrates the fluent builder API for constructing sync jobs.

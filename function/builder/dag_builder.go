@@ -3,7 +3,7 @@ package builder
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/v2/function/payload"
 )
 
 // DAGBuilder provides a fluent API for constructing function DAG workflow inputs.

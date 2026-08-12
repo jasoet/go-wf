@@ -3,8 +3,8 @@ package workflow
 import (
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/container/payload"
-	generic "github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	generic "github.com/jasoet/go-wf/v2/workflow"
 )
 
 // containerSubstitutor returns a substitutor function for container inputs.

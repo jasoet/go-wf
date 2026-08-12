@@ -6,7 +6,7 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // stubStartContainerActivity is a stub activity function used to register with the test environment.

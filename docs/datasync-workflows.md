@@ -166,7 +166,7 @@ Use `SyncJobBuilder` for fluent job construction with validation:
 
 ```go
 import (
-    "github.com/jasoet/go-wf/datasync/builder"
+    "github.com/jasoet/go-wf/v2/datasync/builder"
     "github.com/jasoet/pkg/v2/temporal/job"
 )
 
@@ -245,8 +245,8 @@ A complete worker setup using the builder:
 
 ```go
 import (
-    "github.com/jasoet/go-wf/datasync"
-    "github.com/jasoet/go-wf/datasync/builder"
+    "github.com/jasoet/go-wf/v2/datasync"
+    "github.com/jasoet/go-wf/v2/datasync/builder"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 )

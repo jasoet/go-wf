@@ -1,7 +1,7 @@
 package container
 
 import (
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // Type aliases re-exported from container/payload for convenience.

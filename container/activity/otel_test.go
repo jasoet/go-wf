@@ -13,7 +13,7 @@ import (
 
 	pkgotel "github.com/jasoet/pkg/v2/otel"
 
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 func TestInstrumentedStartContainerActivity_NilConfig(t *testing.T) {

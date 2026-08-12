@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/workflow"
 )
 
 // Compile-time interface checks.

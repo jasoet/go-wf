@@ -3,8 +3,8 @@ package workflow
 import (
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/function/payload"
-	generic "github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	generic "github.com/jasoet/go-wf/v2/workflow"
 )
 
 // ParallelFunctionsWorkflow executes multiple functions in parallel.

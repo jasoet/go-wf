@@ -1,8 +1,8 @@
 package builder
 
 import (
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/workflow"
 )
 
 // GenericSource is a generic interface for composable workflow components.

@@ -8,9 +8,9 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	fn "github.com/jasoet/go-wf/function"
-	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow"
+	fn "github.com/jasoet/go-wf/v2/function"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v2/workflow"
 )
 
 const (

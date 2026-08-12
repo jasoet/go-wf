@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 func TestNewContainer(t *testing.T) {

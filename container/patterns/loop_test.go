@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jasoet/go-wf/container/template"
+	"github.com/jasoet/go-wf/v2/container/template"
 )
 
 func TestParallelLoop(t *testing.T) {

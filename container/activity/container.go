@@ -7,8 +7,8 @@ import (
 	dockerpkg "github.com/jasoet/pkg/v2/docker"
 	"go.temporal.io/sdk/activity"
 
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/workflow/secrets"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/workflow/secrets"
 )
 
 const maxOutputSize = 1 << 20 // 1MB

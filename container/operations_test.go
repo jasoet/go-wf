@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/mocks"
 
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // mockEncodedValue implements converter.EncodedValue for testing.

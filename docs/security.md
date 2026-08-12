@@ -51,7 +51,7 @@ To use a different backend (files, Vault, cloud secret managers), replace the re
 worker startup:
 
 ```go
-import "github.com/jasoet/go-wf/workflow/secrets"
+import "github.com/jasoet/go-wf/v2/workflow/secrets"
 
 secrets.SetDefault(secrets.ResolverFunc(func(ctx context.Context, ref string) (string, error) {
     return myVault.Read(ctx, ref)

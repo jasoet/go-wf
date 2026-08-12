@@ -14,8 +14,8 @@ import (
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/container"
-	gowfworker "github.com/jasoet/go-wf/worker"
+	"github.com/jasoet/go-wf/v2/container"
+	gowfworker "github.com/jasoet/go-wf/v2/worker"
 )
 
 func main() {

@@ -3,8 +3,8 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/container/builder"
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/builder"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // newLoopInput creates a LoopInput with a common container template.

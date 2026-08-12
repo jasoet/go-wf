@@ -8,8 +8,8 @@ import (
 
 	"go.temporal.io/sdk/activity"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/datasync/internal/heartbeat"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/datasync/internal/heartbeat"
 )
 
 // runPartitionInput is the activity input for a single partition.

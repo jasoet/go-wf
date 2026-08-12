@@ -3,7 +3,7 @@ package workflow
 import (
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/v2/function/payload"
 )
 
 // InstrumentedDAGWorkflow wraps DAGWorkflow with structured logging at boundaries.

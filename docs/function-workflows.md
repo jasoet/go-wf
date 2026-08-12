@@ -63,7 +63,7 @@ The `function/activity` package provides `NewExecuteFunctionActivity`, which
 creates a Temporal activity function backed by a registry:
 
 ```go
-import "github.com/jasoet/go-wf/function/activity"
+import "github.com/jasoet/go-wf/v2/function/activity"
 
 activityFn := activity.NewExecuteFunctionActivity(registry)
 ```
@@ -120,8 +120,8 @@ alias pre-specialized for `*payload.FunctionExecutionInput` / `payload.FunctionE
 
 ```go
 import (
-    "github.com/jasoet/go-wf/function/builder"
-    "github.com/jasoet/go-wf/function/activity"
+    "github.com/jasoet/go-wf/v2/function/builder"
+    "github.com/jasoet/go-wf/v2/function/activity"
     "github.com/jasoet/pkg/v2/temporal/job"
 )
 
@@ -257,7 +257,7 @@ The `function/patterns` package provides ready-made workflow constructors.
 ### Pipeline Patterns
 
 ```go
-import "github.com/jasoet/go-wf/function/patterns"
+import "github.com/jasoet/go-wf/v2/function/patterns"
 
 // 3-step ETL pipeline
 input, err := patterns.ETLPipeline("s3://bucket/data", "json", "postgres://db/table")
@@ -324,9 +324,9 @@ When you use `function.WorkflowBuilder` or `function.LoopBuilder`, the resulting
 
 ```go
 import (
-    fn "github.com/jasoet/go-wf/function"
-    "github.com/jasoet/go-wf/function/activity"
-    "github.com/jasoet/go-wf/function/builder"
+    fn "github.com/jasoet/go-wf/v2/function"
+    "github.com/jasoet/go-wf/v2/function/activity"
+    "github.com/jasoet/go-wf/v2/function/builder"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 )
@@ -366,8 +366,8 @@ For lower-level use or when registering DAG workflows separately:
 
 ```go
 import (
-    fn "github.com/jasoet/go-wf/function"
-    "github.com/jasoet/go-wf/function/activity"
+    fn "github.com/jasoet/go-wf/v2/function"
+    "github.com/jasoet/go-wf/v2/function/activity"
 )
 
 registry := fn.NewRegistry()

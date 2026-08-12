@@ -18,12 +18,12 @@ import (
 	pkgtemporal "github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/client"
 
-	containerpayload "github.com/jasoet/go-wf/container/payload"
-	containerwf "github.com/jasoet/go-wf/container/workflow"
-	dspayload "github.com/jasoet/go-wf/datasync/payload"
-	fnpayload "github.com/jasoet/go-wf/function/payload"
-	fnwf "github.com/jasoet/go-wf/function/workflow"
-	wftype "github.com/jasoet/go-wf/workflow"
+	containerpayload "github.com/jasoet/go-wf/v2/container/payload"
+	containerwf "github.com/jasoet/go-wf/v2/container/workflow"
+	dspayload "github.com/jasoet/go-wf/v2/datasync/payload"
+	fnpayload "github.com/jasoet/go-wf/v2/function/payload"
+	fnwf "github.com/jasoet/go-wf/v2/function/workflow"
+	wftype "github.com/jasoet/go-wf/v2/workflow"
 )
 
 func main() {

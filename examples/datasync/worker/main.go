@@ -11,9 +11,9 @@ import (
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/datasync"
-	dsworkflow "github.com/jasoet/go-wf/datasync/workflow"
-	gowfworker "github.com/jasoet/go-wf/worker"
+	"github.com/jasoet/go-wf/v2/datasync"
+	dsworkflow "github.com/jasoet/go-wf/v2/datasync/workflow"
+	gowfworker "github.com/jasoet/go-wf/v2/worker"
 )
 
 // Shared worker that registers multiple datasync jobs.

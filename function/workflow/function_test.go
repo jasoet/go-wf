@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/v2/function/payload"
 )
 
 func TestExecuteFunctionWorkflow_Success(t *testing.T) {

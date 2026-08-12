@@ -1,7 +1,7 @@
 package function
 
 import (
-	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/v2/function/payload"
 )
 
 // Type aliases re-exported from function/payload for convenience.

@@ -14,10 +14,10 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	docker "github.com/jasoet/go-wf/container"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/workflow"
-	"github.com/jasoet/go-wf/workflow/testutil"
+	docker "github.com/jasoet/go-wf/v2/container"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/workflow"
+	"github.com/jasoet/go-wf/v2/workflow/testutil"
 )
 
 var (

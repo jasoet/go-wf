@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/workflow"
 )
 
 // pkgValidator is a package-level validator instance to avoid repeated instantiation.

@@ -13,8 +13,8 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/workflow/testutil"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/workflow/testutil"
 )
 
 // Order is a domain type used in chunk integration tests.
