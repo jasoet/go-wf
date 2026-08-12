@@ -85,6 +85,9 @@ func (t *TimeTracker) EnsureSchema(ctx context.Context) error {
 // reports whether a cursor has ever been recorded — distinguishing "never ran"
 // from "ran, and the cursor happens to be the zero time".
 func (t *TimeTracker) Cursor(ctx context.Context, jobName string) (time.Time, bool, error) {
+	//nolint:gosec // G201: the table name is interpolated because SQL cannot
+	// parameterise identifiers; it is validated against safeIdentifier at
+	// construction. The job name is a real parameter.
 	query := fmt.Sprintf(`SELECT cursor_at FROM %s WHERE job_name = $1`, t.table)
 
 	var cursor time.Time
@@ -107,6 +110,7 @@ func (t *TimeTracker) Cursor(ctx context.Context, jobName string) (time.Time, bo
 // or worse, skip — partitions. GREATEST makes the call idempotent and
 // order-independent.
 func (t *TimeTracker) Advance(ctx context.Context, jobName string, completed time.Time) error {
+	//nolint:gosec // G201: identifier interpolation, validated at construction.
 	query := fmt.Sprintf(`
 		INSERT INTO %s (job_name, cursor_at, updated_at)
 		VALUES ($1, $2, now())
@@ -124,6 +128,7 @@ func (t *TimeTracker) Advance(ctx context.Context, jobName string, completed tim
 // configured lookback window again. Intended for operational recovery and
 // tests, not normal operation.
 func (t *TimeTracker) Reset(ctx context.Context, jobName string) error {
+	//nolint:gosec // G201: identifier interpolation, validated at construction.
 	query := fmt.Sprintf(`DELETE FROM %s WHERE job_name = $1`, t.table)
 
 	if _, err := t.db.ExecContext(ctx, query, jobName); err != nil {

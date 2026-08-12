@@ -7,7 +7,7 @@ import (
 
 // stubDB returns a non-nil *sql.DB for constructor tests. These tests never
 // execute a query, so an unconnected handle is sufficient and keeps them fast
-// and driver-free; behaviour against a real server is covered by the
+// and driver-free; behavior against a real server is covered by the
 // integration tests.
 func stubDB(t *testing.T) *sql.DB {
 	t.Helper()
