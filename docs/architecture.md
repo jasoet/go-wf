@@ -386,7 +386,7 @@ caller must construct the activity function and pass it in.
 
 ### Workflow Versioning
 
-Workers created via `github.com/jasoet/go-wf/worker`.New enable Temporal Worker
+Workers created via `github.com/jasoet/go-wf/v2/worker`.New enable Temporal Worker
 Versioning (Worker Deployments) when `TEMPORAL_DEPLOYMENT_NAME` and
 `TEMPORAL_BUILD_ID` are set. The default behavior is Pinned: in-flight
 executions finish on the worker build they started with, so workflow-code

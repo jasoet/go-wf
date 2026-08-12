@@ -16,7 +16,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/datasync"
+	"github.com/jasoet/go-wf/v2/datasync"
 )
 
 type mockSource[T any] struct {

@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/workflow/store"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/workflow/store"
 )
 
 func TestSyncJobBuilder_OptionalSetters(t *testing.T) {

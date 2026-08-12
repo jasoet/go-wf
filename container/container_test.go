@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/container/activity"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/workflow"
+	"github.com/jasoet/go-wf/v2/container/activity"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/workflow"
 )
 
 // mockContainerActivity registers a mock for StartContainerActivity that returns a successful result.

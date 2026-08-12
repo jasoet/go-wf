@@ -1,4 +1,4 @@
-module github.com/jasoet/go-wf
+module github.com/jasoet/go-wf/v2
 
 go 1.26.0
 

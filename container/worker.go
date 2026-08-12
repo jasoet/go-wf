@@ -6,8 +6,8 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
-	containerActivity "github.com/jasoet/go-wf/container/activity"
-	wf "github.com/jasoet/go-wf/container/workflow"
+	containerActivity "github.com/jasoet/go-wf/v2/container/activity"
+	wf "github.com/jasoet/go-wf/v2/container/workflow"
 )
 
 // RegisterWorkflows registers all container workflows with a worker.

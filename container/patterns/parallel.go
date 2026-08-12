@@ -3,9 +3,9 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/container/builder"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/template"
+	"github.com/jasoet/go-wf/v2/container/builder"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/template"
 )
 
 // FanOutFanIn creates a workflow that executes multiple tasks in parallel.

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jasoet/go-wf/container/payload"
-	generic "github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	generic "github.com/jasoet/go-wf/v2/workflow"
 )
 
 // ExtractOutput extracts a value from container output based on the definition.

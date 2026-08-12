@@ -11,9 +11,9 @@ import (
 	"github.com/jasoet/pkg/v2/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/datasync/chunk"
-	"github.com/jasoet/go-wf/datasync/payload"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/datasync/chunk"
+	"github.com/jasoet/go-wf/v2/datasync/payload"
 )
 
 // This example demonstrates a date-chunked datasync job:

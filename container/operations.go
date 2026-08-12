@@ -8,8 +8,8 @@ import (
 
 	"go.temporal.io/sdk/client"
 
-	"github.com/jasoet/go-wf/container/payload"
-	wf "github.com/jasoet/go-wf/container/workflow"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	wf "github.com/jasoet/go-wf/v2/container/workflow"
 )
 
 func generateWorkflowID() string {

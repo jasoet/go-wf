@@ -11,8 +11,8 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow/store"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v2/workflow/store"
 )
 
 // withArtifactStore wraps DAGWorkflow to inject the artifact store after the

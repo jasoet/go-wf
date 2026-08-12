@@ -22,9 +22,9 @@ import (
     "time"
 
     "github.com/jasoet/pkg/v2/temporal"
-    "github.com/jasoet/go-wf/datasync"
-    "github.com/jasoet/go-wf/datasync/chunk"
-    "github.com/jasoet/go-wf/datasync/payload"
+    "github.com/jasoet/go-wf/v2/datasync"
+    "github.com/jasoet/go-wf/v2/datasync/chunk"
+    "github.com/jasoet/go-wf/v2/datasync/payload"
     "go.temporal.io/sdk/worker"
 )
 

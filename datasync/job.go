@@ -3,7 +3,7 @@ package datasync
 import (
 	"time"
 
-	"github.com/jasoet/go-wf/workflow/store"
+	"github.com/jasoet/go-wf/v2/workflow/store"
 )
 
 // Job defines a complete sync pipeline: source -> mapper -> sink.

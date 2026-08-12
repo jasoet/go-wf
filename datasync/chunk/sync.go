@@ -13,9 +13,9 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/datasync/payload"
-	datasyncwf "github.com/jasoet/go-wf/datasync/workflow"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/datasync/payload"
+	datasyncwf "github.com/jasoet/go-wf/v2/datasync/workflow"
 )
 
 const (

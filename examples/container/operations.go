@@ -11,8 +11,8 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/container"
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // This example demonstrates the workflow operations API for managing

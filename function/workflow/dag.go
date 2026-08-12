@@ -10,8 +10,8 @@ import (
 	"go.temporal.io/sdk/temporal"
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/workflow/store"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v2/workflow/store"
 )
 
 // dagState holds shared mutable state for function DAG execution.

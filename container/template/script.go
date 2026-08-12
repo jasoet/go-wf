@@ -3,7 +3,7 @@ package template
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // Script is a WorkflowSource that creates a script-based container execution.

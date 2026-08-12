@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jasoet/go-wf/container/payload"
-	generic "github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	generic "github.com/jasoet/go-wf/v2/workflow"
 )
 
 func TestExtractOutput_Stdout(t *testing.T) {

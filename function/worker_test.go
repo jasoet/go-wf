@@ -9,7 +9,7 @@ import (
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdkworkflow "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/function/payload"
+	"github.com/jasoet/go-wf/v2/function/payload"
 )
 
 // mockWorker is a mock implementation of worker.Worker for testing registration.

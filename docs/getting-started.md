@@ -13,7 +13,7 @@ This guide gets you running in under 5 minutes.
 ## Installation
 
 ```bash
-go get github.com/jasoet/go-wf
+go get github.com/jasoet/go-wf/v2
 ```
 
 ## Quick Start: Function Workflow
@@ -31,10 +31,10 @@ import (
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 
-    fn "github.com/jasoet/go-wf/function"
-    fnactivity "github.com/jasoet/go-wf/function/activity"
-    fnbuilder "github.com/jasoet/go-wf/function/builder"
-    "github.com/jasoet/go-wf/function/payload"
+    fn "github.com/jasoet/go-wf/v2/function"
+    fnactivity "github.com/jasoet/go-wf/v2/function/activity"
+    fnbuilder "github.com/jasoet/go-wf/v2/function/builder"
+    "github.com/jasoet/go-wf/v2/function/payload"
 )
 
 func main() {
@@ -101,8 +101,8 @@ import (
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 
-    cbuilder "github.com/jasoet/go-wf/container/builder"
-    "github.com/jasoet/go-wf/container/payload"
+    cbuilder "github.com/jasoet/go-wf/v2/container/builder"
+    "github.com/jasoet/go-wf/v2/container/payload"
 )
 
 func main() {
@@ -158,7 +158,7 @@ For large datasets that must be processed in partitions (e.g., by date range), u
 
 ```go
 import (
-    "github.com/jasoet/go-wf/datasync/chunk"
+    "github.com/jasoet/go-wf/v2/datasync/chunk"
     "github.com/jasoet/pkg/v2/temporal/job"
 )
 
@@ -234,7 +234,7 @@ task local:down       # stop everything
 task local:clean      # stop and remove volumes
 ```
 
-The workers in this stack are created via `github.com/jasoet/go-wf/worker`.New, which enables Temporal Worker Versioning (Worker Deployments, Pinned behavior) when `TEMPORAL_DEPLOYMENT_NAME` and `TEMPORAL_BUILD_ID` are set — the compose stack sets both (`BUILD_ID` env overrides the default `dev`). In-flight executions finish on the worker build they started with, so redeploying workflow code never breaks replay; without the env vars, the helper behaves exactly like the SDK's `worker.New`. See [Architecture](architecture.md#workflow-versioning) for details.
+The workers in this stack are created via `github.com/jasoet/go-wf/v2/worker`.New, which enables Temporal Worker Versioning (Worker Deployments, Pinned behavior) when `TEMPORAL_DEPLOYMENT_NAME` and `TEMPORAL_BUILD_ID` are set — the compose stack sets both (`BUILD_ID` env overrides the default `dev`). In-flight executions finish on the worker build they started with, so redeploying workflow code never breaks replay; without the env vars, the helper behaves exactly like the SDK's `worker.New`. See [Architecture](architecture.md#workflow-versioning) for details.
 
 ## Next Steps
 

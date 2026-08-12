@@ -15,12 +15,12 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	fn "github.com/jasoet/go-wf/function"
-	fnactivity "github.com/jasoet/go-wf/function/activity"
-	"github.com/jasoet/go-wf/function/payload"
-	fnworkflow "github.com/jasoet/go-wf/function/workflow"
-	generic "github.com/jasoet/go-wf/workflow"
-	"github.com/jasoet/go-wf/workflow/testutil"
+	fn "github.com/jasoet/go-wf/v2/function"
+	fnactivity "github.com/jasoet/go-wf/v2/function/activity"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	fnworkflow "github.com/jasoet/go-wf/v2/function/workflow"
+	generic "github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v2/workflow/testutil"
 )
 
 var (

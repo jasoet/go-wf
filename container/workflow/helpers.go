@@ -1,8 +1,8 @@
 package workflow
 
 import (
-	"github.com/jasoet/go-wf/container/payload"
-	generic "github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	generic "github.com/jasoet/go-wf/v2/workflow"
 )
 
 // toTaskPtrs converts a slice of ContainerExecutionInput values to a slice of pointers.

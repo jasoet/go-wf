@@ -1,9 +1,9 @@
 package patterns
 
 import (
-	"github.com/jasoet/go-wf/container/builder"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/template"
+	"github.com/jasoet/go-wf/v2/container/builder"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/template"
 )
 
 // BuildTestDeploy creates a simple CI/CD workflow with build, test, and deploy stages.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/jasoet/pkg/v2/temporal/job"
 
-	wf "github.com/jasoet/go-wf/function/workflow"
+	wf "github.com/jasoet/go-wf/v2/function/workflow"
 )
 
 // activityType is the function signature for the function execution activity.

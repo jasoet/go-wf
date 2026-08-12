@@ -11,9 +11,9 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/sdk/activity"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/datasync/internal/heartbeat"
-	"github.com/jasoet/go-wf/datasync/payload"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/datasync/internal/heartbeat"
+	"github.com/jasoet/go-wf/v2/datasync/payload"
 )
 
 // ActivityInput is the activity input for the SyncData activity.

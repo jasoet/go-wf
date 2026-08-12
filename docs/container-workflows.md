@@ -159,7 +159,7 @@ workflow inputs manually.
 
 ```go
 import (
-    "github.com/jasoet/go-wf/container/builder"
+    "github.com/jasoet/go-wf/v2/container/builder"
     "github.com/jasoet/pkg/v2/temporal/job"
 )
 
@@ -532,7 +532,7 @@ When you use `container.WorkflowBuilder` or `container.LoopBuilder`, the resulti
 
 ```go
 import (
-    "github.com/jasoet/go-wf/container/builder"
+    "github.com/jasoet/go-wf/v2/container/builder"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 )

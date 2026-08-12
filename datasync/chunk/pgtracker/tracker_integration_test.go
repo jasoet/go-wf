@@ -13,8 +13,8 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/jasoet/go-wf/datasync/chunk"
-	"github.com/jasoet/go-wf/datasync/chunk/pgtracker"
+	"github.com/jasoet/go-wf/v2/datasync/chunk"
+	"github.com/jasoet/go-wf/v2/datasync/chunk/pgtracker"
 )
 
 func newTracker(t *testing.T) *pgtracker.TimeTracker {

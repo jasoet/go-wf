@@ -3,7 +3,7 @@ package template
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/container/payload"
+	"github.com/jasoet/go-wf/v2/container/payload"
 )
 
 // Container is a WorkflowSource that creates a container execution.

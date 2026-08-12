@@ -9,10 +9,10 @@ import (
 
 	"go.temporal.io/sdk/client"
 
-	"github.com/jasoet/go-wf/container/builder"
-	"github.com/jasoet/go-wf/container/patterns"
-	"github.com/jasoet/go-wf/container/payload"
-	"github.com/jasoet/go-wf/container/workflow"
+	"github.com/jasoet/go-wf/v2/container/builder"
+	"github.com/jasoet/go-wf/v2/container/patterns"
+	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v2/container/workflow"
 )
 
 // This example demonstrates loop workflows in the go-wf/container package.

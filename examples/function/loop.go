@@ -18,11 +18,11 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	fn "github.com/jasoet/go-wf/function"
-	fnactivity "github.com/jasoet/go-wf/function/activity"
-	"github.com/jasoet/go-wf/function/builder"
-	"github.com/jasoet/go-wf/function/payload"
-	"github.com/jasoet/go-wf/function/workflow"
+	fn "github.com/jasoet/go-wf/v2/function"
+	fnactivity "github.com/jasoet/go-wf/v2/function/activity"
+	"github.com/jasoet/go-wf/v2/function/builder"
+	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v2/function/workflow"
 )
 
 // This example demonstrates loop workflows in the function module:

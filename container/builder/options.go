@@ -3,7 +3,7 @@ package builder
 import (
 	"time"
 
-	"github.com/jasoet/go-wf/workflow"
+	"github.com/jasoet/go-wf/v2/workflow"
 )
 
 // BuilderOption is a functional option for configuring WorkflowBuilder.

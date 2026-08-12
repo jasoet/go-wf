@@ -10,9 +10,9 @@ import (
 	sdkactivity "go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/datasync"
-	"github.com/jasoet/go-wf/datasync/activity"
-	"github.com/jasoet/go-wf/datasync/payload"
+	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v2/datasync/activity"
+	"github.com/jasoet/go-wf/v2/datasync/payload"
 )
 
 // stubSyncDataActivity is a no-op activity stub for workflow test registration.

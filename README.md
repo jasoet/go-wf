@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/jasoet/go-wf/actions/workflows/release.yml/badge.svg)](https://github.com/jasoet/go-wf/actions)
+[![Build Status](https://github.com/jasoet/go-wf/v2/actions/workflows/release.yml/badge.svg)](https://github.com/jasoet/go-wf/v2/actions)
 
 Temporal workflow library providing reusable, production-ready workflows for common orchestration patterns.
 
@@ -99,7 +99,7 @@ Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhea
 ## Installation
 
 ```bash
-go get github.com/jasoet/go-wf
+go get github.com/jasoet/go-wf/v2
 ```
 
 ## Quick Start
@@ -113,9 +113,9 @@ import (
     "context"
     "log"
 
-    "github.com/jasoet/go-wf/container"
-    "github.com/jasoet/go-wf/container/builder"
-    "github.com/jasoet/go-wf/container/payload"
+    "github.com/jasoet/go-wf/v2/container"
+    "github.com/jasoet/go-wf/v2/container/builder"
+    "github.com/jasoet/go-wf/v2/container/payload"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 )
@@ -174,10 +174,10 @@ import (
     "context"
     "log"
 
-    fn "github.com/jasoet/go-wf/function"
-    fnactivity "github.com/jasoet/go-wf/function/activity"
-    fnbuilder "github.com/jasoet/go-wf/function/builder"
-    "github.com/jasoet/go-wf/function/payload"
+    fn "github.com/jasoet/go-wf/v2/function"
+    fnactivity "github.com/jasoet/go-wf/v2/function/activity"
+    fnbuilder "github.com/jasoet/go-wf/v2/function/builder"
+    "github.com/jasoet/go-wf/v2/function/payload"
     "github.com/jasoet/pkg/v2/temporal"
     "go.temporal.io/sdk/worker"
 )

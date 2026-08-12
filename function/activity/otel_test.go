@@ -13,8 +13,8 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
-	fn "github.com/jasoet/go-wf/function"
-	"github.com/jasoet/go-wf/function/payload"
+	fn "github.com/jasoet/go-wf/v2/function"
+	"github.com/jasoet/go-wf/v2/function/payload"
 )
 
 func TestInstrumentedExecuteFunctionActivity_ReturnsNonNil(t *testing.T) {
