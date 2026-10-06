@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
-	generic "github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/container/payload"
+	generic "github.com/jasoet/go-wf/v3/workflow"
 )
 
 // HTTP is a WorkflowSource that creates an HTTP request using a container.

@@ -166,8 +166,8 @@ Use `SyncJobBuilder` for fluent job construction with validation:
 
 ```go
 import (
-    "github.com/jasoet/go-wf/v2/datasync/builder"
-    "github.com/jasoet/pkg/v2/temporal/job"
+    "github.com/jasoet/go-wf/v3/datasync/builder"
+    "github.com/jasoet/pkg/v3/temporal/job"
 )
 
 def, err := builder.NewSyncJobBuilder[APIUser, DBUser]("user-sync").
@@ -245,9 +245,9 @@ A complete worker setup using the builder:
 
 ```go
 import (
-    "github.com/jasoet/go-wf/v2/datasync"
-    "github.com/jasoet/go-wf/v2/datasync/builder"
-    "github.com/jasoet/pkg/v2/temporal"
+    "github.com/jasoet/go-wf/v3/datasync"
+    "github.com/jasoet/go-wf/v3/datasync/builder"
+    "github.com/jasoet/pkg/v3/temporal"
     "go.temporal.io/sdk/worker"
 )
 
@@ -265,7 +265,7 @@ func main() {
     }
 
     // Create Temporal client
-    c, err := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient()
     if err != nil {
         log.Fatal(err)
     }

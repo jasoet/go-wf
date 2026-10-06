@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 )
 
 // MapResult holds the output of a detailed mapping operation, including

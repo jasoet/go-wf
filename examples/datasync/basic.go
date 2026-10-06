@@ -8,13 +8,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal"
+	"github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
-	dsworkflow "github.com/jasoet/go-wf/v2/datasync/workflow"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
+	dsworkflow "github.com/jasoet/go-wf/v3/datasync/workflow"
 )
 
 // This example demonstrates a basic datasync job:
@@ -57,7 +57,7 @@ func (s *UserSink) Write(_ context.Context, records []User) (datasync.WriteResul
 
 func main() {
 	// Create Temporal client
-	c, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

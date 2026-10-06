@@ -3,8 +3,8 @@ package workflow
 import (
 	wf "go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/v2/function/payload"
-	generic "github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	generic "github.com/jasoet/go-wf/v3/workflow"
 )
 
 // ExecuteFunctionWorkflow runs a single function and returns results.

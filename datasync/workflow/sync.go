@@ -8,9 +8,9 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/activity"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/activity"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
 )
 
 const (

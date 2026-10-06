@@ -21,10 +21,10 @@ import (
     "context"
     "time"
 
-    "github.com/jasoet/pkg/v2/temporal"
-    "github.com/jasoet/go-wf/v2/datasync"
-    "github.com/jasoet/go-wf/v2/datasync/chunk"
-    "github.com/jasoet/go-wf/v2/datasync/payload"
+    "github.com/jasoet/pkg/v3/temporal"
+    "github.com/jasoet/go-wf/v3/datasync"
+    "github.com/jasoet/go-wf/v3/datasync/chunk"
+    "github.com/jasoet/go-wf/v3/datasync/payload"
     "go.temporal.io/sdk/worker"
 )
 
@@ -48,7 +48,7 @@ if err != nil {
     log.Fatal(err)
 }
 
-c, err := temporal.NewClient(temporal.DefaultConfig())
+c, err := temporal.NewClient()
 if err != nil {
     log.Fatal(err)
 }

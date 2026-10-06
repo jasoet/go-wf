@@ -13,12 +13,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal"
+	"github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/builder"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/builder"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
 )
 
 // This example demonstrates the fluent builder API for constructing sync jobs.
@@ -82,7 +82,7 @@ func (m *RecordMapper) Map(_ context.Context, records []User) ([]UserDTO, error)
 
 func main() {
 	// Create Temporal client
-	c, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

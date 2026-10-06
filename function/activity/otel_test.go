@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
-	fn "github.com/jasoet/go-wf/v2/function"
-	"github.com/jasoet/go-wf/v2/function/payload"
+	fn "github.com/jasoet/go-wf/v3/function"
+	"github.com/jasoet/go-wf/v3/function/payload"
 )
 
 func TestInstrumentedExecuteFunctionActivity_ReturnsNonNil(t *testing.T) {
@@ -63,10 +63,11 @@ func TestInstrumentedExecuteFunctionActivity_PassThrough(t *testing.T) {
 
 // otelContext creates a context with a minimal OTel config using real SDK providers.
 func otelContext() context.Context {
-	cfg := pkgotel.NewConfig("test-service").
-		WithTracerProvider(sdktrace.NewTracerProvider()).
-		WithMeterProvider(sdkmetric.NewMeterProvider()).
-		WithoutLogging()
+	cfg := pkgotel.NewConfig("test-service",
+		pkgotel.WithTracerProvider(sdktrace.NewTracerProvider()),
+		pkgotel.WithMeterProvider(sdkmetric.NewMeterProvider()),
+		pkgotel.WithoutLogging(),
+	)
 	return pkgotel.ContextWithConfig(context.Background(), cfg)
 }
 

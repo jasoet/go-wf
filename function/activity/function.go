@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	fn "github.com/jasoet/go-wf/v2/function"
-	"github.com/jasoet/go-wf/v2/function/payload"
-	"github.com/jasoet/go-wf/v2/workflow/secrets"
+	fn "github.com/jasoet/go-wf/v3/function"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	"github.com/jasoet/go-wf/v3/workflow/secrets"
 )
 
 // NewExecuteFunctionActivity creates a Temporal activity that dispatches to registered handlers.

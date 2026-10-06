@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jasoet/go-wf/v2/function/payload"
-	"github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	"github.com/jasoet/go-wf/v3/workflow"
 )
 
 // dummyActivity is a no-op stand-in for the activity function required by Build.

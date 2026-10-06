@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal/job"
+	"github.com/jasoet/pkg/v3/temporal/job"
 	"go.temporal.io/sdk/temporal"
 
-	"github.com/jasoet/go-wf/v2/datasync"
+	"github.com/jasoet/go-wf/v3/datasync"
 )
 
 // DateChunkedSync wraps ChunkedSync[In, Out, int64] with a time.Time-based

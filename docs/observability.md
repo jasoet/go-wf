@@ -168,6 +168,6 @@ All spans follow the pattern `<domain>/<Operation>`:
 
 ## Enabling Observability
 
-1. **Configure OTel providers** using `github.com/jasoet/pkg/v2/otel` and attach the config to context.
+1. **Configure OTel providers** using `github.com/jasoet/pkg/v3/otel` and attach the config to context.
 2. **Use instrumented wrappers** -- replace plain workflow registrations with `Instrumented*` variants, wrap stores with `NewInstrumentedStore`, and import `container/activity` or `function/activity` packages.
 3. When OTel config is absent from context, every wrapper falls through to the inner implementation with no allocation or overhead.

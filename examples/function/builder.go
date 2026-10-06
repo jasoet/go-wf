@@ -13,16 +13,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal"
+	"github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	fn "github.com/jasoet/go-wf/v2/function"
-	fnactivity "github.com/jasoet/go-wf/v2/function/activity"
-	"github.com/jasoet/go-wf/v2/function/builder"
-	"github.com/jasoet/go-wf/v2/function/payload"
-	"github.com/jasoet/go-wf/v2/function/workflow"
-	generic "github.com/jasoet/go-wf/v2/workflow"
+	fn "github.com/jasoet/go-wf/v3/function"
+	fnactivity "github.com/jasoet/go-wf/v3/function/activity"
+	"github.com/jasoet/go-wf/v3/function/builder"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	"github.com/jasoet/go-wf/v3/function/workflow"
+	generic "github.com/jasoet/go-wf/v3/workflow"
 )
 
 // This example demonstrates the Builder API for constructing function workflows:
@@ -33,7 +33,7 @@ import (
 
 func main() {
 	// Create Temporal client
-	c, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

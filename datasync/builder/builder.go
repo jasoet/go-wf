@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal/job"
+	"github.com/jasoet/pkg/v3/temporal/job"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
-	datasyncwf "github.com/jasoet/go-wf/v2/datasync/workflow"
-	"github.com/jasoet/go-wf/v2/workflow/store"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
+	datasyncwf "github.com/jasoet/go-wf/v3/datasync/workflow"
+	"github.com/jasoet/go-wf/v3/workflow/store"
 )
 
 // SyncJobBuilder provides a fluent API for constructing Job[T, U].

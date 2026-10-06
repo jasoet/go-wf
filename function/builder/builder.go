@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jasoet/pkg/v2/temporal/job"
+	"github.com/jasoet/pkg/v3/temporal/job"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	fn "github.com/jasoet/go-wf/v2/function"
-	"github.com/jasoet/go-wf/v2/function/payload"
-	"github.com/jasoet/go-wf/v2/workflow"
+	fn "github.com/jasoet/go-wf/v3/function"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	"github.com/jasoet/go-wf/v3/workflow"
 )
 
 const (

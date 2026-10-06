@@ -5,4 +5,4 @@ package datasync
 //   - workflow.RegisterJob[T, U](w, job) — register a single job
 //
 // The datasync/builder package provides SyncJobBuilder which returns a
-// *job.Definition (from github.com/jasoet/pkg/v2/temporal/job) via Build().
+// *job.Definition (from github.com/jasoet/pkg/v3/temporal/job) via Build().

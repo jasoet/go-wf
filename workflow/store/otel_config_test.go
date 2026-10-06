@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -18,10 +18,11 @@ import (
 // storeOtelContext returns a context carrying a minimal OTel config backed by
 // real (no-op export) SDK providers, so instrumented paths are exercised.
 func storeOtelContext() context.Context {
-	cfg := pkgotel.NewConfig("store-test").
-		WithTracerProvider(sdktrace.NewTracerProvider()).
-		WithMeterProvider(sdkmetric.NewMeterProvider()).
-		WithoutLogging()
+	cfg := pkgotel.NewConfig("store-test",
+		pkgotel.WithTracerProvider(sdktrace.NewTracerProvider()),
+		pkgotel.WithMeterProvider(sdkmetric.NewMeterProvider()),
+		pkgotel.WithoutLogging(),
+	)
 	return pkgotel.ContextWithConfig(context.Background(), cfg)
 }
 

@@ -11,9 +11,9 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
-	"github.com/jasoet/go-wf/v2/workflow/testutil"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
+	"github.com/jasoet/go-wf/v3/workflow/testutil"
 )
 
 func TestIntegration_SyncWorkflow_EndToEnd(t *testing.T) {

@@ -179,13 +179,13 @@ Steps:
 2. **Test** -- `task test` (unit + integration tests)
 3. **Coverage gate** -- `scripts/check-coverage.sh output/coverage.out 85` (fails below 85% total)
 
-## Dependency Pinning (pkg/v2)
+## Dependency Pinning (pkg/v3)
 
-go-wf releases may only pin **tagged releases** of `github.com/jasoet/pkg/v2` (which provides
+go-wf releases may only pin **tagged releases** of `github.com/jasoet/pkg/v3` (which provides
 `temporal/job` and the container execution layer). During development a pseudo-version is fine,
 but the release workflow runs `scripts/check-pkg-version.sh` and fails the release if go.mod
-sits on a pseudo-version. If that happens, tag a pkg/v2 release containing the needed commit,
-then `go get github.com/jasoet/pkg/v2@latest` here before re-running the release.
+sits on a pseudo-version. If that happens, tag a pkg/v3 release containing the needed commit,
+then `go get github.com/jasoet/pkg/v3@latest` here before re-running the release.
 
 ## Project Structure
 

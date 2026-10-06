@@ -1,6 +1,6 @@
 package builder
 
-import "github.com/jasoet/go-wf/v2/function/payload"
+import "github.com/jasoet/go-wf/v3/function/payload"
 
 // WorkflowSource represents a composable workflow component that can generate function execution inputs.
 type WorkflowSource interface {

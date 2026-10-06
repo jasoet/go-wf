@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal/job"
+	"github.com/jasoet/pkg/v3/temporal/job"
 	"go.temporal.io/sdk/activity"
 	sdkclient "go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
-	datasyncwf "github.com/jasoet/go-wf/v2/datasync/workflow"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
+	datasyncwf "github.com/jasoet/go-wf/v3/datasync/workflow"
 )
 
 const (

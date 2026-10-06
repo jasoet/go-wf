@@ -3,9 +3,9 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/v2/function/builder"
-	"github.com/jasoet/go-wf/v2/function/payload"
-	"github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/function/builder"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	"github.com/jasoet/go-wf/v3/workflow"
 )
 
 // FanOutFanIn creates a parallel workflow that executes one function per name concurrently.
