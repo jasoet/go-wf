@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	dockerpkg "github.com/jasoet/pkg/v2/docker"
+	dockerpkg "github.com/jasoet/pkg/v3/docker"
 	"go.temporal.io/sdk/activity"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
-	"github.com/jasoet/go-wf/v2/workflow/secrets"
+	"github.com/jasoet/go-wf/v3/container/payload"
+	"github.com/jasoet/go-wf/v3/workflow/secrets"
 )
 
 const maxOutputSize = 1 << 20 // 1MB

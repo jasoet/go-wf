@@ -15,15 +15,15 @@ import (
 	"strings"
 	"time"
 
-	pkgtemporal "github.com/jasoet/pkg/v2/temporal"
+	pkgtemporal "github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/client"
 
-	containerpayload "github.com/jasoet/go-wf/v2/container/payload"
-	containerwf "github.com/jasoet/go-wf/v2/container/workflow"
-	dspayload "github.com/jasoet/go-wf/v2/datasync/payload"
-	fnpayload "github.com/jasoet/go-wf/v2/function/payload"
-	fnwf "github.com/jasoet/go-wf/v2/function/workflow"
-	wftype "github.com/jasoet/go-wf/v2/workflow"
+	containerpayload "github.com/jasoet/go-wf/v3/container/payload"
+	containerwf "github.com/jasoet/go-wf/v3/container/workflow"
+	dspayload "github.com/jasoet/go-wf/v3/datasync/payload"
+	fnpayload "github.com/jasoet/go-wf/v3/function/payload"
+	fnwf "github.com/jasoet/go-wf/v3/function/workflow"
+	wftype "github.com/jasoet/go-wf/v3/workflow"
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
 		config.HostPort = hostPort
 	}
-	c, err := pkgtemporal.NewClient(config)
+	c, err := pkgtemporal.NewClient(pkgtemporal.WithConfig(*config))
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

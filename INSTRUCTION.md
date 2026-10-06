@@ -8,12 +8,12 @@
 
 ## Project Overview
 
-go-wf — a Go library providing a generic workflow orchestration core with Docker container, Go function, and data synchronization activity support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `container/` package is a concrete implementation that wires Docker container activities into the generic core. The `function/` package provides a function registry pattern where named Go handler functions are dispatched as Temporal activities. The `datasync/` package provides generic `Source[T] -> Mapper[T,U] -> Sink[U]` data synchronization pipelines as Temporal workflows. Built with Go 1.26+, uses `github.com/jasoet/pkg/v2` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
+go-wf — a Go library providing a generic workflow orchestration core with Docker container, Go function, and data synchronization activity support, built on Temporal. The `workflow/` package defines type-safe interfaces (`TaskInput`/`TaskOutput`) using Go generics for pipeline, parallel, loop, and single-task execution. The `container/` package is a concrete implementation that wires Docker container activities into the generic core. The `function/` package provides a function registry pattern where named Go handler functions are dispatched as Temporal activities. The `datasync/` package provides generic `Source[T] -> Mapper[T,U] -> Sink[U]` data synchronization pipelines as Temporal workflows. Built with Go 1.26+, uses `github.com/jasoet/pkg/v3` as the base library. Features include a fluent builder API, container/script/HTTP templates, artifact storage, and lifecycle management.
 
 **Repository Type:** Library (Go module)
-**Module:** `github.com/jasoet/go-wf`
-**Key Dependencies:** Temporal SDK, testcontainers-go, pkg/v2, validator/v10, aws-sdk-go-v2
-**Convergence Type:** All builders return `*job.Definition` from `github.com/jasoet/pkg/v2/temporal/job`. This is the single type for registration, execution, scheduling, and lifecycle management across all workflow kinds.
+**Module:** `github.com/jasoet/go-wf/v3`
+**Key Dependencies:** Temporal SDK, testcontainers-go, pkg/v3, validator/v10, aws-sdk-go-v2
+**Convergence Type:** All builders return `*job.Definition` from `github.com/jasoet/pkg/v3/temporal/job`. This is the single type for registration, execution, scheduling, and lifecycle management across all workflow kinds.
 
 ## ABSOLUTE RULE — Git Authorship
 
@@ -88,7 +88,7 @@ attribute commits to AI. This applies to ALL commits, including those made by to
 | `docs/contributing.md` | Contributing guide |
 | `INSTRUCTION.md` | AI context (this file) |
 | `README.md` | Human documentation |
-| `github.com/jasoet/pkg/v2/temporal/job` | External package — `*job.Definition`, `job.Registry`, `job.ScheduleSpec`. All go-wf builders return `*job.Definition` from this package. |
+| `github.com/jasoet/pkg/v3/temporal/job` | External package — `*job.Definition`, `job.Registry`, `job.ScheduleSpec`. All go-wf builders return `*job.Definition` from this package. |
 
 ## Taskfile Commands
 
@@ -144,7 +144,7 @@ Multi-layer architecture organized as package-per-feature:
 - Error types shared across all implementations
 
 **Container Module (`container/`)** — concrete implementation
-- **Activities** wrap `github.com/jasoet/pkg/v2/docker` for container execution
+- **Activities** wrap `github.com/jasoet/pkg/v3/docker` for container execution
 - **Payloads** implement `TaskInput`/`TaskOutput` interfaces with validated structs (`go-playground/validator`)
 - **Workflows** register with Temporal workers via `container.RegisterAll(w)` (idempotent), using generic core for orchestration
 - **Builder** (`container/builder.WorkflowBuilder`) provides a fluent API: `.Name()`, `.Pipeline()/.Parallel()/.Single()`, `.Add()`, `.Build() (*job.Definition, error)`. Default `TaskQueue`: `"container-<name>"`.
@@ -171,7 +171,7 @@ Multi-layer architecture organized as package-per-feature:
 - **Payloads** (`SyncExecutionInput`/`SyncExecutionOutput`) implement `TaskInput`/`TaskOutput` for composition with Pipeline, Parallel, and DAG
 - **Internal heartbeat** (`datasync/internal/heartbeat`) shared helpers ensuring consistent heartbeat behavior across `datasync/activity` and `datasync/chunk`
 
-**Observability (`jasoet/pkg/v2/otel`)**
+**Observability (`jasoet/pkg/v3/otel`)**
 - Activities get full OTel spans + metrics via `Layers.StartService` (container: `go_wf.container.task.*`, function: `go_wf.function.task.*`, datasync: `go_wf.datasync.*`)
 - Workflow orchestration has structured logging wrappers at pipeline/parallel/loop boundaries
 - Artifact store uses `InstrumentedStore` decorator with `Layers.StartRepository` (metrics: `go_wf.artifact.operation.*`)
@@ -203,9 +203,9 @@ Multi-layer architecture organized as package-per-feature:
 - Comments on declarations must end in a period (`godot`)
 - Security: gosec scanning, no hardcoded secrets, directory permissions ≤ 0o750, file permissions ≤ 0o600
 
-## Go: Base Library (pkg/v2)
+## Go: Base Library (pkg/v3)
 
-All Go projects use `github.com/jasoet/pkg/v2` as the base library.
+All Go projects use `github.com/jasoet/pkg/v3` as the base library.
 Read the following files from `~/Documents/Go/pkg/` for full details:
 - `README.md`: Available packages and quick start
 - `CLAUDE.md`: Architecture patterns, testing strategy, development commands
@@ -219,13 +219,17 @@ Key patterns:
 
 ## Module path and releases
 
-The module path is `github.com/jasoet/go-wf/v2`. Go requires the major version
+The module path is `github.com/jasoet/go-wf/v3`. Go requires the major version
 in the path from v2 onward — without it, every v2+ tag is rejected by the proxy
 and consumers silently resolve to the newest v1 instead. That happened here:
 v2.0.0 through v2.1.1 were unusable until the path was corrected in v2.2.0.
 
-**When semantic-release next cuts a major (v3.0.0), the module path must move to
-`/v3` in the same change.** A `BREAKING CHANGE:` footer is enough to trigger the
+v3.0.0 moved the path to `/v3` together with the base library change from
+`pkg/v2` to `pkg/v3`: `*job.Definition` and the other `temporal/job` types in
+the builders' signatures are now the `pkg/v3` ones.
+
+**When semantic-release next cuts a major (v4.0.0), the module path must move to
+`/v4` in the same change.** A `BREAKING CHANGE:` footer is enough to trigger the
 bump, so check the resulting tag matches the path suffix before announcing a
 release. Verify with:
 

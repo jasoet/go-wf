@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	fn "github.com/jasoet/go-wf/v2/function"
-	"github.com/jasoet/go-wf/v2/function/payload"
+	fn "github.com/jasoet/go-wf/v3/function"
+	"github.com/jasoet/go-wf/v3/function/payload"
 )
 
 // init registers the OTel instrumentation wrapper with the parent function package.

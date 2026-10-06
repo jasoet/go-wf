@@ -13,8 +13,8 @@ import (
 	temporal "go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
-	generic "github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/container/payload"
+	generic "github.com/jasoet/go-wf/v3/workflow"
 )
 
 // TestContainerPipelineWorkflow_Success tests successful pipeline execution.

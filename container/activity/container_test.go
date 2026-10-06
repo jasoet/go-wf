@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v3/container/payload"
 )
 
 func TestTruncateOutput(t *testing.T) {

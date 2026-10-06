@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.temporal.io/sdk/mocks"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v3/container/payload"
 )
 
 func TestSubmitTypedWorkflow(t *testing.T) {

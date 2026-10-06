@@ -159,8 +159,8 @@ workflow inputs manually.
 
 ```go
 import (
-    "github.com/jasoet/go-wf/v2/container/builder"
-    "github.com/jasoet/pkg/v2/temporal/job"
+    "github.com/jasoet/go-wf/v3/container/builder"
+    "github.com/jasoet/pkg/v3/temporal/job"
 )
 
 def, err := builder.NewWorkflowBuilder().
@@ -532,8 +532,8 @@ When you use `container.WorkflowBuilder` or `container.LoopBuilder`, the resulti
 
 ```go
 import (
-    "github.com/jasoet/go-wf/v2/container/builder"
-    "github.com/jasoet/pkg/v2/temporal"
+    "github.com/jasoet/go-wf/v3/container/builder"
+    "github.com/jasoet/pkg/v3/temporal"
     "go.temporal.io/sdk/worker"
 )
 
@@ -546,7 +546,7 @@ if err != nil {
     log.Fatal(err)
 }
 
-c, err := temporal.NewClient(temporal.DefaultConfig())
+c, err := temporal.NewClient()
 if err != nil {
     log.Fatal(err)
 }

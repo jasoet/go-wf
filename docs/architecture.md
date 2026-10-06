@@ -13,7 +13,7 @@ go-wf is organized in four layers. Each layer depends only on layers below it.
 │  Layer 4 — Workers & Operations                                 │
 │  def.Register(w), def.Execute(ctx, c, input), def.Cancel(...)  │
 │  job.Registry — aggregate Definitions, RegisterAll, MustGet    │
-│  All via *job.Definition (github.com/jasoet/pkg/v2/temporal/job)│
+│  All via *job.Definition (github.com/jasoet/pkg/v3/temporal/job)│
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 3 — Builder / Pattern APIs                               │
 │  Fluent builders — all Build() → (*job.Definition, error)       │
@@ -31,9 +31,9 @@ go-wf is organized in four layers. Each layer depends only on layers below it.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### pkg/v2/temporal/job — Shared Abstraction
+### pkg/v3/temporal/job — Shared Abstraction
 
-All go-wf builders converge on `*job.Definition` from `github.com/jasoet/pkg/v2/temporal/job`. This external package (in the `pkg/v2` base library) provides:
+All go-wf builders converge on `*job.Definition` from `github.com/jasoet/pkg/v3/temporal/job`. This external package (in the `pkg/v3` base library) provides:
 
 - **`*job.Definition`** — the single handle for a named workflow job. Key methods: `Register(w)`, `Execute(ctx, c, input, opts...)`, `NewInput()`, `Describe`, `History`, `Cancel`, `Terminate`, `Signal`, `Query`, `ListRuns`, `Stats`, `ApplySchedule`, `PauseSchedule`, `ResumeSchedule`, `TriggerSchedule`, `DeleteSchedule`, `DescribeSchedule`.
 - **`job.Registry`** — aggregates Definitions by name. `Add`, `Get`, `MustGet`, `List`, `Names`, `RegisterAll`, `ApplySchedules`.
@@ -85,7 +85,7 @@ datasync/builder  ──→ datasync/workflow  ──→ datasync/activity  ─�
 datasync/chunk    ──→ datasync/internal/heartbeat
 datasync/chunk    ──→ datasync/ (core interfaces)
 All payloads       ──→ workflow/ (satisfy TaskInput/TaskOutput)
-All builders       ──→ github.com/jasoet/pkg/v2/temporal/job (*job.Definition)
+All builders       ──→ github.com/jasoet/pkg/v3/temporal/job (*job.Definition)
 ```
 
 ## Data Flow: Workflow Execution
@@ -123,7 +123,7 @@ This is the path a single workflow execution takes, using the function module as
    ▼
 8. Activity function executes
    │  function/activity: looks up handler in Registry by name
-   │  container/activity: calls Docker/Podman via pkg/v2
+   │  container/activity: calls Docker/Podman via pkg/v3
    │
    ▼
 9. Result (TaskOutput) returned to workflow
@@ -386,7 +386,7 @@ caller must construct the activity function and pass it in.
 
 ### Workflow Versioning
 
-Workers created via `github.com/jasoet/go-wf/v2/worker`.New enable Temporal Worker
+Workers created via `github.com/jasoet/go-wf/v3/worker`.New enable Temporal Worker
 Versioning (Worker Deployments) when `TEMPORAL_DEPLOYMENT_NAME` and
 `TEMPORAL_BUILD_ID` are set. The default behavior is Pinned: in-flight
 executions finish on the worker build they started with, so workflow-code

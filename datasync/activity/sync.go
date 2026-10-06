@@ -6,14 +6,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.temporal.io/sdk/activity"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	"github.com/jasoet/go-wf/v2/datasync/internal/heartbeat"
-	"github.com/jasoet/go-wf/v2/datasync/payload"
+	"github.com/jasoet/go-wf/v3/datasync"
+	"github.com/jasoet/go-wf/v3/datasync/internal/heartbeat"
+	"github.com/jasoet/go-wf/v3/datasync/payload"
 )
 
 // ActivityInput is the activity input for the SyncData activity.

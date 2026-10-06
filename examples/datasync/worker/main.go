@@ -8,12 +8,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/jasoet/pkg/v2/temporal"
+	"github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/datasync"
-	dsworkflow "github.com/jasoet/go-wf/v2/datasync/workflow"
-	gowfworker "github.com/jasoet/go-wf/v2/worker"
+	"github.com/jasoet/go-wf/v3/datasync"
+	dsworkflow "github.com/jasoet/go-wf/v3/datasync/workflow"
+	gowfworker "github.com/jasoet/go-wf/v3/worker"
 )
 
 // Shared worker that registers multiple datasync jobs.
@@ -120,7 +120,7 @@ func main() {
 	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
 		config.HostPort = hostPort
 	}
-	c, err := temporal.NewClient(config)
+	c, err := temporal.NewClient(temporal.WithConfig(*config))
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

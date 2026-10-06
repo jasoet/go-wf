@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 )
 
 // FindFunc looks up a record by its ID. It returns nil if the record does not exist.

@@ -13,15 +13,15 @@ import (
 	"log"
 	"time"
 
-	"github.com/jasoet/pkg/v2/temporal"
+	"github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/container"
-	"github.com/jasoet/go-wf/v2/container/patterns"
-	"github.com/jasoet/go-wf/v2/container/payload"
-	"github.com/jasoet/go-wf/v2/container/template"
-	"github.com/jasoet/go-wf/v2/container/workflow"
+	"github.com/jasoet/go-wf/v3/container"
+	"github.com/jasoet/go-wf/v3/container/patterns"
+	"github.com/jasoet/go-wf/v3/container/payload"
+	"github.com/jasoet/go-wf/v3/container/template"
+	"github.com/jasoet/go-wf/v3/container/workflow"
 )
 
 // This example demonstrates all 16 pre-built pattern functions from the
@@ -31,7 +31,7 @@ import (
 // 3. Loop patterns (7 functions)
 
 func main() {
-	c, err := temporal.NewClient(temporal.DefaultConfig())
+	c, err := temporal.NewClient()
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}

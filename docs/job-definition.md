@@ -1,6 +1,6 @@
 # Job Definitions
 
-The `pkg/v2/temporal/job` package provides `*job.Definition` — a type-focused,
+The `pkg/v3/temporal/job` package provides `*job.Definition` — a type-focused,
 transport-agnostic abstraction for one registered Temporal workflow. Every go-wf
 builder produces a `*job.Definition`, and the same type is the basis for a
 registry that lets consumer applications expose workflow management (list runs,
@@ -32,7 +32,7 @@ newInput closures) is set via `Option` functions and is not exported.
 ## Temporal Client
 
 ```go
-c, err := temporal.NewClient(temporal.DefaultConfig())
+c, err := temporal.NewClient()
 if err != nil {
     log.Fatal(err)
 }

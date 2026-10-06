@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v3/container/payload"
 )
 
 const (

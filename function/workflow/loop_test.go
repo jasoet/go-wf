@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/v2/function/payload"
-	generic "github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	generic "github.com/jasoet/go-wf/v3/workflow"
 )
 
 func TestLoopWorkflow_Success(t *testing.T) {

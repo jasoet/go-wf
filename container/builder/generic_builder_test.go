@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
-	"github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/container/payload"
+	"github.com/jasoet/go-wf/v3/workflow"
 )
 
 // newTestGenericBuilder returns a GenericBuilder over container payload types.

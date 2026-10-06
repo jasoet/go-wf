@@ -3,8 +3,8 @@ package patterns
 import (
 	"fmt"
 
-	"github.com/jasoet/go-wf/v2/function/payload"
-	"github.com/jasoet/go-wf/v2/workflow"
+	"github.com/jasoet/go-wf/v3/function/payload"
+	"github.com/jasoet/go-wf/v3/workflow"
 )
 
 // ETLPipeline creates a 3-step ETL (Extract, Transform, Load) pipeline.

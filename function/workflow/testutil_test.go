@@ -6,7 +6,7 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 
-	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v3/function/payload"
 )
 
 // stubExecuteFunctionActivity is a stub for test registration.

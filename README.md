@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/jasoet/go-wf/v2/actions/workflows/release.yml/badge.svg)](https://github.com/jasoet/go-wf/v2/actions)
+[![Build Status](https://github.com/jasoet/go-wf/v3/actions/workflows/release.yml/badge.svg)](https://github.com/jasoet/go-wf/v3/actions)
 
 Temporal workflow library providing reusable, production-ready workflows for common orchestration patterns.
 
@@ -12,7 +12,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 - **Function Workflows** - Execute registered Go functions with Temporal orchestration
 - **DataSync Workflows** - Generic Source/Mapper/Sink data synchronization pipelines, including partitioned/chunked sync via `datasync/chunk`
 - **Type-Safe Payloads** - Validated input/output structures
-- **Unified Builder API** - All builders produce `*job.Definition` (from `github.com/jasoet/pkg/v2/temporal/job`), providing a single type for registration, execution, scheduling, and lifecycle management
+- **Unified Builder API** - All builders produce `*job.Definition` (from `github.com/jasoet/pkg/v3/temporal/job`), providing a single type for registration, execution, scheduling, and lifecycle management
 - **Production-Ready** - Built-in retries, timeouts, error handling
 - **Observable** - Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhead when disabled
 - **Comprehensive Testing** - 91.2% total coverage (unit + integration); CI enforces a minimum of 85%
@@ -23,7 +23,7 @@ Temporal workflow library providing reusable, production-ready workflows for com
 Every builder in go-wf (`container/builder`, `function/builder`, `datasync/builder`, `datasync/chunk`) returns a `*job.Definition` from its `Build()` method. A `*job.Definition` is the single type you need for all per-job operations:
 
 ```go
-import "github.com/jasoet/pkg/v2/temporal/job"
+import "github.com/jasoet/pkg/v3/temporal/job"
 
 def, err := container.NewWorkflowBuilder().Name("deploy").Single().Add(myContainer).Build()
 if err != nil { log.Fatal(err) }
@@ -99,8 +99,20 @@ Built-in OpenTelemetry instrumentation (traces, logs, metrics) with zero overhea
 ## Installation
 
 ```bash
-go get github.com/jasoet/go-wf/v2
+go get github.com/jasoet/go-wf/v3
 ```
+
+### Upgrading from v2
+
+v3 changes the base library from `github.com/jasoet/pkg/v2` to `github.com/jasoet/pkg/v3`.
+go-wf's own API is unchanged, but the `pkg` types in its signatures are now the v3 ones:
+
+1. Replace `github.com/jasoet/go-wf/v2` with `github.com/jasoet/go-wf/v3` in imports.
+2. Replace `github.com/jasoet/pkg/v2` with `github.com/jasoet/pkg/v3` wherever you handle
+   `*job.Definition`, `job.ScheduleSpec`, `job.Registry` or the `otel` config, and follow
+   [pkg's v2 to v3 migration guide](https://github.com/jasoet/pkg/blob/main/MIGRATION.md) —
+   notably `temporal.NewClient` takes options, and worker and schedule managers borrow a
+   client you now close yourself.
 
 ## Quick Start
 
@@ -113,16 +125,16 @@ import (
     "context"
     "log"
 
-    "github.com/jasoet/go-wf/v2/container"
-    "github.com/jasoet/go-wf/v2/container/builder"
-    "github.com/jasoet/go-wf/v2/container/payload"
-    "github.com/jasoet/pkg/v2/temporal"
+    "github.com/jasoet/go-wf/v3/container"
+    "github.com/jasoet/go-wf/v3/container/builder"
+    "github.com/jasoet/go-wf/v3/container/payload"
+    "github.com/jasoet/pkg/v3/temporal"
     "go.temporal.io/sdk/worker"
 )
 
 func main() {
     // Create Temporal client
-    c, err := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient()
     if err != nil {
         log.Fatal(err)
     }
@@ -174,17 +186,17 @@ import (
     "context"
     "log"
 
-    fn "github.com/jasoet/go-wf/v2/function"
-    fnactivity "github.com/jasoet/go-wf/v2/function/activity"
-    fnbuilder "github.com/jasoet/go-wf/v2/function/builder"
-    "github.com/jasoet/go-wf/v2/function/payload"
-    "github.com/jasoet/pkg/v2/temporal"
+    fn "github.com/jasoet/go-wf/v3/function"
+    fnactivity "github.com/jasoet/go-wf/v3/function/activity"
+    fnbuilder "github.com/jasoet/go-wf/v3/function/builder"
+    "github.com/jasoet/go-wf/v3/function/payload"
+    "github.com/jasoet/pkg/v3/temporal"
     "go.temporal.io/sdk/worker"
 )
 
 func main() {
     // Create Temporal client
-    c, err := temporal.NewClient(temporal.DefaultConfig())
+    c, err := temporal.NewClient()
     if err != nil {
         log.Fatal(err)
     }

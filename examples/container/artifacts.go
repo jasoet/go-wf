@@ -9,9 +9,9 @@ import (
 
 	"go.temporal.io/sdk/client"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
-	"github.com/jasoet/go-wf/v2/container/workflow"
-	"github.com/jasoet/go-wf/v2/workflow/store"
+	"github.com/jasoet/go-wf/v3/container/payload"
+	"github.com/jasoet/go-wf/v3/container/workflow"
+	"github.com/jasoet/go-wf/v3/workflow/store"
 )
 
 // This example demonstrates artifact storage and retrieval in workflows.

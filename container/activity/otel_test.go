@@ -11,9 +11,9 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
-	pkgotel "github.com/jasoet/pkg/v2/otel"
+	pkgotel "github.com/jasoet/pkg/v3/otel"
 
-	"github.com/jasoet/go-wf/v2/container/payload"
+	"github.com/jasoet/go-wf/v3/container/payload"
 )
 
 func TestInstrumentedStartContainerActivity_NilConfig(t *testing.T) {
@@ -101,10 +101,11 @@ func TestInstrumentedStartContainerActivity_PassThrough(t *testing.T) {
 
 // otelContext creates a context with a fully configured OTel config (tracer + meter, no logging).
 func otelContext() context.Context {
-	cfg := pkgotel.NewConfig("test-service").
-		WithTracerProvider(sdktrace.NewTracerProvider()).
-		WithMeterProvider(sdkmetric.NewMeterProvider()).
-		WithoutLogging()
+	cfg := pkgotel.NewConfig("test-service",
+		pkgotel.WithTracerProvider(sdktrace.NewTracerProvider()),
+		pkgotel.WithMeterProvider(sdkmetric.NewMeterProvider()),
+		pkgotel.WithoutLogging(),
+	)
 	return pkgotel.ContextWithConfig(context.Background(), cfg)
 }
 

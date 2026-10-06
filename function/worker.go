@@ -8,9 +8,9 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/jasoet/pkg/v2/temporal/job"
+	"github.com/jasoet/pkg/v3/temporal/job"
 
-	wf "github.com/jasoet/go-wf/v2/function/workflow"
+	wf "github.com/jasoet/go-wf/v3/function/workflow"
 )
 
 // activityType is the function signature for the function execution activity.

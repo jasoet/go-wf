@@ -183,7 +183,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/jasoet/go-wf/v2/workflow/store"
+    "github.com/jasoet/go-wf/v3/workflow/store"
 )
 
 type Report struct {

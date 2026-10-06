@@ -1,8 +1,8 @@
 package patterns
 
 import (
-	"github.com/jasoet/go-wf/v2/function/builder"
-	"github.com/jasoet/go-wf/v2/function/payload"
+	"github.com/jasoet/go-wf/v3/function/builder"
+	"github.com/jasoet/go-wf/v3/function/payload"
 )
 
 // ETLWithValidation creates a 4-node DAG: validate-config and extract run in parallel,

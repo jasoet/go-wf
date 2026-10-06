@@ -11,11 +11,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/jasoet/pkg/v2/temporal"
+	"github.com/jasoet/pkg/v3/temporal"
 	"go.temporal.io/sdk/worker"
 
-	"github.com/jasoet/go-wf/v2/container"
-	gowfworker "github.com/jasoet/go-wf/v2/worker"
+	"github.com/jasoet/go-wf/v3/container"
+	gowfworker "github.com/jasoet/go-wf/v3/worker"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	if hostPort := os.Getenv("TEMPORAL_HOST_PORT"); hostPort != "" {
 		config.HostPort = hostPort
 	}
-	c, err := temporal.NewClient(config)
+	c, err := temporal.NewClient(temporal.WithConfig(*config))
 	if err != nil {
 		log.Fatalf("Failed to create Temporal client: %v", err)
 	}
